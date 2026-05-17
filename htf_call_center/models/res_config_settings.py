@@ -102,8 +102,26 @@ class ResConfigSettings(models.TransientModel):
              'in the pre-prod checklist.',
     )
 
-    # ---- Test Connection button ----
+    # ------------------------------------------------------------------ #
+    # Buttons on the Settings page                                        #
+    # ------------------------------------------------------------------ #
+    # Odoo resolves `<button name="X" type="object"/>` against the form's
+    # MODEL (here res.config.settings), so we expose thin wrappers that
+    # delegate to htf.config. Each one saves the form first so any newly
+    # pasted creds / secrets are persisted before the call goes out.
+
     def action_test_connection(self):
-        # Persist any unsaved values first (Odoo wizard pattern).
         self.execute()
         return self.env['htf.config'].action_test_connection()
+
+    def action_sync_channels(self):
+        self.execute()
+        return self.env['htf.config'].action_sync_channels()
+
+    def action_sync_tags(self):
+        self.execute()
+        return self.env['htf.config'].action_sync_tags()
+
+    def action_sync_workspace_users(self):
+        self.execute()
+        return self.env['htf.config'].action_sync_workspace_users()

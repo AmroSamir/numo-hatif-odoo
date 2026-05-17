@@ -74,6 +74,46 @@
                             </setting>
                         </block>
 
+                        <block title="Sync from Hatif"
+                               name="htf_sync_block">
+                            <setting id="htf_sync_channels"
+                                     string="Channels"
+                                     help="Pulls every channel in your Hatif workspace into htf.channel. Archived locally (not deleted) when removed remotely.">
+                                <div class="content-group">
+                                    <div class="row mt8">
+                                        <button name="action_sync_channels"
+                                                type="object"
+                                                string="Sync Channels Now"
+                                                class="btn-primary"/>
+                                    </div>
+                                </div>
+                            </setting>
+                            <setting id="htf_sync_tags"
+                                     string="Tags"
+                                     help="Mirrors the Hatif tag registry into htf.tag.">
+                                <div class="content-group">
+                                    <div class="row mt8">
+                                        <button name="action_sync_tags"
+                                                type="object"
+                                                string="Sync Tags Now"
+                                                class="btn-secondary"/>
+                                    </div>
+                                </div>
+                            </setting>
+                            <setting id="htf_sync_workspace"
+                                     string="Workspace Users"
+                                     help="Pulls every workspace user / AI agent into htf.user.link so the Map Users wizard can auto-match them by email.">
+                                <div class="content-group">
+                                    <div class="row mt8">
+                                        <button name="action_sync_workspace_users"
+                                                type="object"
+                                                string="Sync Workspace Users Now"
+                                                class="btn-secondary"/>
+                                    </div>
+                                </div>
+                            </setting>
+                        </block>
+
                         <block title="Polling"
                                name="htf_polling_block">
                             <setting id="htf_polling"
