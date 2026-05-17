@@ -12,6 +12,7 @@ from . import tags
 from . import workspace
 from . import contacts
 from . import contact_properties
+from . import whatsapp_inbound
 
 from ..constants import SERVICE_AUTH, SERVICE_HTTP
 from ..models.htf_config import register_service
