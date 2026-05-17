@@ -131,6 +131,69 @@
         </record>
 
         <!-- ============================================================
+             Send WhatsApp wizard (P3 T3.5)
+             ============================================================ -->
+        <record id="view_htf_send_whatsapp_wizard_form" model="ir.ui.view">
+            <field name="name">htf.send.whatsapp.wizard.form</field>
+            <field name="model">htf.send.whatsapp.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Send WhatsApp">
+                    <sheet>
+                        <div class="alert alert-warning" role="alert"
+                             invisible="not preflight_error">
+                            <field name="preflight_error" readonly="1" nolabel="1"/>
+                        </div>
+                        <group>
+                            <group string="To">
+                                <field name="partner_id" readonly="1"/>
+                                <field name="to_number"/>
+                                <field name="channel_id"
+                                       options="{'no_create': True}"/>
+                                <field name="resolved_channel_display" readonly="1"/>
+                                <field name="dnc_blocked" readonly="1"/>
+                                <field name="window_open" readonly="1"/>
+                            </group>
+                            <group string="Mode">
+                                <field name="mode" widget="radio"/>
+                            </group>
+                        </group>
+                        <group invisible="mode != 'text'" string="Free-form text">
+                            <field name="text" nolabel="1"
+                                   placeholder="Type your message…"/>
+                        </group>
+                        <group invisible="mode != 'template'" string="Template">
+                            <field name="template_name"
+                                   placeholder="exact Hatif-approved template name"/>
+                            <field name="template_language"/>
+                            <field name="template_category"/>
+                            <field name="template_body_params"
+                                   placeholder="Ahmed|ORD-5123|confirmed"/>
+                            <field name="template_parameters_json"
+                                   placeholder='[{"Type":"Body","Values":[...]}]'
+                                   widget="text"/>
+                        </group>
+                    </sheet>
+                    <footer>
+                        <button name="action_send" type="object"
+                                string="Send" class="btn-primary"
+                                invisible="preflight_error"/>
+                        <button special="cancel" string="Cancel"
+                                class="btn-secondary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_htf_send_whatsapp_wizard" model="ir.actions.act_window">
+            <field name="name">Send WhatsApp</field>
+            <field name="res_model">htf.send.whatsapp.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+            <field name="binding_model_id" ref="base.model_res_partner"/>
+            <field name="binding_view_types">form,list</field>
+        </record>
+
+        <!-- ============================================================
              Server actions for one-click syncs from menus
              ============================================================ -->
         <record id="action_server_sync_channels" model="ir.actions.server">

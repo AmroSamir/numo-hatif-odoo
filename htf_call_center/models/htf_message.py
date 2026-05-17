@@ -130,6 +130,7 @@ class HtfMessage(models.Model):
             ('sent', 'Sent'),
             ('delivered', 'Delivered'),
             ('read', 'Read'),
+            ('failed_pending', 'Failed — retrying'),
             ('failed', 'Failed'),
         ],
         required=True,
@@ -139,6 +140,21 @@ class HtfMessage(models.Model):
     error_code = fields.Integer()
     error_reason = fields.Char()
     is_billable = fields.Boolean(default=False)
+    meta_category = fields.Selection(
+        selection=[
+            ('marketing', 'Marketing'),
+            ('utility', 'Utility'),
+            ('authentication', 'Authentication'),
+            ('service', 'Service'),
+        ],
+        help='Meta WA Business category — drives local cost estimate '
+             'until Q-09 (Hatif cost API) is answered.',
+    )
+    meta_cost_estimate = fields.Float(
+        digits=(10, 4),
+        help='Local cost estimate in USD per Meta category. Updated when '
+             'Hatif exposes a per-message cost API.',
+    )
 
     # Timestamps ------------------------------------------------------ #
     created_at = fields.Datetime(
@@ -224,3 +240,15 @@ class HtfMessage(models.Model):
         if not htf_message_id:
             return self.browse()
         return self.search([('htf_message_id', '=', htf_message_id)], limit=1)
+
+    @api.model
+    def cron_retry_failed_pending(self, max_attempts: int = 6) -> int:
+        """Thin wrapper so ir.cron can dispatch via the model layer.
+
+        Delegates to ``services.whatsapp.cron_retry_failed_pending``
+        because cron `state='code'` cannot import service modules
+        directly per safe_eval rules — going through the model keeps
+        the import inside Python.
+        """
+        from ..services import whatsapp
+        return whatsapp.cron_retry_failed_pending(self.env, max_attempts=max_attempts)

@@ -55,6 +55,19 @@ _PARAM_SCHEMA = {
     # P0.5 dev-mode skip-HMAC flag; default OFF. Defined here so production
     # checklists can verify it. Webhook controllers honor it in later phases.
     'dev_mode_skip_hmac': ('False', lambda v: v == 'True'),
+    # P2 opt-out detector — comma-separated keywords; empty = use defaults.
+    'dnc_keywords': ('', str),
+    # P3 outbound safety gate. Default OFF so dev/UAT never spams real
+    # customers; admin flips ON in Settings per environment (dev/staging/prod).
+    'allow_real_outbound': ('False', lambda v: v == 'True'),
+    # P3 outbound phone whitelist (comma-separated E.164). When non-empty
+    # AND allow_real_outbound is ON, only listed destinations receive
+    # real HTTP sends; everything else falls back to dry-run.
+    'outbound_phone_whitelist': ('', str),
+    # P3 outbound channel resolver — workspace-wide fallback when no team
+    # chain matches. Stored as integer id of htf.channel (or empty).
+    'default_outbound_wa_channel_id': ('', str),
+    'default_outbound_call_channel_id': ('', str),
 }
 
 
