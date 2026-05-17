@@ -11,13 +11,19 @@
 
                 <xpath expr="//form" position="inside">
                     <!--
-                        Odoo 19 Settings left rail looks for `name=` on
-                        <app>, NOT `data-key=`. Using data-key silently
-                        loads the block into the form arch but the tab
-                        never appears in the left navigation.
+                        Odoo 19 Settings left-rail tab is created by the
+                        SettingsFormCompiler from each "app" element that
+                        carries a name= attribute. Earlier attempts used
+                        data-key= (Odoo 17 spelling) which silently fails.
+                        IMPORTANT: do NOT include literal angle-bracket
+                        markup ("less-than app greater-than") in this
+                        comment — the Odoo view loader was re-emitting it
+                        as an empty real tag, which broke the compiler.
                     -->
                     <app string="Hatif" name="htf_call_center"
-                         groups="htf_call_center.group_admin">
+                         logo="/htf_call_center/static/description/icon.png"
+                         summary="Hatif/Voxa telephony + WhatsApp integration"
+                         groups="base.group_system">
                         <block title="Connection"
                                name="htf_connection_block">
                             <setting id="htf_credentials"
