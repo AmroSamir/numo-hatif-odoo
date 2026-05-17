@@ -197,7 +197,11 @@ class HtfConfig(models.AbstractModel):
                 _('Connection to Hatif failed: %s') % exc
             ) from exc
 
-        _, expires_at = self.get_cached_token()
+        # Note: never name a throwaway variable `_` in a method that also
+        # calls the gettext `_()`. Python scope-analyses any assignment to
+        # `_` as a local, which then shadows the imported function across
+        # the whole method body (UnboundLocalError on earlier _() calls).
+        _cached_token, expires_at = self.get_cached_token()
         expires_in = ''
         if expires_at:
             delta = expires_at - datetime.utcnow()
