@@ -10,9 +10,9 @@ Updated as phases progress. **Single source of truth for "where are we?"**.
 |---|---|
 | Project | htf_call_center + numo_crm_htf |
 | Today | 2026-05-18 |
-| Plan version | 0.2.0-LOCKED (all open Qs resolved 2026-05-18) |
-| Plan approved by | Amr (verbal — proceed P0/P1 done; P2 cleared to ship) |
-| Active phase | P2 — in progress (unattended overnight session) |
+| Plan version | 0.2.1-LOCKED (P2 shipped overnight, Hatif portal step pending) |
+| Plan approved by | Amr (verbal — P0/P1/P2 all signed off ahead of build) |
+| Active phase | P3 — WA Outbound (ready to start after morning Hatif-portal step) |
 | Branch | main |
 | Repo | https://github.com/AmroSamir/numo-hatif-odoo |
 | Local dev DB | `test` (on OrbStack `odoo-app`, port 8069), bind-mount `~/numo-hatif-odoo/{htf_call_center,numo_crm_htf}` |
@@ -26,7 +26,7 @@ Updated as phases progress. **Single source of truth for "where are we?"**.
 | P0 — Foundation | **Done** | 2026-05-17 | 2026-05-17 | Token refresh against real api.voxa.sa works; 59/59 E2E green; Settings page renders Hatif tab |
 | **P0.5 — UI Skeleton + Mock Data** | **Skipped** | — | — | Skipped per Amr's call — fast local-Odoo loop + 130+ E2E checks replaced the mocks-first gate |
 | P1 — Channels + Contacts + Users | **Done** | 2026-05-17 | 2026-05-17 | Live-UAT'd against the real Numo workspace: 2 channels, 7 users, 1 tag synced; Map Users wizard persists assignments; 73/73 P1 E2E green |
-| P2 — WA Inbound | **In progress** | 2026-05-18 | — | Webhook receiver at `/htf/webhook/whatsapp` + chatter posting + 24h-window update + `htf.wa.inbound`/`htf.wa.status`/`htf.wa.optout` signals + opt-out detector |
+| P2 — WA Inbound | **Done** | 2026-05-18 | 2026-05-18 | Shipped overnight unattended. All 7 sub-tasks complete. Webhook receiver + 10 message kinds + composite-key idempotency + STATUS transitions + opt-out detector (EN+AR with diacritic normalisation + false-positive guard) + placeholder partner auto-create + chatter posting with back-ref + signal bus all wired. **P2 E2E: 63/63 green.** P0 59/59 + P1 73/73 still green. Awaiting Hatif portal webhook URL registration for live UAT. |
 | P3 — WA Outbound | Not started | — | — | Templates owned by Hatif portal (no Odoo registry per Q-13) |
 | P4 — Calls | Not started | — | — | Ingest Hatif transcription/Summary/sentiment on call object |
 | ~~P5~~ — ~~IVR (slim)~~ | **SKIPPED** | — | — | IVR + bulk campaigns run on Hatif portal directly (decision 2026-05-18) |
