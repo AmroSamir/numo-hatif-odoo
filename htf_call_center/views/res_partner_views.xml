@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_partner_form_inherit_htf" model="ir.ui.view">
+            <field name="name">res.partner.form.inherit.htf</field>
+            <field name="model">res.partner</field>
+            <field name="inherit_id" ref="base.view_partner_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//notebook" position="inside">
+                    <page string="Hatif" name="htf"
+                          groups="htf_call_center.group_user">
+                        <group>
+                            <group string="Identity">
+                                <field name="x_htf_contact_id" readonly="1"/>
+                                <field name="x_htf_synced_at" readonly="1"/>
+                                <field name="x_htf_default_channel_id"
+                                       options="{'no_create': True}"/>
+                            </group>
+                            <group string="Conversation State">
+                                <field name="x_htf_last_inbound_at" readonly="1"/>
+                                <field name="x_htf_24h_window_open"/>
+                                <field name="x_htf_opted_out"/>
+                            </group>
+                        </group>
+                    </page>
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>

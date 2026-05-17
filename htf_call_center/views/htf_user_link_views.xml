@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_htf_user_link_list" model="ir.ui.view">
+            <field name="name">htf.user.link.list</field>
+            <field name="model">htf.user.link</field>
+            <field name="arch" type="xml">
+                <list string="Hatif User Links">
+                    <field name="display_name"/>
+                    <field name="email"/>
+                    <field name="user_id"/>
+                    <field name="role"/>
+                    <field name="is_ai_agent"/>
+                    <field name="last_synced_at" optional="hide"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_htf_user_link_form" model="ir.ui.view">
+            <field name="name">htf.user.link.form</field>
+            <field name="model">htf.user.link</field>
+            <field name="arch" type="xml">
+                <form string="Hatif User Link">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="display_name"/>
+                                <field name="email"/>
+                                <field name="user_id"/>
+                                <field name="role"/>
+                                <field name="is_ai_agent"/>
+                            </group>
+                            <group>
+                                <field name="htf_user_id"/>
+                                <field name="last_synced_at"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_htf_user_link_search" model="ir.ui.view">
+            <field name="name">htf.user.link.search</field>
+            <field name="model">htf.user.link</field>
+            <field name="arch" type="xml">
+                <search>
+                    <field name="display_name"/>
+                    <field name="email"/>
+                    <field name="user_id"/>
+                    <filter name="filter_unmapped" string="Unmapped"
+                            domain="[('user_id', '=', False), ('is_ai_agent', '=', False)]"/>
+                    <filter name="filter_ai" string="AI Agents"
+                            domain="[('is_ai_agent', '=', True)]"/>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_htf_user_link" model="ir.actions.act_window">
+            <field name="name">User Mapping</field>
+            <field name="res_model">htf.user.link</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_htf_user_link_search"/>
+        </record>
+
+    </data>
+</odoo>

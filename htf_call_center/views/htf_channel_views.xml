@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_htf_channel_list" model="ir.ui.view">
+            <field name="name">htf.channel.list</field>
+            <field name="model">htf.channel</field>
+            <field name="arch" type="xml">
+                <list string="Hatif Channels" editable="bottom" multi_edit="1">
+                    <field name="sequence" widget="handle"/>
+                    <field name="display_name"/>
+                    <field name="name" optional="hide"/>
+                    <field name="channel_type"/>
+                    <field name="phone_number"/>
+                    <field name="team_id"/>
+                    <field name="default_for_outbound_wa" optional="show"/>
+                    <field name="default_for_outbound_call" optional="show"/>
+                    <field name="brand" optional="hide"/>
+                    <field name="state"/>
+                    <field name="last_synced_at" optional="hide"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_htf_channel_form" model="ir.ui.view">
+            <field name="name">htf.channel.form</field>
+            <field name="model">htf.channel</field>
+            <field name="arch" type="xml">
+                <form string="Hatif Channel">
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="display_name" placeholder="Display name…"/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group string="Vendor">
+                                <field name="name"/>
+                                <field name="htf_channel_id"/>
+                                <field name="channel_type"/>
+                                <field name="phone_number"/>
+                                <field name="state"/>
+                                <field name="last_synced_at"/>
+                            </group>
+                            <group string="Ownership">
+                                <field name="team_id"/>
+                                <field name="brand"/>
+                                <field name="default_for_outbound_wa"/>
+                                <field name="default_for_outbound_call"/>
+                                <field name="color" widget="color_picker"/>
+                                <field name="sequence"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Allowed Agents">
+                                <field name="user_ids" widget="many2many_tags"/>
+                            </page>
+                            <page string="Notes">
+                                <field name="notes" placeholder="Admin notes…"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_htf_channel_search" model="ir.ui.view">
+            <field name="name">htf.channel.search</field>
+            <field name="model">htf.channel</field>
+            <field name="arch" type="xml">
+                <search>
+                    <field name="display_name"/>
+                    <field name="name"/>
+                    <field name="phone_number"/>
+                    <field name="team_id"/>
+                    <field name="brand"/>
+                    <filter name="filter_active" string="Active"
+                            domain="[('state', '=', 'active')]"/>
+                    <filter name="filter_archived" string="Archived"
+                            domain="[('state', '=', 'archived')]"/>
+                    <separator/>
+                    <filter name="filter_wa" string="WhatsApp-capable"
+                            domain="[('channel_type', 'in', ['whatsapp', 'both'])]"/>
+                    <filter name="filter_phone" string="Phone-capable"
+                            domain="[('channel_type', 'in', ['phone', 'both'])]"/>
+                    <separator/>
+                    <filter name="group_team" string="Team"
+                            context="{'group_by': 'team_id'}"/>
+                    <filter name="group_brand" string="Brand"
+                            context="{'group_by': 'brand'}"/>
+                    <filter name="group_type" string="Channel Type"
+                            context="{'group_by': 'channel_type'}"/>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_htf_channel" model="ir.actions.act_window">
+            <field name="name">Channels</field>
+            <field name="res_model">htf.channel</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_htf_channel_search"/>
+        </record>
+
+    </data>
+</odoo>

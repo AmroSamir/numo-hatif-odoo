@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_users_form_inherit_htf" model="ir.ui.view">
+            <field name="name">res.users.form.inherit.htf</field>
+            <field name="model">res.users</field>
+            <field name="inherit_id" ref="base.view_users_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//notebook" position="inside">
+                    <page string="Hatif" name="htf"
+                          groups="htf_call_center.group_admin">
+                        <group>
+                            <group>
+                                <field name="x_htf_user_id"/>
+                                <field name="x_htf_user_email"/>
+                                <field name="x_htf_role"/>
+                            </group>
+                        </group>
+                    </page>
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>

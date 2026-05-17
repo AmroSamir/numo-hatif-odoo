@@ -24,6 +24,7 @@ for every interaction afterwards.
         'base',
         'mail',
         'contacts',
+        'sales_team',
     ],
     'external_dependencies': {
         'python': [
@@ -38,6 +39,14 @@ for every interaction afterwards.
         'data/ir_cron.xml',
         'views/res_config_settings_views.xml',
         'views/htf_webhook_event_views.xml',
+        'views/htf_channel_views.xml',
+        'views/htf_tag_views.xml',
+        'views/htf_user_link_views.xml',
+        'views/htf_contact_link_views.xml',
+        'views/res_partner_views.xml',
+        'views/res_users_views.xml',
+        'views/crm_team_views.xml',
+        'views/wizard_views.xml',
         'views/menus.xml',
     ],
     'assets': {},

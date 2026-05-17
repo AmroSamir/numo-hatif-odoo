@@ -38,4 +38,40 @@
         <field name="priority">20</field>
     </record>
 
+    <!--
+        P1: nightly channel sync. Picks up new channels Hatif admins
+        provisioned during the day and archives the ones removed remotely.
+    -->
+    <record id="cron_sync_channels_nightly" model="ir.cron">
+        <field name="name">HTF: nightly channel sync</field>
+        <field name="model_id" ref="model_htf_config"/>
+        <field name="state">code</field>
+        <field name="code">model.action_sync_channels()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+        <field name="priority">30</field>
+    </record>
+
+    <!--
+        P1: contacts poll (placeholder until Hatif exposes an incremental
+        delta endpoint, see Q-10 follow-up). Currently a no-op so any
+        existing automation depending on the cron survives.
+    -->
+    <record id="cron_poll_contacts" model="ir.cron">
+        <field name="name">HTF: poll contacts (incremental)</field>
+        <field name="model_id" ref="model_htf_config"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_poll_contacts()</field>
+        <field name="interval_number">30</field>
+        <field name="interval_type">minutes</field>
+        <!--
+            Active so it shows in the standard Scheduled Actions list and
+            ticks every 30 min (currently a no-op until Hatif exposes an
+            incremental delta endpoint — see Q-10 follow-up).
+        -->
+        <field name="active" eval="True"/>
+        <field name="priority">40</field>
+    </record>
+
 </odoo>

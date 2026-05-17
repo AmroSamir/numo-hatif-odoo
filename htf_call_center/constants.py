@@ -32,9 +32,14 @@ DNC_KEYWORDS_DEFAULT = ('STOP', 'UNSUBSCRIBE', 'إلغاء', 'إلغاء الا�
 SUPPORTED_LANGUAGES = ('ar', 'en')
 
 # Service registry keys exposed via env['htf.config'].get_service(name).
-# Each phase adds its own key. P0 only ships auth + http.
+# Each phase adds its own key. P1 adds channels/tags/workspace/contacts.
 SERVICE_AUTH = 'auth'
 SERVICE_HTTP = 'http'
+SERVICE_CHANNELS = 'channels'
+SERVICE_TAGS = 'tags'
+SERVICE_WORKSPACE = 'workspace'
+SERVICE_CONTACTS = 'contacts'
+SERVICE_CONTACT_PROPERTIES = 'contact_properties'
 
 CONFIG_PARAM_PREFIX = 'htf_call_center.'
 USER_AGENT = 'HtfCallCenter/19.0 (Odoo)'

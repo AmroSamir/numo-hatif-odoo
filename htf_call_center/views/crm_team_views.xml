@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_crm_team_form_inherit_htf" model="ir.ui.view">
+            <field name="name">crm.team.form.inherit.htf</field>
+            <field name="model">crm.team</field>
+            <field name="inherit_id" ref="sales_team.crm_team_view_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//sheet" position="inside">
+                    <notebook>
+                        <page string="Hatif Channels" name="htf_channels"
+                              groups="htf_call_center.group_user">
+                            <group>
+                                <field name="x_htf_routing_strategy"/>
+                                <field name="x_htf_default_outbound_wa_channel_id" readonly="1"/>
+                                <field name="x_htf_default_outbound_call_channel_id" readonly="1"/>
+                            </group>
+                            <field name="x_htf_channel_ids">
+                                <list editable="bottom">
+                                    <field name="display_name"/>
+                                    <field name="channel_type"/>
+                                    <field name="phone_number"/>
+                                    <field name="default_for_outbound_wa"/>
+                                    <field name="default_for_outbound_call"/>
+                                    <field name="state"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>

@@ -14,6 +14,76 @@
             via Settings → Hatif.
         -->
 
+        <menuitem id="menu_htf_channels"
+                  name="Channels"
+                  parent="menu_root_htf"
+                  action="action_htf_channel"
+                  sequence="20"
+                  groups="htf_call_center.group_user"/>
+
+        <menuitem id="menu_htf_tags"
+                  name="Tags"
+                  parent="menu_root_htf"
+                  action="action_htf_tag"
+                  sequence="30"
+                  groups="htf_call_center.group_user"/>
+
+        <menuitem id="menu_htf_user_mapping"
+                  name="User Mapping (list)"
+                  parent="menu_root_htf"
+                  action="action_htf_user_link"
+                  sequence="40"
+                  groups="htf_call_center.group_admin"/>
+
+        <menuitem id="menu_htf_map_users_wizard"
+                  name="Map Users Wizard"
+                  parent="menu_root_htf"
+                  action="action_htf_map_users_wizard"
+                  sequence="41"
+                  groups="htf_call_center.group_admin"/>
+
+        <menuitem id="menu_htf_bind_channels_wizard"
+                  name="Bind Channels Wizard"
+                  parent="menu_root_htf"
+                  action="action_htf_bind_channels_wizard"
+                  sequence="21"
+                  groups="htf_call_center.group_admin"/>
+
+        <menuitem id="menu_htf_import_vcards"
+                  name="Import vCards"
+                  parent="menu_root_htf"
+                  action="action_htf_import_vcards_wizard"
+                  sequence="60"
+                  groups="htf_call_center.group_admin"/>
+
+        <menuitem id="menu_htf_sync_channels"
+                  name="Sync Channels"
+                  parent="menu_root_htf"
+                  action="action_server_sync_channels"
+                  sequence="22"
+                  groups="htf_call_center.group_admin"/>
+
+        <menuitem id="menu_htf_sync_tags"
+                  name="Sync Tags"
+                  parent="menu_root_htf"
+                  action="action_server_sync_tags"
+                  sequence="31"
+                  groups="htf_call_center.group_admin"/>
+
+        <menuitem id="menu_htf_sync_workspace"
+                  name="Sync Workspace Users"
+                  parent="menu_root_htf"
+                  action="action_server_sync_workspace"
+                  sequence="42"
+                  groups="htf_call_center.group_admin"/>
+
+        <menuitem id="menu_htf_contact_links"
+                  name="Contact Links"
+                  parent="menu_root_htf"
+                  action="action_htf_contact_link"
+                  sequence="50"
+                  groups="htf_call_center.group_admin"/>
+
         <menuitem id="menu_htf_webhook_events"
                   name="Webhook events"
                   parent="menu_root_htf"

@@ -1,3 +1,16 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_htf_webhook_event_admin,htf.webhook.event admin,model_htf_webhook_event,htf_call_center.group_admin,1,1,1,1
 access_htf_webhook_event_user,htf.webhook.event user readonly,model_htf_webhook_event,htf_call_center.group_user,0,0,0,0
+access_htf_channel_admin,htf.channel admin,model_htf_channel,htf_call_center.group_admin,1,1,1,1
+access_htf_channel_user,htf.channel user read,model_htf_channel,htf_call_center.group_user,1,0,0,0
+access_htf_tag_admin,htf.tag admin,model_htf_tag,htf_call_center.group_admin,1,1,1,1
+access_htf_tag_user,htf.tag user read,model_htf_tag,htf_call_center.group_user,1,0,0,0
+access_htf_user_link_admin,htf.user.link admin,model_htf_user_link,htf_call_center.group_admin,1,1,1,1
+access_htf_user_link_user,htf.user.link user read,model_htf_user_link,htf_call_center.group_user,1,0,0,0
+access_htf_contact_link_admin,htf.contact.link admin,model_htf_contact_link,htf_call_center.group_admin,1,1,1,1
+access_htf_contact_link_user,htf.contact.link user read,model_htf_contact_link,htf_call_center.group_user,1,0,0,0
+access_htf_bind_channels_wizard_admin,bind.channels wizard admin,model_htf_bind_channels_wizard,htf_call_center.group_admin,1,1,1,1
+access_htf_bind_channels_wizard_line_admin,bind.channels wizard line admin,model_htf_bind_channels_wizard_line,htf_call_center.group_admin,1,1,1,1
+access_htf_map_users_wizard_admin,map.users wizard admin,model_htf_map_users_wizard,htf_call_center.group_admin,1,1,1,1
+access_htf_map_users_wizard_line_admin,map.users wizard line admin,model_htf_map_users_wizard_line,htf_call_center.group_admin,1,1,1,1
+access_htf_import_vcards_wizard_admin,import.vcards wizard admin,model_htf_import_vcards_wizard,htf_call_center.group_admin,1,1,1,1
