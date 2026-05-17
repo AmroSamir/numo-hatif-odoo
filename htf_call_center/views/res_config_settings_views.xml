@@ -10,7 +10,13 @@
             <field name="arch" type="xml">
 
                 <xpath expr="//form" position="inside">
-                    <app string="Hatif" data-key="htf_call_center"
+                    <!--
+                        Odoo 19 Settings left rail looks for `name=` on
+                        <app>, NOT `data-key=`. Using data-key silently
+                        loads the block into the form arch but the tab
+                        never appears in the left navigation.
+                    -->
+                    <app string="Hatif" name="htf_call_center"
                          groups="htf_call_center.group_admin">
                         <block title="Connection"
                                name="htf_connection_block">
