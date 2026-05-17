@@ -86,7 +86,12 @@ class HtfMapUsersWizardLine(models.TransientModel):
     _description = 'Map Hatif Users — line'
 
     wizard_id = fields.Many2one('htf.map.users.wizard', required=True, ondelete='cascade')
-    link_id = fields.Many2one('htf.user.link', required=True, readonly=True)
+    # Must NOT be readonly at the model level — OWL drops readonly fields from
+    # the form-save payload, so a default_get-supplied value gets stripped on
+    # the round-trip and the required-field constraint then fires.
+    # The view hides the column (column_invisible="1") so users still can't
+    # edit it from the UI.
+    link_id = fields.Many2one('htf.user.link', required=True)
     display_name = fields.Char(related='link_id.display_name', readonly=True)
     email = fields.Char(related='link_id.email', readonly=True)
     htf_user_id = fields.Char(related='link_id.htf_user_id', readonly=True)
