@@ -80,25 +80,34 @@ class HtfWhatsAppWebhookController(http.Controller):
                             type(payload).__name__)
             return Response('invalid payload', status=400)
 
-        # Step 4: pick the dedupe key. Hatif always populates messageId on
-        # status updates; on a fresh inbound it may be null briefly — fall
-        # back to a synthetic key combining conversation + creationTime so
-        # at-least-once still de-dupes.
+        # Step 4: build the dedupe key.
+        #
+        # Hatif reuses the SAME messageId across the outbound lifecycle
+        # (Sent → Delivered → Read → Failed), so a bare messageId-only key
+        # would falsely deduplicate distinct status transitions. The
+        # composite ``<messageId>:<status>:<direction>`` is unique per
+        # state-change event while still collapsing genuine retries
+        # (Hatif resends the same body — same status, same direction).
+        #
+        # On a fresh inbound where messageId is null we synthesise a key
+        # from conversationId + creationTime (Hatif retries resend the
+        # same body verbatim per Q-22, so this is stable across attempts).
         message_id = payload.get('messageId') or _synth_event_id(payload)
         if not message_id:
             _logger.warning("[htf-wa] no message_id, no synth key — skipping")
             return Response('no event id', status=400)
+        dedupe_key = _compose_event_id(message_id, payload)
 
         # record_or_skip returns False on UNIQUE violation (duplicate of a
         # previously-COMMITTED delivery). A row that was created in an
         # earlier transaction that rolled back will NOT exist, so retries
         # of failed deliveries proceed normally.
         event_record = request.env['htf.webhook.event'].sudo().record_or_skip(
-            message_id, 'whatsapp', raw_body,
+            dedupe_key, 'whatsapp', raw_body,
         )
         if event_record is False:
             _logger.info("[htf-wa] duplicate event_id=%s — short-circuit 200",
-                         _short(message_id))
+                         _short(dedupe_key))
             return Response('OK (duplicate)', status=200)
 
         # Step 5: dispatch.
@@ -108,7 +117,7 @@ class HtfWhatsAppWebhookController(http.Controller):
         except Exception as exc:  # noqa: BLE001 — top-level handler
             _logger.exception(
                 "[htf-wa] dispatch failed for event_id=%s — letting Hatif retry",
-                _short(message_id),
+                _short(dedupe_key),
             )
             # Re-raise so Odoo rolls back the transaction (including the
             # idempotency row), then return 500 so Hatif retries.
@@ -122,6 +131,19 @@ class HtfWhatsAppWebhookController(http.Controller):
             )
 
         return Response('OK', status=200)
+
+
+def _compose_event_id(message_id: str, payload: dict) -> str:
+    """Compose the idempotency key as ``<messageId>:<status>:<direction>``.
+
+    Outbound STATUS transitions share a messageId across Sent/Delivered/
+    Read/Failed events — distinguishing on ``status`` keeps each
+    transition addressable while genuine Hatif retries (same status,
+    same direction) still collapse.
+    """
+    status = (payload.get('status') or '').strip().lower() or '_'
+    direction = (payload.get('direction') or '').strip().lower() or '_'
+    return f'{message_id}:{status}:{direction}'
 
 
 def _synth_event_id(payload: dict) -> str:

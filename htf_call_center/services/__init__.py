@@ -12,6 +12,8 @@ from . import tags
 from . import workspace
 from . import contacts
 from . import contact_properties
+from . import dnc_listener
+from . import chatter
 from . import whatsapp_inbound
 
 from ..constants import SERVICE_AUTH, SERVICE_HTTP
