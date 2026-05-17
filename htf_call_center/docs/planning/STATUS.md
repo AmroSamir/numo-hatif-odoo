@@ -9,10 +9,10 @@ Updated as phases progress. **Single source of truth for "where are we?"**.
 | Field | Value |
 |---|---|
 | Project | htf_call_center + numo_crm_htf |
-| Today | 2026-05-17 |
-| Plan version | 0.1.2-DRAFT |
-| Plan approved by | Amr (verbal, 2026-05-17 — proceed with P0; P0 + P1 signed off live) |
-| Active phase | P1 — Done. Ready to start P2 |
+| Today | 2026-05-18 |
+| Plan version | 0.2.0-LOCKED (all open Qs resolved 2026-05-18) |
+| Plan approved by | Amr (verbal — proceed P0/P1 done; P2 cleared to ship) |
+| Active phase | P2 — in progress (unattended overnight session) |
 | Branch | main |
 | Repo | https://github.com/AmroSamir/numo-hatif-odoo |
 | Local dev DB | `test` (on OrbStack `odoo-app`, port 8069), bind-mount `~/numo-hatif-odoo/{htf_call_center,numo_crm_htf}` |
@@ -26,16 +26,16 @@ Updated as phases progress. **Single source of truth for "where are we?"**.
 | P0 — Foundation | **Done** | 2026-05-17 | 2026-05-17 | Token refresh against real api.voxa.sa works; 59/59 E2E green; Settings page renders Hatif tab |
 | **P0.5 — UI Skeleton + Mock Data** | **Skipped** | — | — | Skipped per Amr's call — fast local-Odoo loop + 130+ E2E checks replaced the mocks-first gate |
 | P1 — Channels + Contacts + Users | **Done** | 2026-05-17 | 2026-05-17 | Live-UAT'd against the real Numo workspace: 2 channels, 7 users, 1 tag synced; Map Users wizard persists assignments; 73/73 P1 E2E green |
-| P2 — WA Inbound | **Next** | — | — | Webhook receiver at `/htf/webhook/whatsapp` + chatter posting + 24h-window update + `htf.wa.inbound` signal — see P2_WHATSAPP_INBOUND.md |
-| P3 — WA Outbound | Not started | — | — | |
-| P4 — Calls | Not started | — | — | |
-| P5 — IVR (slim) | Not started | — | — | |
-| P6 — Conversations | Not started | — | — | |
-| P7 — CRM Enrichment | Not started | — | — | |
-| P8 — Differentiators (optional) | Not started | — | — | |
-| P9 — Outbound Sales Acceleration | Not started | — | — | NEW — outbound-first reality |
-| P10 — Speech Analytics | Not started | — | — | NEW — leverages transcripts via Claude API or local embeddings |
-| ~~P11~~ — ~~Voice AI Agent~~ | **DEFERRED** | — | — | Hatif AI API not ready; revisit when Hatif publishes AI config/training/handoff endpoints |
+| P2 — WA Inbound | **In progress** | 2026-05-18 | — | Webhook receiver at `/htf/webhook/whatsapp` + chatter posting + 24h-window update + `htf.wa.inbound`/`htf.wa.status`/`htf.wa.optout` signals + opt-out detector |
+| P3 — WA Outbound | Not started | — | — | Templates owned by Hatif portal (no Odoo registry per Q-13) |
+| P4 — Calls | Not started | — | — | Ingest Hatif transcription/Summary/sentiment on call object |
+| ~~P5~~ — ~~IVR (slim)~~ | **SKIPPED** | — | — | IVR + bulk campaigns run on Hatif portal directly (decision 2026-05-18) |
+| P5 — Conversations | Not started | — | — | Was P6. Polling backfill insurance against missed webhooks |
+| P6 — CRM Enrichment | Not started | — | — | Was P7. Smart buttons + chatter glue |
+| P7 — Differentiators (optional) | Not started | — | — | Was P8. DNC, cost, Arabic prompts, dashboard tiles |
+| P8 — Outbound Sales Acceleration | Not started | — | — | Was P9. Daily call queue + pre-call brief + wrap-up (critical given 99% outbound) |
+| P9 — Speech Analytics via n8n | Not started | — | — | Was P10. Hatif transcripts → n8n → LLM → CRM stage + agent scorecards |
+| ~~P10~~ — ~~Voice AI Agent~~ | **DEFERRED** | — | — | Hatif AI agent API not published (Q-28). Gate behind feature flag for future activation. |
 
 Status legend: `Not started` | `In progress` | `Blocked` | `In review` | `On staging` | `On prod` | `Done`
 

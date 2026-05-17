@@ -9,7 +9,7 @@
 
 ## 1. Project Goal
 
-Integrate the Hatif/Voxa BPaaS (telephony + WhatsApp Business API) deeply into the existing Numo Odoo 19 Enterprise deployment so that every interaction (calls, WA messages, IVR responses) becomes a first-class object inside Odoo's CRM, contacts, and chatter — without requiring agents to use a separate tool for context.
+Integrate the Hatif/Voxa BPaaS (telephony + WhatsApp Business API) deeply into the existing Numo Odoo 19 Enterprise deployment so that every interaction (calls, WA messages) becomes a first-class object inside Odoo's CRM, contacts, and chatter — without requiring agents to use a separate tool for context.
 
 Live calling itself stays in Hatif's web/mobile app; Odoo is the **system of record** for every interaction afterwards.
 
@@ -18,11 +18,10 @@ Live calling itself stays in Hatif's web/mobile app; Odoo is the **system of rec
 - Vendor wrapper module `htf_call_center` (telephony + WA API + webhooks)
 - Bridge module `numo_crm_htf` (CRM-specific automation)
 - Phone widget override on `res.partner` and `crm.lead` (deep-link to Hatif app + WA composer)
-- Webhook receivers (calls, WA, IVR) with HMAC verification
+- Webhook receivers (calls, WA) with HMAC verification
 - Auto-posting calls/WA to chatter on the right `res.partner` / `crm.lead`
 - Auto-create contacts from inbound interactions
 - Outbound WhatsApp from chatter (text + template)
-- Outbound IVR triggering (per-record action, no Odoo IVR builder)
 - res.users ↔ Hatif workspace user mapping
 - DNC list + opt-out keyword listener
 - 24h Meta-window enforcement
@@ -32,7 +31,7 @@ Live calling itself stays in Hatif's web/mobile app; Odoo is the **system of rec
 ## 3. Scope (out)
 
 - Replacing Odoo telephony for live calls (Hatif owns this)
-- IVR script editor inside Odoo (Hatif portal owns scripts)
+- IVR + bulk campaigns entirely — owned by Hatif portal, not Odoo (decided 2026-05-18)
 - Live softphone in Odoo
 - WA template management/approval (Hatif portal owns; Odoo only registers approved names)
 - Bulk broadcast UI in v1 (deferred to v1.1)
@@ -71,30 +70,30 @@ Live calling itself stays in Hatif's web/mobile app; Odoo is the **system of rec
 | Concern | Convention |
 |---|---|
 | Folder names | `htf_call_center`, `numo_crm_htf` |
-| Models | `htf.config`, `htf.channel`, `htf.call`, `htf.message`, `htf.conversation`, `htf.tag`, `htf.ivr.run`, `htf.contact.link`, `htf.user.link`, `htf.message.template`, `htf.dnc` |
+| Models | `htf.config`, `htf.channel`, `htf.call`, `htf.message`, `htf.conversation`, `htf.tag`, `htf.contact.link`, `htf.user.link`, `htf.dnc` *(htf.message.template removed per Q-13; htf.ivr.run removed per P5-skip decision)* |
 | Custom fields on existing models | `x_htf_*` (e.g. `res.partner.x_htf_contact_id`, `res.users.x_htf_user_id`) |
-| Webhook routes | `/htf/webhook/call`, `/htf/webhook/whatsapp`, `/htf/webhook/ivr` |
+| Webhook routes | `/htf/webhook/call`, `/htf/webhook/whatsapp` *(IVR route removed)* |
 | Security groups | `htf_call_center.group_user`, `htf_call_center.group_admin` |
-| Signals (registry pattern) | `htf.call.received`, `htf.call.missed`, `htf.wa.inbound`, `htf.wa.outbound`, `htf.wa.status`, `htf.ivr.result`, `htf.contact.synced` |
+| Signals (registry pattern) | `htf.call.received`, `htf.call.missed`, `htf.wa.inbound`, `htf.wa.outbound`, `htf.wa.status`, `htf.wa.optout`, `htf.contact.synced` *(htf.ivr.result removed)* |
 | User-facing UI labels | "Call", "WhatsApp", or "Hatif Call" / "Hatif WA" — keep "Hatif" only in labels for ops clarity, never in identifiers |
 
 ## 6. Phase Index
 
 | # | Phase | Module | Goal | Doc |
 |---|-------|--------|------|-----|
-| P0 | Foundation | `htf_call_center` | Auth, HTTP client, settings, HMAC verify, scaffolding | [P0_FOUNDATION.md](./P0_FOUNDATION.md) |
-| **P0.5** | **UI Skeleton + Mock Data** | both | **Full UI surface with mock services + seed data + replay tool — UAT gate before backend wiring** | [P0_5_UI_SKELETON.md](./P0_5_UI_SKELETON.md) |
-| P1 | Channels + Contacts + Users | `htf_call_center` | Channel sync, contact mapping, user mapping wizard | [P1_CHANNELS_CONTACTS.md](./P1_CHANNELS_CONTACTS.md) |
-| P2 | WhatsApp Inbound | `htf_call_center` | Webhook → chatter, status updates | [P2_WHATSAPP_INBOUND.md](./P2_WHATSAPP_INBOUND.md) |
-| P3 | WhatsApp Outbound | `htf_call_center` | Chatter composer, template registry, send wizard | [P3_WHATSAPP_OUTBOUND.md](./P3_WHATSAPP_OUTBOUND.md) |
-| P4 | Calls Webhook | `htf_call_center` | Call log, audio player, transcription view | [P4_CALLS.md](./P4_CALLS.md) |
-| P5 | Outbound IVR (slim) | `htf_call_center` | Trigger action, webhook receiver, audit trail | [P5_IVR.md](./P5_IVR.md) |
-| P6 | Conversations Sync | `htf_call_center` | Cron poll, conversation snapshot | [P6_CONVERSATIONS.md](./P6_CONVERSATIONS.md) |
-| P7 | CRM Enrichment | `numo_crm_htf` | Lead form widgets, auto-stage, classify glue | [P7_CRM_ENRICHMENT.md](./P7_CRM_ENRICHMENT.md) |
-| P8 | Reporting + Differentiators | both | DNC, cost tracking, Arabic prompts, won-back, dashboard tiles, metrics API consumption | [P8_DIFFERENTIATORS.md](./P8_DIFFERENTIATORS.md) |
-| P9 | Outbound Sales Acceleration | bridge | Pre-call brief, post-call wrap-up, daily call queue (outbound-first reality) | [P9_OUTBOUND_ACCELERATION.md](./P9_OUTBOUND_ACCELERATION.md) |
-| P10 | Speech Analytics | bridge | Per-call insights + aggregated dashboards from transcripts | [P10_SPEECH_ANALYTICS.md](./P10_SPEECH_ANALYTICS.md) |
-| ~~P11~~ | ~~Voice AI Agent Integration~~ | ~~bridge~~ | **DEFERRED — Hatif AI API not ready. Wait for Hatif team to expose AI config/training/handoff endpoints.** | — |
+| P0 | Foundation | `htf_call_center` | Auth, HTTP client, settings, HMAC verify, scaffolding | [P0_FOUNDATION.md](./P0_FOUNDATION.md) — **✅ SHIPPED** |
+| ~~P0.5~~ | ~~UI Skeleton + Mock Data~~ | — | **SKIPPED — live UAT against real Hatif workspace covered the gate** | — |
+| P1 | Channels + Contacts + Users | `htf_call_center` | Channel sync, contact mapping, user mapping wizard | [P1_CHANNELS_CONTACTS.md](./P1_CHANNELS_CONTACTS.md) — **✅ SHIPPED** |
+| P2 | WhatsApp Inbound | `htf_call_center` | Webhook → chatter, status updates, opt-out | [P2_WHATSAPP_INBOUND.md](./P2_WHATSAPP_INBOUND.md) — **▶️ NEXT** |
+| P3 | WhatsApp Outbound | `htf_call_center` | Chatter composer, template send (Hatif owns approval), phone widget | [P3_WHATSAPP_OUTBOUND.md](./P3_WHATSAPP_OUTBOUND.md) |
+| P4 | Calls Webhook | `htf_call_center` | Call log, audio player, transcription/summary ingest | [P4_CALLS.md](./P4_CALLS.md) |
+| ~~P5~~ | ~~Outbound IVR (slim)~~ | — | **SKIPPED — IVR + bulk campaigns owned by Hatif portal, not Odoo (decision 2026-05-18)** | — |
+| P5 | Conversations Sync | `htf_call_center` | Cron poll, conversation snapshot (was P6) | [P6_CONVERSATIONS.md](./P6_CONVERSATIONS.md) |
+| P6 | CRM Enrichment | `numo_crm_htf` | Lead form widgets, smart buttons, classify glue (was P7) | [P7_CRM_ENRICHMENT.md](./P7_CRM_ENRICHMENT.md) |
+| P7 | Reporting + Differentiators | both | DNC, cost tracking, Arabic prompts, won-back, dashboard tiles (was P8) | [P8_DIFFERENTIATORS.md](./P8_DIFFERENTIATORS.md) |
+| P8 | Outbound Sales Acceleration | bridge | Pre-call brief, post-call wrap-up, daily call queue (was P9 — first-class given 99% outbound) | P9_OUTBOUND_ACCELERATION.md *(to be written)* |
+| P9 | Speech Analytics | bridge | Hatif transcript + Summary + sentiment → n8n LLM → CRM stage + agent scorecards (was P10, simplified) | P10_SPEECH_ANALYTICS.md *(to be written)* |
+| ~~P10~~ | ~~Voice AI Agent Integration~~ | — | **DEFERRED — Hatif AI agent API not published (Q-28)** | — |
 
 Cross-cutting docs:
 - [USER_SCENARIOS.md](./USER_SCENARIOS.md) — narrative walkthroughs
@@ -111,27 +110,26 @@ Cross-cutting docs:
 ## 7. Phase Sequence + Estimates
 
 ```
-Week 1:  P0 ───────────────► P1 ──────►
-Week 2:  ─────────► P2 ──────► P3 ──────►
-Week 3:  ─────────► P4 ──────► P5 ──────►
-Week 4:  ─────────► P6 ──────► P7 (start) ──────►
-Week 5:  ─────────► P7 (finish) ──────► P8 (optional)
+Done:    P0 ────► P1 ────►
+Now:     ─────► P2 ────► P3 ────► P4 ────►
+Next:    ─────► P5 ────► P6 ────► P7 (optional) ────►
+Later:   ─────► P8 ────► P9 ────►
 ```
 
-| Phase | Effort (dev hrs) |
-|---|---|
-| P0  | 6–10 |
-| P0.5 | 12–16 |
-| P1  | 8–12 |
-| P2  | 8–10 |
-| P3  | 10–14 |
-| P4  | 10–14 |
-| P5  | 4–6 (slim) |
-| P6  | 8–10 |
-| P7  | 16–22 |
-| P8  | 16–24 (optional) |
-| **Total core (P0–P7)** | **82–114 dev hrs** (incl. P0.5) |
-| Plus QA + UAT + buffer | +30–40 hrs |
+| Phase | Effort (dev hrs) | Status |
+|---|---|---|
+| P0  | 6–10  | ✅ SHIPPED |
+| P1  | 8–12  | ✅ SHIPPED |
+| P2  | 8–10  | ▶️ NEXT |
+| P3  | 10–14 | |
+| P4  | 10–14 | |
+| P5  | 8–10  | (was P6) |
+| P6  | 16–22 | (was P7) |
+| P7  | 16–24 | (was P8, optional) |
+| P8  | 12–16 | Outbound acceleration (was P9) |
+| P9  | 10–14 | LLM via n8n (was P10, simplified) |
+| **Total core (P0–P6)** | **66–92 dev hrs** | |
+| Plus QA + UAT + buffer | +30–40 hrs | |
 
 ## 8. Critical Decisions (LOCKED)
 
@@ -139,8 +137,7 @@ Week 5:  ─────────► P7 (finish) ──────► P8 (op
 |---|---|---|
 | Module split | 2 modules (vendor wrapper + bridge) | Vendor swap-readiness, clean separation, numo_crm stays untouched |
 | Live calling | Hatif app/mobile only | Hatif is the softphone; Odoo logs after the fact |
-| IVR script editor | Hatif portal | One-time setup; not Odoo's job |
-| Outbound IVR trigger | Slim per-record action in Odoo | Needed to dial selected leads; no campaign builder |
+| IVR + bulk campaigns | Hatif portal — Odoo does NOT touch these | Decision 2026-05-18: Numo runs all IVR scripts and campaign blasts on app.hatif.io directly. P5 (IVR module) removed from the roadmap. |
 | Per-agent auth | Single service token, mapped users | Hatif API is service-account scoped |
 | Bridge edits to numo_crm | Forbidden | Inheritance only, no fork |
 | Naming | `htf` everywhere in code | Vendor name kept out of identifiers |
