@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!--
+        Odoo 19 removed `numbercall` (crons now run indefinitely) and made
+        `nextcall` optional. Mirror the sibling modules' pattern: just name,
+        model_id, state, code, interval_*, active, priority.
+    -->
+
+    <!--
+        Proactive token refresh. The auth service decides whether work is
+        actually needed (refreshes only if < 5 min to expiry); the cron
+        simply gives it a heartbeat.
+    -->
+    <record id="cron_refresh_token" model="ir.cron">
+        <field name="name">HTF: refresh OAuth token</field>
+        <field name="model_id" ref="model_htf_config"/>
+        <field name="state">code</field>
+        <field name="code">
+from odoo.addons.htf_call_center.services.auth import cron_refresh_token
+cron_refresh_token(env)
+        </field>
+        <field name="interval_number">30</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+        <field name="priority">10</field>
+    </record>
+
+    <!--
+        Idempotency table grows forever otherwise. 90-day window matches
+        DATA_MODEL.md §Data Lifecycle.
+    -->
+    <record id="cron_purge_webhook_events" model="ir.cron">
+        <field name="name">HTF: purge old webhook events</field>
+        <field name="model_id" ref="model_htf_webhook_event"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_purge_old(days=90)</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+        <field name="priority">20</field>
+    </record>
+
+</odoo>

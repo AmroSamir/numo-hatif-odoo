@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="res_config_settings_view_form" model="ir.ui.view">
+            <field name="name">res.config.settings.view.form.inherit.htf</field>
+            <field name="model">res.config.settings</field>
+            <field name="priority">90</field>
+            <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+            <field name="arch" type="xml">
+
+                <xpath expr="//form" position="inside">
+                    <app string="Hatif" data-key="htf_call_center"
+                         groups="htf_call_center.group_admin">
+                        <block title="Connection"
+                               name="htf_connection_block">
+                            <setting id="htf_credentials"
+                                     string="Hatif API credentials"
+                                     help="Service-account client_id + client_secret issued by the Hatif team.">
+                                <div class="content-group">
+                                    <div class="row mt16">
+                                        <label for="htf_client_id" class="col-lg-3 o_light_label"/>
+                                        <field name="htf_client_id"/>
+                                    </div>
+                                    <div class="row">
+                                        <label for="htf_client_secret" class="col-lg-3 o_light_label"/>
+                                        <field name="htf_client_secret" password="True"/>
+                                    </div>
+                                    <div class="row">
+                                        <label for="htf_base_url" class="col-lg-3 o_light_label"/>
+                                        <field name="htf_base_url"/>
+                                    </div>
+                                    <div class="row">
+                                        <label for="htf_scope" class="col-lg-3 o_light_label"/>
+                                        <field name="htf_scope"/>
+                                    </div>
+                                    <div class="row mt16">
+                                        <button name="action_test_connection"
+                                                type="object"
+                                                string="Test Connection"
+                                                class="btn-primary"/>
+                                    </div>
+                                </div>
+                            </setting>
+                        </block>
+
+                        <block title="Webhook signing"
+                               name="htf_webhook_block">
+                            <setting id="htf_webhook_secrets"
+                                     string="HMAC secrets"
+                                     help="Each channel on the Hatif side has its own webhookSecret. Paste the current one here; previous stays valid for a 7-day rotation overlap.">
+                                <div class="content-group">
+                                    <div class="row">
+                                        <label for="htf_webhook_secret_current" class="col-lg-3 o_light_label"/>
+                                        <field name="htf_webhook_secret_current" password="True"/>
+                                    </div>
+                                    <div class="row">
+                                        <label for="htf_webhook_secret_previous" class="col-lg-3 o_light_label"/>
+                                        <field name="htf_webhook_secret_previous" password="True"/>
+                                    </div>
+                                </div>
+                            </setting>
+                        </block>
+
+                        <block title="Polling"
+                               name="htf_polling_block">
+                            <setting id="htf_polling"
+                                     string="Background polling intervals"
+                                     help="Contacts and conversations are pulled incrementally on a schedule. Webhooks deliver everything realtime; polling is a safety net + catches updates that have no webhook (contact edits).">
+                                <div class="content-group">
+                                    <div class="row">
+                                        <label for="htf_poll_contacts_interval_min" class="col-lg-6 o_light_label"/>
+                                        <field name="htf_poll_contacts_interval_min"/>
+                                    </div>
+                                    <div class="row">
+                                        <label for="htf_poll_conversations_interval_min" class="col-lg-6 o_light_label"/>
+                                        <field name="htf_poll_conversations_interval_min"/>
+                                    </div>
+                                </div>
+                            </setting>
+                        </block>
+
+                        <block title="Defaults"
+                               name="htf_defaults_block">
+                            <setting id="htf_defaults"
+                                     string="UX defaults">
+                                <div class="content-group">
+                                    <div class="row">
+                                        <label for="htf_default_voice" class="col-lg-4 o_light_label"/>
+                                        <field name="htf_default_voice"/>
+                                    </div>
+                                    <div class="row">
+                                        <label for="htf_timezone_offset_for_filters" class="col-lg-4 o_light_label"/>
+                                        <field name="htf_timezone_offset_for_filters"/>
+                                    </div>
+                                </div>
+                            </setting>
+                        </block>
+
+                        <block title="Debug"
+                               name="htf_debug_block">
+                            <setting id="htf_debug"
+                                     string="Debug logging"
+                                     help="Logs full request/response bodies. Bearer tokens and webhook secrets are stripped by the redaction filter.">
+                                <div class="content-group">
+                                    <div class="row">
+                                        <field name="htf_debug_log_enabled"/>
+                                        <label for="htf_debug_log_enabled"/>
+                                    </div>
+                                    <div class="row">
+                                        <field name="htf_dev_mode_skip_hmac"/>
+                                        <label for="htf_dev_mode_skip_hmac"/>
+                                    </div>
+                                </div>
+                            </setting>
+                        </block>
+                    </app>
+                </xpath>
+
+            </field>
+        </record>
+
+        <record id="action_open_settings_htf" model="ir.actions.act_window">
+            <field name="name">Hatif Settings</field>
+            <field name="res_model">res.config.settings</field>
+            <field name="view_mode">form</field>
+            <field name="target">inline</field>
+            <field name="context">{'module': 'htf_call_center'}</field>
+        </record>
+
+    </data>
+</odoo>

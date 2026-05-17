@@ -1,0 +1,48 @@
+{
+    'name': 'HTF Call Center',
+    'version': '19.0.1.0.0',
+    'category': 'Productivity/Discuss',
+    'summary': 'Hatif/Voxa BPaaS integration: telephony + WhatsApp + IVR',
+    'description': """
+HTF Call Center — Vendor Wrapper
+================================
+
+Foundation layer that integrates the Hatif/Voxa BPaaS (telephony + WhatsApp
+Business API) into Odoo 19. Owns auth, HTTP client, HMAC webhook verification,
+raw data models, and the signal bus that bridge modules subscribe to.
+
+This is the "vendor wrapper" half of a two-module pair. The Numo-CRM-specific
+automation lives in `numo_crm_htf` (the bridge), which talks to this module
+ONLY through the documented public API and signal bus.
+
+Live calling stays in the Hatif web/mobile app. Odoo is the system of record
+for every interaction afterwards.
+    """,
+    'author': 'Numo Higher',
+    'website': 'https://numo.sa',
+    'depends': [
+        'base',
+        'mail',
+        'contacts',
+    ],
+    'external_dependencies': {
+        'python': [
+            'requests',
+            'phonenumbers',
+        ],
+    },
+    'data': [
+        'security/security_groups.xml',
+        'security/ir.model.access.csv',
+        'security/record_rules.xml',
+        'data/ir_cron.xml',
+        'views/res_config_settings_views.xml',
+        'views/htf_webhook_event_views.xml',
+        'views/menus.xml',
+    ],
+    'assets': {},
+    'installable': True,
+    'application': False,
+    'auto_install': False,
+    'license': 'LGPL-3',
+}

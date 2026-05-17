@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_htf_webhook_event_admin,htf.webhook.event admin,model_htf_webhook_event,htf_call_center.group_admin,1,1,1,1
+access_htf_webhook_event_user,htf.webhook.event user readonly,model_htf_webhook_event,htf_call_center.group_user,0,0,0,0
