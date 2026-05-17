@@ -50,9 +50,12 @@ class WorkspaceService:
             vals = {
                 'htf_user_id': htf_id,
                 'email': email,
-                'display_name': display,
+                # `name` (Odoo standard rec-name) — NOT `display_name`,
+                # which collides with Odoo's auto-computed field and
+                # silently disappears on read.
+                'name': display,
                 'is_ai_agent': bool(item.get('isAIAgent') or item.get('isAiAgent')),
-                'role': 'owner' if (item.get('role') or '').lower() == 'owner' else 'member',
+                'role': self._normalize_role(item.get('role')),
                 'last_synced_at': now,
             }
             existing = Link.search([('htf_user_id', '=', htf_id)], limit=1)
@@ -61,6 +64,17 @@ class WorkspaceService:
             else:
                 Link.create(vals)
         return Link.search([])
+
+    # Hatif's `role` arrives as either a string ('Owner' / 'Member') or an
+    # integer enum (observed 1=Owner, 2=Member in some workspaces).
+    # Normalize defensively so a future enum value doesn't crash the sync.
+    @staticmethod
+    def _normalize_role(raw) -> str:
+        if isinstance(raw, int) and not isinstance(raw, bool):
+            return 'owner' if raw == 1 else 'member'
+        if isinstance(raw, str) and raw.strip().lower() == 'owner':
+            return 'owner'
+        return 'member'
 
     def match_by_email(self) -> list[tuple]:
         """Suggest (res.users, htf.user.link) pairs by case-insensitive email.

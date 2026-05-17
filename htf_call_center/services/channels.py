@@ -67,14 +67,26 @@ class ChannelService:
                 continue
             seen_ids.add(htf_id)
 
-            ctype_int = item.get('channelType')
+            # Hatif sends the channel type under `type` (NOT `channelType`)
+            # as an int enum: 1=phone, 2=whatsapp, 3=both.
+            ctype_int = item.get('type') or item.get('channelType')
             ctype = _CHANNEL_TYPE_MAP.get(ctype_int, 'whatsapp')
+
+            # `phoneNumber` arrives as a dict {number, region, ...} in this
+            # workspace; older docs show it as a bare string. Tolerate both.
+            phone_raw = item.get('phoneNumber')
+            if isinstance(phone_raw, dict):
+                phone_str = (phone_raw.get('number') or '').strip()
+            elif isinstance(phone_raw, str):
+                phone_str = phone_raw.strip()
+            else:
+                phone_str = ''
 
             vals = {
                 'name': (item.get('name') or '').strip() or htf_id,
                 'htf_channel_id': htf_id,
                 'channel_type': ctype,
-                'phone_number': (item.get('phoneNumber') or '').strip() or False,
+                'phone_number': phone_str or False,
                 'icon': item.get('icon') or False,
                 'state': 'active',
                 'last_synced_at': now,

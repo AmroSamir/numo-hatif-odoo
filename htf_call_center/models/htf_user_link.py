@@ -13,12 +13,12 @@ from odoo import fields, models
 class HtfUserLink(models.Model):
     _name = 'htf.user.link'
     _description = 'HTF Workspace User Link (res.users ↔ Hatif user)'
-    # Note: `_order` must use STORED fields. Odoo's auto `display_name` is
-    # computed (not SQL-backed); ordering by it raises "Cannot convert ...
-    # to SQL because it is not stored". Use email + htf_user_id instead.
-    _order = 'is_ai_agent, email, htf_user_id'
+    # _order must use STORED fields — Odoo's auto display_name is computed.
+    _order = 'is_ai_agent, name, htf_user_id'
     _log_access = True
-    _rec_name = 'display_name'
+    # Use `name` as the rec-name (Odoo default). Naming our stored field
+    # `display_name` collides with Odoo's auto-computed `display_name` and
+    # the compute wins on read, so the stored value silently disappears.
 
     user_id = fields.Many2one(
         'res.users',
@@ -33,7 +33,7 @@ class HtfUserLink(models.Model):
         index=True,
     )
     email = fields.Char()
-    display_name = fields.Char()
+    name = fields.Char()  # leave string default so it doesn't collide with Odoo's auto display_name label
     is_ai_agent = fields.Boolean(default=False)
     role = fields.Selection(
         selection=[('owner', 'Owner'), ('member', 'Member')],
