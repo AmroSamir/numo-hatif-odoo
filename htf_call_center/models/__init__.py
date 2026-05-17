@@ -4,6 +4,7 @@ from . import htf_channel
 from . import htf_tag
 from . import htf_user_link
 from . import htf_contact_link
+from . import htf_message
 from . import res_partner
 from . import res_users
 from . import crm_team

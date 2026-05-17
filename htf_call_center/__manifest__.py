@@ -43,6 +43,7 @@ for every interaction afterwards.
         'views/htf_tag_views.xml',
         'views/htf_user_link_views.xml',
         'views/htf_contact_link_views.xml',
+        'views/htf_message_views.xml',
         'views/res_partner_views.xml',
         'views/res_users_views.xml',
         'views/crm_team_views.xml',
