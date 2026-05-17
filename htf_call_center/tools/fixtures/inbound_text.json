@@ -1,0 +1,13 @@
+{
+    "workspaceId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "channelId": "3a20ffce-0000-0000-0000-000000000000",
+    "conversationId": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+    "contactId": "dddddddd-dddd-dddd-dddd-FIXTURE-001",
+    "messageId": "wamid.FIXTURE-INBOUND-TEXT-001",
+    "direction": "Inbound",
+    "messageType": "Text",
+    "body": "Hello — looking for course details please.",
+    "status": "Delivered",
+    "creationTime": "2026-05-18T03:00:00Z",
+    "isBillable": false
+}

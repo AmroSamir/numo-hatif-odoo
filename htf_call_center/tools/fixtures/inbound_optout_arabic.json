@@ -1,0 +1,13 @@
+{
+    "workspaceId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "channelId": "3a20ffce-0000-0000-0000-000000000000",
+    "conversationId": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+    "contactId": "dddddddd-dddd-dddd-dddd-FIXTURE-OPTOUT",
+    "messageId": "wamid.FIXTURE-INBOUND-OPTOUT-AR-001",
+    "direction": "Inbound",
+    "messageType": "Text",
+    "body": "إلغاء الاشتراك",
+    "status": "Delivered",
+    "creationTime": "2026-05-18T03:02:00Z",
+    "isBillable": false
+}
