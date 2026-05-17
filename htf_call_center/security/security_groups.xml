@@ -17,11 +17,19 @@
     <record id="group_admin" model="res.groups">
         <field name="name">Hatif: Administrator</field>
         <field name="implied_ids" eval="[(4, ref('htf_call_center.group_user'))]"/>
-    </record>
+        <!--
+            Directly seed the two built-in admin users into this group.
+            `base.group_system.implied_ids` would also work for FRESH
+            installs, but adding an implication to an existing group does
+            NOT retroactively grant it to current members — Odoo only
+            propagates at assign-time. So we set `user_ids` here as the
+            hard guarantee.
 
-    <!-- Admins (Settings) auto-get Hatif: Administrator. -->
-    <record id="base.group_system" model="res.groups">
-        <field name="implied_ids" eval="[(4, ref('htf_call_center.group_admin'))]"/>
+            Odoo 19 renamed res.groups.users → user_ids (and
+            res.users.groups_id → group_ids). Using the old name silently
+            failed in earlier installs of this module.
+        -->
+        <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
     </record>
 
 </odoo>

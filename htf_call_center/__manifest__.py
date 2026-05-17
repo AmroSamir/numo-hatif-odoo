@@ -51,7 +51,11 @@ for every interaction afterwards.
     ],
     'assets': {},
     'installable': True,
-    'application': False,
+    # `application=True` makes Odoo show this module as a top-level app
+    # tile on the Apps page AND surfaces it as a tab in the Settings
+    # left rail. Required for our <app name="htf_call_center"> block in
+    # res.config.settings to actually render as a clickable tab.
+    'application': True,
     'auto_install': False,
     'license': 'LGPL-3',
 }
