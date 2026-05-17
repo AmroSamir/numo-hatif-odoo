@@ -22,9 +22,9 @@ Continuously updated. Add new rows as discovered. Never delete — mark `MITIGAT
 | R-16 | LOW | MEDIUM | Hatif rate-limit on bulk WA send | Local rate limiter (5 msg/sec default); honor 429 retry-after | Amr | OPEN |
 | R-17 | MEDIUM | MEDIUM | DNC keyword false positives (e.g. "Stop, that's right") | Strict pattern (case-insensitive whole-message match for STOP); admin can override | Amr | OPEN |
 | R-18 | LOW | LOW | Recording URL leaks (no auth) | Hatif issues short-lived signed URLs; verify ToS; consider ir.attachment cache with Odoo ACL | Amr | OPEN |
-| R-19 | MEDIUM | LOW | PDPL data residency compliance | Confirm Hatif KSA-hosted; no PII flows to non-KSA region | Amr | OPEN |
+| R-19 | MEDIUM | LOW | PDPL data residency compliance | **2026-05-18: ACCEPTED-RESIDUAL.** Hatif not responsive on Q-11; Numo legal pursues independently. Mitigations in place: no recording binaries cached on Numo infra in v1 (Q-15); message content replicated into Odoo lives on KSA-hosted Contabo VPS. | Amr | ACCEPTED-RESIDUAL |
 | R-20 | LOW | MEDIUM | Phone widget UX collision with existing modules (e.g. asterisk_click2dial) | Detect and yield gracefully; document conflicts | Amr | OPEN |
-| R-21 | LOW | LOW | Webhook IP allowlist not provided by Hatif | Document; rely on HMAC alone if not provided; revisit | Amr | OPEN |
+| R-21 | LOW | LOW | Webhook IP allowlist not provided by Hatif | **2026-05-18: ACCEPTED.** Hatif not responsive on Q-02. HMAC + idempotency table is sole authentication. Add optional `htf.config.webhook_allowed_ips` filter only if Hatif later publishes IPs. | Amr | ACCEPTED |
 | R-22 | LOW | MEDIUM | Module bloat (too many features in v1) | Phase boundaries strictly enforced; differentiator phase optional | Amr | OPEN |
 | R-23 | LOW | LOW | UTC+3 ↔ UTC mismatch on conversation list filters | Service layer normalizes; tests with edge cases (DST, offsets) | Amr | OPEN |
 | R-24 | LOW | LOW | Bridge depends on numo_crm version drift | Bridge `__manifest__.py` version range constraint on numo_crm | Amr | OPEN |
