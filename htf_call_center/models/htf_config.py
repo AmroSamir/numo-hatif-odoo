@@ -171,6 +171,18 @@ class HtfConfig(models.AbstractModel):
     # Test Connection action (Settings UI button)                         #
     # ------------------------------------------------------------------ #
 
+    # ------------------------------------------------------------------ #
+    # Cron entry points                                                   #
+    # ------------------------------------------------------------------ #
+    # Odoo's safe_eval forbids `import` inside ir.cron `state='code'`
+    # bodies, so the cron XML calls `model.<method>()` and the method
+    # delegates to the service.
+
+    @api.model
+    def cron_refresh_token(self) -> None:
+        from ..services.auth import AuthService
+        AuthService.cron_refresh(self.env)
+
     @api.model
     def action_test_connection(self) -> dict:
         """Acquire a token against Hatif and return a user-facing notification."""
