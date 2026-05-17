@@ -8,12 +8,11 @@
                   groups="htf_call_center.group_admin"
                   web_icon="htf_call_center,static/description/icon.png"/>
 
-        <menuitem id="menu_htf_settings"
-                  name="Settings"
-                  parent="menu_root_htf"
-                  action="action_open_settings_htf"
-                  sequence="10"
-                  groups="htf_call_center.group_admin"/>
+        <!--
+            Settings page is reached via the standard Odoo Settings wizard
+            (Apps left rail "Hatif"). No separate menu item — users find it
+            via Settings → Hatif.
+        -->
 
         <menuitem id="menu_htf_webhook_events"
                   name="Webhook events"

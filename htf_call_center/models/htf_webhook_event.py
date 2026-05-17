@@ -55,13 +55,12 @@ class HtfWebhookEvent(models.Model):
     )
     note = fields.Char(help='Optional one-liner from the handler.')
 
-    _sql_constraints = [
-        (
-            'event_route_unique',
-            'unique(event_id, route)',
-            'Webhook event must be unique per route — duplicate delivery.',
-        ),
-    ]
+    # Odoo 19 deprecated _sql_constraints in favor of models.Constraint
+    # declared as class attributes.
+    _event_route_unique = models.Constraint(
+        'unique(event_id, route)',
+        'Webhook event must be unique per route — duplicate delivery.',
+    )
 
     # ------------------------------------------------------------------ #
     # Helpers used by webhook controllers (P2/P4/P5)                      #

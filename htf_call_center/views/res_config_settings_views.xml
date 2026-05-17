@@ -120,13 +120,5 @@
             </field>
         </record>
 
-        <record id="action_open_settings_htf" model="ir.actions.act_window">
-            <field name="name">Hatif Settings</field>
-            <field name="res_model">res.config.settings</field>
-            <field name="view_mode">form</field>
-            <field name="target">inline</field>
-            <field name="context">{'module': 'htf_call_center'}</field>
-        </record>
-
     </data>
 </odoo>
