@@ -57,8 +57,28 @@ class HtfWhatsAppWebhookController(http.Controller):
         # re-serializes and would invalidate the HMAC.
         raw_body = request.httprequest.get_data(cache=False)
 
-        # Step 2: verify HMAC.
-        if not hmac_verify.verify_from_request(
+        # Step 2: verify HMAC unless explicitly skipped.
+        #
+        # Q-03 ANSWERED claimed Hatif signs with HMAC-SHA256 in the
+        # X-Voxa-Signature header. Live UAT against the real Hatif
+        # endpoint (2026-05-18) revealed they currently send NO
+        # signature header at all (signature_headers={} in diagnostic
+        # logs). Until Hatif's spec catches up to their implementation,
+        # admins can flip htf.config.dev_mode_skip_hmac=True to accept
+        # unsigned payloads. Idempotency + IP context (X-Forwarded-For)
+        # remain available as defence-in-depth.
+        cfg = request.env['htf.config'].sudo()
+        skip_hmac = bool(cfg.get_param('dev_mode_skip_hmac'))
+
+        if skip_hmac:
+            _logger.warning(
+                "[htf-wa] HMAC verification SKIPPED via "
+                "htf.config.dev_mode_skip_hmac=True. Source IP: %s. "
+                "Re-enable verification once Hatif starts signing webhooks.",
+                request.httprequest.headers.get('X-Real-Ip') or
+                request.httprequest.remote_addr,
+            )
+        elif not hmac_verify.verify_from_request(
             request.env, raw_body, request.httprequest.headers,
         ):
             _log_signature_failure_diagnostics(request, raw_body)
