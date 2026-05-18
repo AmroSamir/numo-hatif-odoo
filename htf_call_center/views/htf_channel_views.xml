@@ -18,22 +18,6 @@
                     not manual creation — admins click into a row to edit.
                 -->
                 <list string="Hatif Channels" multi_edit="1">
-                    <!--
-                        <control> replaces the default New control area with
-                        our own — gives us a button that's always visible
-                        next to a custom 'New' (which we keep functionally
-                        identical to Odoo's default). <header> buttons only
-                        appear when records are selected; <control> buttons
-                        are always visible, which matches the asked-for UX.
-                    -->
-                    <control>
-                        <create string="New" name="create"/>
-                        <button name="%(action_htf_bind_channels_wizard)d"
-                                type="action"
-                                string="Bind to Teams"
-                                icon="fa-link"
-                                groups="htf_call_center.group_admin"/>
-                    </control>
                     <field name="sequence" widget="handle"/>
                     <field name="display_name"/>
                     <field name="name" optional="hide"/>
@@ -126,6 +110,35 @@
             <field name="res_model">htf.channel</field>
             <field name="view_mode">list,form</field>
             <field name="search_view_id" ref="view_htf_channel_search"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    No channels synced yet
+                </p>
+                <p>
+                    Channels are managed on the Hatif portal — Odoo does not
+                    create them. Sync the list from
+                    <b>Settings → Hatif → Sync from Hatif → Sync Channels</b>,
+                    then come back here to assign each channel to a sales team
+                    via the ⚙ Actions menu → <b>Bind Channels to Teams</b>.
+                </p>
+            </field>
+        </record>
+
+        <!--
+            Surface the Bind Channels Wizard on the channels list view's
+            ⚙ Actions dropdown (Odoo 19's standard place for secondary
+            wizard actions tied to a model). Selecting one or more channels
+            in the list and opening Actions → 'Bind Channels to Teams'
+            opens the wizard.
+        -->
+        <record id="action_htf_bind_channels_wizard_channel_binding"
+                model="ir.actions.act_window">
+            <field name="name">Bind Channels to Teams</field>
+            <field name="res_model">htf.bind.channels.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+            <field name="binding_model_id" ref="model_htf_channel"/>
+            <field name="binding_view_types">list,form</field>
         </record>
 
     </data>
