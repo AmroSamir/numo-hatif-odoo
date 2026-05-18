@@ -61,10 +61,7 @@ class HtfWhatsAppWebhookController(http.Controller):
         if not hmac_verify.verify_from_request(
             request.env, raw_body, request.httprequest.headers,
         ):
-            _logger.warning(
-                "[htf-wa] webhook %s rejected: invalid signature",
-                WEBHOOK_ROUTE_WHATSAPP,
-            )
+            _log_signature_failure_diagnostics(request, raw_body)
             return Response('invalid signature', status=401)
 
         # Step 3: parse JSON.
@@ -165,3 +162,76 @@ def _short(value: str | None) -> str:
     if not value:
         return ''
     return value if len(value) <= 16 else f'{value[:13]}...'
+
+
+def _log_signature_failure_diagnostics(req, raw_body: bytes) -> None:
+    """Emit detailed diagnostics on HMAC verification failure.
+
+    Active only when ``htf.config.debug_log_enabled`` is True so
+    production logs stay quiet. The output is what we need to
+    reverse-engineer the actual secret + algorithm Hatif is using
+    when the documented X-Voxa-Signature/HMAC-SHA256/Client-Secret
+    triple doesn't match.
+    """
+    import hashlib
+    import hmac as _hmac
+
+    debug_on = False
+    try:
+        debug_on = req.env['htf.config'].sudo().get_param('debug_log_enabled')
+    except Exception:  # noqa: BLE001
+        debug_on = False
+
+    if not debug_on:
+        _logger.warning(
+            "[htf-wa] webhook %s rejected: invalid signature "
+            "(enable htf.config.debug_log_enabled for diagnostics)",
+            WEBHOOK_ROUTE_WHATSAPP,
+        )
+        return
+
+    headers = dict(req.httprequest.headers.items() or {})
+    # Headers most likely to carry a Hatif signature.
+    candidate_header_names = (
+        'X-Voxa-Signature', 'X-Hatif-Signature', 'X-Signature',
+        'X-Hub-Signature', 'X-Hub-Signature-256', 'X-Webhook-Signature',
+        'Signature', 'X-Hmac-Signature',
+    )
+    sig_headers = {
+        k: v for k, v in headers.items()
+        if k.lower() in {n.lower() for n in candidate_header_names}
+    }
+
+    # Headers redacted to ones safe to log (no Authorization, no cookies).
+    safe_keys = ('content-type', 'content-length', 'user-agent', 'host',
+                 'x-forwarded-for', 'x-forwarded-proto', 'x-real-ip',
+                 *[h.lower() for h in candidate_header_names])
+    safe_headers = {
+        k: v for k, v in headers.items() if k.lower() in safe_keys
+    }
+
+    # What we computed vs what arrived.
+    body_len = len(raw_body or b'')
+    body_sha256 = hashlib.sha256(raw_body or b'').hexdigest()
+    body_preview = (raw_body[:200] or b'').decode('utf-8', errors='replace')
+
+    secrets = req.env['htf.config'].sudo().webhook_secrets() or []
+    candidate_hmacs = {}
+    for i, s in enumerate(secrets):
+        if not s:
+            continue
+        candidate_hmacs[f'secret_{i}_hex_sha256'] = _hmac.new(
+            s.encode(), raw_body or b'', hashlib.sha256,
+        ).hexdigest()
+
+    _logger.warning(
+        "[htf-wa] webhook %s rejected: invalid signature\n"
+        "  body_len=%s body_sha256=%s\n"
+        "  body_preview=%r\n"
+        "  signature_headers=%r\n"
+        "  safe_headers=%r\n"
+        "  our_computed_hmacs=%r",
+        WEBHOOK_ROUTE_WHATSAPP,
+        body_len, body_sha256, body_preview,
+        sig_headers, safe_headers, candidate_hmacs,
+    )
