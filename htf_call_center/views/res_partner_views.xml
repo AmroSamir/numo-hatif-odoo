@@ -66,6 +66,28 @@
                         </group>
                     </page>
                 </xpath>
+                <!-- Smart buttons for Calls + WA Messages counts (T4.8). -->
+                <xpath expr="//div[hasclass('oe_button_box')]"
+                       position="inside">
+                    <button name="action_view_htf_calls"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-phone"
+                            groups="htf_call_center.group_user">
+                        <field name="x_htf_call_count"
+                               widget="statinfo"
+                               string="Calls"/>
+                    </button>
+                    <button name="action_view_htf_messages"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-whatsapp"
+                            groups="htf_call_center.group_user">
+                        <field name="x_htf_message_count"
+                               widget="statinfo"
+                               string="WhatsApp"/>
+                    </button>
+                </xpath>
             </field>
         </record>
 

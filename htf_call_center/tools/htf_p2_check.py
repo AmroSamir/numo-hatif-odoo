@@ -96,18 +96,22 @@ def shell(script: str) -> str:
 
 
 def ensure_secret_set(opener):
-    """Make sure htf.config.webhook_secret_current matches SECRET."""
+    """Make sure htf.config.webhook_secret_current matches SECRET.
+
+    Also force dev_mode_skip_hmac=False so HMAC verification is
+    actually enforced — P4 suite leaves it on; without this we'd
+    silently bypass every signature check.
+    """
     out = shell(f"""
 Cfg = env['htf.config']
 cur = Cfg.get_param('webhook_secret_current')
 if cur != '{SECRET}':
     Cfg.set_param('webhook_secret_current', '{SECRET}')
-    env.cr.commit()
-    print('SET')
-else:
-    print('OK')
+Cfg.set_param('dev_mode_skip_hmac', 'False')
+env.cr.commit()
+print('OK')
 """)
-    return 'SET' in out or 'OK' in out
+    return 'OK' in out
 
 
 # ---------------------------------------------------------------- #

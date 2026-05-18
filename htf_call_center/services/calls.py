@@ -201,15 +201,24 @@ def _resolve_partner(env, payload: dict, direction: str):
                 if not raw:
                     continue
                 if normalize_e164(raw) == normalised:
-                    # Backfill the link if we have a Hatif contact id.
-                    if hatif_contact_id and not Link.search(
-                        [('htf_contact_id', '=', hatif_contact_id)], limit=1,
-                    ):
-                        Link.create({
-                            'partner_id': p.id,
-                            'htf_contact_id': hatif_contact_id,
-                            'sync_state': 'pending',
-                        })
+                    # Backfill the link only if BOTH sides are unlinked:
+                    # the partner has no existing htf.contact.link AND
+                    # the contact_id isn't already mapped elsewhere.
+                    # The model enforces partner-link uniqueness; we
+                    # respect it to keep the dispatcher idempotent.
+                    if hatif_contact_id:
+                        partner_already_linked = Link.search_count(
+                            [('partner_id', '=', p.id)]
+                        )
+                        contact_already_linked = Link.search_count(
+                            [('htf_contact_id', '=', hatif_contact_id)]
+                        )
+                        if not partner_already_linked and not contact_already_linked:
+                            Link.create({
+                                'partner_id': p.id,
+                                'htf_contact_id': hatif_contact_id,
+                                'sync_state': 'pending',
+                            })
                     return p
 
     # Placeholder fallback.
