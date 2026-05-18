@@ -50,7 +50,13 @@ for every interaction afterwards.
         'views/wizard_views.xml',
         'views/menus.xml',
     ],
-    'assets': {},
+    'assets': {
+        'web.assets_backend': [
+            'htf_call_center/static/src/views/fields/phone/htf_phone_field.scss',
+            'htf_call_center/static/src/views/fields/phone/htf_phone_field.js',
+            'htf_call_center/static/src/views/fields/phone/htf_phone_field.xml',
+        ],
+    },
     'installable': True,
     # `application=True` makes Odoo show this module as a top-level app
     # tile on the Apps page AND surfaces it as a tab in the Settings

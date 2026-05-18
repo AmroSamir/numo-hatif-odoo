@@ -2,6 +2,22 @@
 <odoo>
     <data>
 
+        <!--
+            Override the phone widget on the partner form so it shows the
+            [Call] + [WhatsApp] buttons. The base view's phone field uses
+            widget="phone" — we swap it to widget="htf_phone" via attributes.
+        -->
+        <record id="view_partner_form_inherit_htf_phone" model="ir.ui.view">
+            <field name="name">res.partner.form.inherit.htf.phone</field>
+            <field name="model">res.partner</field>
+            <field name="inherit_id" ref="base.view_partner_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='phone']" position="attributes">
+                    <attribute name="widget">htf_phone</attribute>
+                </xpath>
+            </field>
+        </record>
+
         <record id="view_partner_form_inherit_htf" model="ir.ui.view">
             <field name="name">res.partner.form.inherit.htf</field>
             <field name="model">res.partner</field>

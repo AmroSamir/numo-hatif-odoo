@@ -1,0 +1,29 @@
+// HTF phone widget — minor visual nudges only. Inherits look-and-feel
+// from the standard phone field; we just space the WA button a bit
+// and let Bootstrap's text-success drive the green tint.
+
+.o_htf_phone_btn,
+.o_htf_wa_btn {
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 0.875rem;
+
+    &:hover {
+        text-decoration: none;
+        opacity: 0.85;
+    }
+
+    i {
+        font-size: 1rem;
+    }
+}
+
+.o_htf_wa_btn {
+    // a touch of padding so the icon+label feels like a chip on hover
+    padding: 0.05rem 0.4rem;
+    border-radius: 0.25rem;
+
+    &:hover {
+        background-color: rgba(37, 211, 102, 0.08); // WhatsApp green @ 8%
+    }
+}
