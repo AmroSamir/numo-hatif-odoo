@@ -363,11 +363,22 @@ def _allow_real_outbound(env, *, to_number: str | None = None) -> bool:
     raw_whitelist = (cfg.get_param('outbound_phone_whitelist') or '').strip()
     if not raw_whitelist:
         return True
-    allowed = {p.strip() for p in raw_whitelist.split(',') if p.strip()}
+    # Canonicalize BOTH sides: strip whitespace, dashes, parens, leading +.
+    # Live UAT 2026-05-18 caught this — partner.phone arrives as
+    # '+966 56 186 8578' but admins type whitelist as '+966561868578'.
+    # Without canonicalization the candidate set never matched the
+    # whitelist and every real-send fell back to dry-run silently.
+    allowed = {_phone_canonical(p) for p in raw_whitelist.split(',') if p.strip()}
     if not to_number:
         return False
-    candidates = {to_number, _strip_plus(to_number), f'+{_strip_plus(to_number)}'}
-    return bool(candidates & allowed)
+    return _phone_canonical(to_number) in allowed
+
+
+def _phone_canonical(value: str) -> str:
+    """Strip everything except digits — works for E.164 and local formats."""
+    if not value:
+        return ''
+    return ''.join(c for c in str(value) if c.isdigit())
 
 
 def _truthy(value) -> bool:
