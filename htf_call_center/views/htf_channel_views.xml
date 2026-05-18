@@ -17,7 +17,16 @@
                     on an empty list. New channels come from Hatif sync,
                     not manual creation — admins click into a row to edit.
                 -->
-                <list string="Hatif Channels" multi_edit="1">
+                <!--
+                    create='0' disables the 'New' button. Channels are
+                    vendor-managed (Hatif portal owns the source of truth);
+                    Odoo only syncs them in. Admins land on the empty form
+                    if they try to create manually, which is a footgun.
+                    All admin entry points are now in the ⚙ Actions menu:
+                      - Sync Channels from Hatif (server action)
+                      - Bind Channels to Teams  (wizard)
+                -->
+                <list string="Hatif Channels" multi_edit="1" create="0">
                     <field name="sequence" widget="handle"/>
                     <field name="display_name"/>
                     <field name="name" optional="hide"/>
@@ -116,20 +125,42 @@
                 </p>
                 <p>
                     Channels are managed on the Hatif portal — Odoo does not
-                    create them. Sync the list from
-                    <b>Settings → Hatif → Sync from Hatif → Sync Channels</b>,
-                    then come back here to assign each channel to a sales team
-                    via the ⚙ Actions menu → <b>Bind Channels to Teams</b>.
+                    create them.
+                </p>
+                <p>
+                    <b>Step 1.</b> Click the <b>⚙ Actions</b> menu (top of
+                    this page) → <b>Sync Channels from Hatif</b>. The
+                    channels appear in this list within a second or two.
+                </p>
+                <p>
+                    <b>Step 2.</b> Select the synced channels (checkbox at
+                    left of each row) → <b>⚙ Actions</b> → <b>Bind
+                    Channels to Teams</b>. Assign each channel to a CRM
+                    sales team and pick one as the default outbound WA.
                 </p>
             </field>
         </record>
 
         <!--
-            Surface the Bind Channels Wizard on the channels list view's
-            ⚙ Actions dropdown (Odoo 19's standard place for secondary
-            wizard actions tied to a model). Selecting one or more channels
-            in the list and opening Actions → 'Bind Channels to Teams'
-            opens the wizard.
+            ⚙ Actions menu binding 1 — Sync Channels.
+            Wraps res.config.settings.action_sync_channels() so the same
+            sync used on the Settings → Hatif tab is reachable from the
+            Channels list (where it's more natural to discover).
+        -->
+        <record id="action_htf_sync_channels_server" model="ir.actions.server">
+            <field name="name">Sync Channels from Hatif</field>
+            <field name="model_id" ref="model_htf_channel"/>
+            <field name="binding_model_id" ref="model_htf_channel"/>
+            <field name="binding_view_types">list,form</field>
+            <field name="state">code</field>
+            <field name="code">action = env['res.config.settings'].action_sync_channels()</field>
+        </record>
+
+        <!--
+            ⚙ Actions menu binding 2 — Bind Channels to Teams (wizard).
+            Standard Odoo 19 pattern: a wizard wrapped in an act_window
+            with binding_model_id makes the wizard appear in the list's
+            ⚙ Actions dropdown.
         -->
         <record id="action_htf_bind_channels_wizard_channel_binding"
                 model="ir.actions.act_window">
