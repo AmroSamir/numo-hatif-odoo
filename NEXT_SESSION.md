@@ -66,7 +66,7 @@ PY
 
 ### Step 4 — Send a real test WA from your phone (~30 sec)
 
-Send "hi" from your personal WhatsApp (`+966561868578`) to one of
+Send "hi" from your personal WhatsApp (`+966XXXXXXXXX`) to one of
 the two Hatif channel numbers. Within seconds:
 
 - a row should appear in **Settings → HTF → WhatsApp Messages** (admin
@@ -109,7 +109,7 @@ To flip the gate ON safely:
 docker exec -i odoo-app odoo shell -d odoo --no-http <<'PY'
 Cfg = env['htf.config']
 # 1. (optional but recommended) whitelist your dev phone only
-Cfg.set_param('outbound_phone_whitelist', '+966561868578')
+Cfg.set_param('outbound_phone_whitelist', '+966XXXXXXXXX')
 # 2. flip the gate
 Cfg.set_param('allow_real_outbound', 'True')
 env.cr.commit()

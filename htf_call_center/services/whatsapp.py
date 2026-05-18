@@ -28,7 +28,7 @@ Per Q-01 ANSWERED (no sandbox — use prod creds with safety net):
   prod), held in ``ir.config_parameter``.
 - During dev/UAT we also recommend whitelisting destination phones
   via ``htf.config.outbound_phone_whitelist`` (comma-separated E.164)
-  so even when the gate is ON, only ``+966561868578`` (Amr's dev
+  so even when the gate is ON, only ``+966XXXXXXXXX`` (Amr's dev
   number per Q-12 ANSWERED) can receive real messages until rollout.
 
 The gate's purpose is to keep us shipping code straight to prod
@@ -50,6 +50,7 @@ from ..exceptions import (
     HtfServerError, HtfValidationError, HtfWindowExpiredError,
 )
 from ..signals import htf_signals
+from ..utils.phone import normalize_e164
 from . import channel_resolver, chatter
 
 _logger = logging.getLogger(__name__)
@@ -363,19 +364,43 @@ def _allow_real_outbound(env, *, to_number: str | None = None) -> bool:
     raw_whitelist = (cfg.get_param('outbound_phone_whitelist') or '').strip()
     if not raw_whitelist:
         return True
-    # Canonicalize BOTH sides: strip whitespace, dashes, parens, leading +.
-    # Live UAT 2026-05-18 caught this — partner.phone arrives as
-    # '+966 56 186 8578' but admins type whitelist as '+966561868578'.
-    # Without canonicalization the candidate set never matched the
-    # whitelist and every real-send fell back to dry-run silently.
-    allowed = {_phone_canonical(p) for p in raw_whitelist.split(',') if p.strip()}
+
+    # Canonicalize BOTH sides via the KSA-aware E.164 normalizer so all
+    # Saudi local variants collapse to the same canonical form:
+    #   05XXXXXXXX        → +966XXXXXXXXX
+    #   00966XXXXXXXXX    → +966XXXXXXXXX
+    #   966XXXXXXXXX      → +966XXXXXXXXX
+    #   +966 XX XXX XXXX  → +966XXXXXXXXX
+    #   5XXXXXXXX         → +966XXXXXXXXX (default region SA)
+    # Then we also keep a digits-only fallback for entries that fail
+    # phonenumbers' strict validity check (e.g. test fixtures or
+    # malformed entries an admin pasted).
+    allowed = set()
+    for entry in raw_whitelist.split(','):
+        entry = entry.strip()
+        if not entry:
+            continue
+        e164 = normalize_e164(entry)
+        if e164:
+            allowed.add(e164)
+        # Fallback: also store digits-only so '+966XXXXXXXXX' and
+        # '966XXXXXXXXX' match each other even if normalize fails.
+        digits = _digits_only(entry)
+        if digits:
+            allowed.add(digits)
+
     if not to_number:
         return False
-    return _phone_canonical(to_number) in allowed
+    e164 = normalize_e164(to_number)
+    candidates = set()
+    if e164:
+        candidates.add(e164)
+    candidates.add(_digits_only(to_number))
+    return bool(candidates & allowed)
 
 
-def _phone_canonical(value: str) -> str:
-    """Strip everything except digits — works for E.164 and local formats."""
+def _digits_only(value: str) -> str:
+    """Strip everything except digits. Fallback when phonenumbers fails."""
     if not value:
         return ''
     return ''.join(c for c in str(value) if c.isdigit())
