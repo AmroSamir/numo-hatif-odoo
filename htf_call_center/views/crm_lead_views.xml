@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!--
+            Apply the htf_phone widget on crm.lead.phone + crm.lead.mobile
+            so the [Call] + [WhatsApp] buttons render next to lead phones
+            the same way they do on res.partner.
+
+            Also adds a header "Send WhatsApp" button alongside the
+            standard New Quotation / Won / Enrich / Lost buttons so
+            agents have a discoverable entry to the wizard on the form
+            where they spend most of their time.
+
+            View id resolved at runtime (Odoo 19 CRM uses an internal
+            xmlid; we target by model+type via name="crm_lead_view_form"
+            with a soft fallback to crm_case_form_view_oppor).
+        -->
+
+        <record id="view_crm_lead_form_inherit_htf" model="ir.ui.view">
+            <field name="name">crm.lead.form.inherit.htf</field>
+            <field name="model">crm.lead</field>
+            <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='phone']" position="attributes">
+                    <attribute name="widget">htf_phone</attribute>
+                </xpath>
+                <xpath expr="//header" position="inside">
+                    <button name="%(action_htf_send_whatsapp_wizard)d"
+                            type="action"
+                            string="Send WhatsApp"
+                            class="btn-primary"
+                            icon="fa-whatsapp"
+                            invisible="not phone"
+                            groups="htf_call_center.group_user"
+                            context="{
+                                'default_lead_id': id,
+                                'default_partner_id': partner_id,
+                                'default_to_number': phone,
+                            }"/>
+                </xpath>
+            </field>
+        </record>
+
+        <!--
+            Bind the Send WhatsApp wizard to crm.lead's Action menu so
+            it's also reachable from list-view multi-select (e.g. send a
+            template to selected leads — bulk path the bridge module will
+            promote later).
+        -->
+        <record id="action_htf_send_whatsapp_wizard_lead_binding"
+                model="ir.actions.act_window">
+            <field name="name">Send WhatsApp (Lead)</field>
+            <field name="res_model">htf.send.whatsapp.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+            <field name="binding_model_id" ref="crm.model_crm_lead"/>
+            <field name="binding_view_types">form,list</field>
+        </record>
+
+    </data>
+</odoo>

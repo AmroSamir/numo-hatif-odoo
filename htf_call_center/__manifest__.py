@@ -25,6 +25,7 @@ for every interaction afterwards.
         'mail',
         'contacts',
         'sales_team',
+        'crm',
     ],
     'external_dependencies': {
         'python': [
@@ -44,10 +45,14 @@ for every interaction afterwards.
         'views/htf_user_link_views.xml',
         'views/htf_contact_link_views.xml',
         'views/htf_message_views.xml',
+        # Wizards (with their act_window actions) must load BEFORE the
+        # form-view inherits that reference the wizard action xmlid in
+        # <button name="%(action_htf_send_whatsapp_wizard)d" .../>.
+        'views/wizard_views.xml',
         'views/res_partner_views.xml',
         'views/res_users_views.xml',
         'views/crm_team_views.xml',
-        'views/wizard_views.xml',
+        'views/crm_lead_views.xml',
         'views/menus.xml',
     ],
     'assets': {

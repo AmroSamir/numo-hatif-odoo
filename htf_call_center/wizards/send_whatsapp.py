@@ -33,10 +33,13 @@ class HtfSendWhatsappWizard(models.TransientModel):
     _description = 'Send WhatsApp Wizard'
 
     # Target ---------------------------------------------------------- #
-    # htf_call_center is intentionally CRM-agnostic — no `crm.lead`
-    # field here. The bridge module `numo_crm_htf` extends this wizard
-    # to add lead_id awareness and lead-form bindings.
     partner_id = fields.Many2one('res.partner', required=True)
+    lead_id = fields.Many2one(
+        'crm.lead',
+        help='Optional CRM lead this WA is associated with. Populates '
+             'automatically when the wizard is opened from a lead form. '
+             'Drives the channel resolver via lead.team_id.',
+    )
     to_number = fields.Char(
         required=True,
         help='E.164 number to send to. Pre-filled from partner.phone, '
@@ -114,14 +117,28 @@ class HtfSendWhatsappWizard(models.TransientModel):
         active_model = self.env.context.get('active_model')
         active_id = self.env.context.get('active_id')
         partner = None
+        lead = None
         if active_model == 'res.partner' and active_id:
             partner = self.env['res.partner'].browse(active_id)
+        elif active_model == 'crm.lead' and active_id:
+            lead = self.env['crm.lead'].browse(active_id)
+            # A lead may have no linked partner yet (early-stage). Fall
+            # back to a lead-level phone if the partner_id is not set.
+            if lead.partner_id:
+                partner = lead.partner_id
         if partner:
             vals['partner_id'] = partner.id
             vals['to_number'] = partner.phone or ''
+        if lead:
+            vals['lead_id'] = lead.id
+            # Prefer the lead's phone — agents update the lead form, not
+            # always the partner directly.
+            vals['to_number'] = (
+                lead.phone or lead.mobile or vals.get('to_number') or ''
+            )
         return vals
 
-    @api.depends('partner_id', 'channel_id', 'mode')
+    @api.depends('partner_id', 'lead_id', 'channel_id', 'mode')
     def _compute_preflight(self):
         for w in self:
             w.dnc_blocked = bool(w.partner_id and w.partner_id.x_htf_opted_out)
@@ -131,7 +148,7 @@ class HtfSendWhatsappWizard(models.TransientModel):
             if not channel:
                 try:
                     channel = channel_resolver.resolve_outbound_wa(
-                        w.env, partner=w.partner_id,
+                        w.env, partner=w.partner_id, lead=w.lead_id,
                         sender_user=w.env.user,
                     )
                 except HtfChannelNotFoundError as exc:
@@ -161,6 +178,7 @@ class HtfSendWhatsappWizard(models.TransientModel):
                     to_number=self.to_number,
                     text=self.text or '',
                     partner=self.partner_id,
+                    lead=self.lead_id or None,
                     channel=self.channel_id or None,
                     sender_user=self.env.user,
                     category='service',
@@ -174,6 +192,7 @@ class HtfSendWhatsappWizard(models.TransientModel):
                     to_number=self.to_number,
                     parameters=params,
                     partner=self.partner_id,
+                    lead=self.lead_id or None,
                     channel=self.channel_id or None,
                     sender_user=self.env.user,
                     category=self.template_category,

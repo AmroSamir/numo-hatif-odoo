@@ -76,7 +76,7 @@ COST_BY_CATEGORY = {
 # Public API                                                        #
 # ----------------------------------------------------------------- #
 
-def send_text(
+def send_text(  # noqa: PLR0913 — kwarg-only signature
     env,
     *,
     to_number: str,
@@ -118,6 +118,7 @@ def send_text(
         channel=channel,
         sender_user=sender,
         category=category,
+        to_number=to_number,
     )
 
 
@@ -166,6 +167,7 @@ def send_template(
         channel=channel,
         sender_user=sender,
         category=category,
+        to_number=to_number,
     )
 
 
@@ -230,8 +232,19 @@ def _send(
     channel,
     sender_user,
     category: str,
+    to_number: str | None = None,
 ):
-    """Common path: persist row → POST (or dry-run) → update row → chatter + signal."""
+    """Common path: persist row → POST (or dry-run) → update row → chatter + signal.
+
+    ``lead`` is captured for future CRM-side lead_id back-reference on
+    htf.message (deferred until htf.message gets a `lead_id` field — see
+    P6 CRM Enrichment). Today we still resolve the right channel via the
+    lead's team in the resolver chain, just don't persist the link.
+
+    ``to_number`` is unused here (the body already carries the stripped
+    number); kept on the signature for symmetry with send_text/template.
+    """
+    del lead, to_number  # explicitly silence unused-arg lints
     Msg = env['htf.message'].sudo()
 
     msg = Msg.create({
