@@ -6,6 +6,11 @@
             Override the phone widget on the partner form so it shows the
             [Call] + [WhatsApp] buttons. The base view's phone field uses
             widget="phone" — we swap it to widget="htf_phone" via attributes.
+
+            Also adds a header button "Send WhatsApp" so the wizard is
+            discoverable without going through the Action menu (P3 T3.4
+            minimum-viable in lieu of a full chatter composer patch —
+            see NEXT_SESSION.md for why the full composer is deferred).
         -->
         <record id="view_partner_form_inherit_htf_phone" model="ir.ui.view">
             <field name="name">res.partner.form.inherit.htf.phone</field>
@@ -14,6 +19,26 @@
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='phone']" position="attributes">
                     <attribute name="widget">htf_phone</attribute>
+                </xpath>
+                <!--
+                    Header button: visible whenever the partner has a phone,
+                    greyed out when window is closed + opt-out is on.
+                    The wizard's own preflight banner explains the block.
+                -->
+                <xpath expr="//sheet" position="before">
+                    <header>
+                        <button name="%(action_htf_send_whatsapp_wizard)d"
+                                type="action"
+                                string="Send WhatsApp"
+                                class="btn-primary"
+                                icon="fa-whatsapp"
+                                invisible="not phone"
+                                groups="htf_call_center.group_user"
+                                context="{
+                                    'default_partner_id': id,
+                                    'default_to_number': phone,
+                                }"/>
+                    </header>
                 </xpath>
             </field>
         </record>
