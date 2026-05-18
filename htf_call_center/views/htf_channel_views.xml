@@ -18,14 +18,22 @@
                     not manual creation — admins click into a row to edit.
                 -->
                 <list string="Hatif Channels" multi_edit="1">
-                    <header>
+                    <!--
+                        <control> replaces the default New control area with
+                        our own — gives us a button that's always visible
+                        next to a custom 'New' (which we keep functionally
+                        identical to Odoo's default). <header> buttons only
+                        appear when records are selected; <control> buttons
+                        are always visible, which matches the asked-for UX.
+                    -->
+                    <control>
+                        <create string="New" name="create"/>
                         <button name="%(action_htf_bind_channels_wizard)d"
                                 type="action"
                                 string="Bind to Teams"
-                                class="btn-primary"
                                 icon="fa-link"
                                 groups="htf_call_center.group_admin"/>
-                    </header>
+                    </control>
                     <field name="sequence" widget="handle"/>
                     <field name="display_name"/>
                     <field name="name" optional="hide"/>
