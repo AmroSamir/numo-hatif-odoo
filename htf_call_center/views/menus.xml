@@ -97,6 +97,13 @@
                   sequence="55"
                   groups="htf_call_center.group_admin"/>
 
+        <menuitem id="menu_htf_calls"
+                  name="Calls"
+                  parent="menu_root_htf"
+                  action="htf_call_action"
+                  sequence="56"
+                  groups="htf_call_center.group_admin"/>
+
         <menuitem id="menu_htf_webhook_events"
                   name="Webhook events"
                   parent="menu_root_htf"

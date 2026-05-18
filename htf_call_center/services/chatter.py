@@ -86,6 +86,40 @@ def refresh_status(htf_message):
     return mail_msg
 
 
+def post_call(partner, htf_call):
+    """Post a voice-call entry to ``partner`` chatter (P4 T4.6).
+
+    Idempotent: if the htf.call row already has ``chatter_message_id``
+    set, refreshes the existing bubble in place. New calls create a
+    new bubble and back-reference it on the row.
+    """
+    if not partner or not htf_call:
+        return False
+    body = _render_call(htf_call)
+
+    if htf_call.chatter_message_id:
+        htf_call.chatter_message_id.sudo().write({'body': body})
+        return htf_call.chatter_message_id
+
+    subtype = _ref(htf_call.env, 'mail.mt_note')
+    author_id = (
+        htf_call.handler_user_id.partner_id.id
+        if htf_call.handler_user_id and htf_call.handler_user_id.partner_id
+        else False
+    )
+    kwargs = {
+        'body': body,
+        'subtype_id': subtype,
+        'message_type': 'comment',
+    }
+    if author_id:
+        kwargs['author_id'] = author_id
+    msg = partner.message_post(**kwargs)
+    if msg:
+        htf_call.sudo().write({'chatter_message_id': msg.id})
+    return msg
+
+
 # ---------------------------------------------------------------- #
 # Internals                                                        #
 # ---------------------------------------------------------------- #
@@ -197,3 +231,125 @@ def _status_chip(htf_message) -> tuple[str, str]:
             return ('⚠️', _('Failed — %s') % reason)
         return ('⚠️', _('Failed'))
     return ('⏳', _('Pending'))
+
+
+# ---------------------------------------------------------------- #
+# Call rendering (P4 T4.6)                                         #
+# ---------------------------------------------------------------- #
+
+_CALL_STATUS_ICON = {
+    'completed': '✅',
+    'missed': '📵',
+    'no_answer': '📵',
+    'rejected_by_caller': '🚫',
+    'rejected_by_callee': '🚫',
+    'cancelled': '🚫',
+    'failed': '⚠️',
+    'active': '⏳',
+}
+
+_SENTIMENT_BADGE = {
+    'positive': ('🙂', 'success'),
+    'neutral':  ('😐', 'secondary'),
+    'negative': ('🙁', 'danger'),
+    'mixed':    ('🤔', 'warning'),
+    'unknown':  ('❔', 'secondary'),
+}
+
+
+def _render_call(htf_call) -> Markup:
+    direction = htf_call.direction
+    direction_label = _('Inbound') if direction == 'inbound' else _('Outbound')
+    arrow = '⬅️' if direction == 'inbound' else '➡️'
+    icon = _CALL_STATUS_ICON.get(htf_call.status, '📞')
+    status_label = dict(htf_call._fields['status'].selection).get(
+        htf_call.status or '', htf_call.status or '?'
+    )
+    via = (
+        htf_call.channel_id.display_name or htf_call.channel_id.name
+        if htf_call.channel_id else _('Channel')
+    )
+    handler = htf_call.handler_user_id.name or htf_call.hatif_user_name or _('—')
+
+    duration_html = _render_duration(htf_call.duration_seconds)
+    sentiment_html = _render_sentiment_chip(htf_call.sentiment)
+    recording_html = _render_recording_link(htf_call.recording_url)
+    summary_html = _render_summary(htf_call.summary)
+    transcript_preview_html = _render_transcript_preview(htf_call.transcription_text)
+
+    parts = [
+        '<div class="o_htf_call_bubble">',
+        '<div class="o_htf_call_meta">',
+        f'📞 {arrow} <b>{escape(direction_label)} {escape(_("Call"))}</b>',
+        f' · <i>{escape(via)}</i>',
+        f' · {escape(handler)}',
+        '</div>',
+        '<div class="o_htf_call_status">',
+        f'<span>{icon} {escape(status_label)}</span>',
+        f'<span class="ms-2">⏱ {duration_html}</span>',
+        f'<span class="ms-2">{sentiment_html}</span>',
+        '</div>',
+    ]
+    if summary_html:
+        parts.append(summary_html)
+    if transcript_preview_html:
+        parts.append(transcript_preview_html)
+    if recording_html:
+        parts.append(recording_html)
+    parts.append('</div>')
+    return Markup('\n'.join(parts))
+
+
+def _render_duration(seconds: int | None) -> str:
+    if not seconds or seconds <= 0:
+        return escape(_('0:00'))
+    m, s = divmod(int(seconds), 60)
+    h, m = divmod(m, 60)
+    if h:
+        return f'{h}:{m:02d}:{s:02d}'
+    return f'{m}:{s:02d}'
+
+
+def _render_sentiment_chip(sentiment: str | None) -> str:
+    if not sentiment:
+        return ''
+    icon, css = _SENTIMENT_BADGE.get(sentiment, ('❔', 'secondary'))
+    label = sentiment.replace('_', ' ').title()
+    return (
+        f'<span class="badge text-bg-{css}">'
+        f'{icon} {escape(label)}'
+        '</span>'
+    )
+
+
+def _render_recording_link(url: str | None) -> str:
+    if not url:
+        return ''
+    safe_url = escape(url)
+    return (
+        f'<div class="o_htf_call_recording mt-1">'
+        f'🎙️ <a href="{safe_url}" target="_blank">{escape(_("Recording"))}</a>'
+        '</div>'
+    )
+
+
+def _render_summary(summary: str | None) -> str:
+    if not summary:
+        return ''
+    return (
+        '<div class="o_htf_call_summary mt-1">'
+        f'<b>{escape(_("Summary"))}</b>: {escape(summary)}'
+        '</div>'
+    )
+
+
+def _render_transcript_preview(text: str | None) -> str:
+    if not text:
+        return ''
+    snippet = (text[:200] + '…') if len(text) > 200 else text
+    return (
+        '<details class="o_htf_call_transcript mt-1">'
+        f'<summary>{escape(_("Transcript preview"))}</summary>'
+        f'<div class="text-muted">{escape(snippet)}</div>'
+        '</details>'
+    )

@@ -17,6 +17,7 @@ from . import chatter
 from . import whatsapp_inbound
 from . import channel_resolver
 from . import whatsapp
+from . import calls
 
 from ..constants import SERVICE_AUTH, SERVICE_HTTP
 from ..models.htf_config import register_service

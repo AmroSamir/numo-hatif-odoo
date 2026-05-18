@@ -5,6 +5,7 @@ from . import htf_tag
 from . import htf_user_link
 from . import htf_contact_link
 from . import htf_message
+from . import htf_call
 from . import res_partner
 from . import res_users
 from . import crm_team
