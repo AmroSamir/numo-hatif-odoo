@@ -84,6 +84,19 @@
                   sequence="50"
                   groups="htf_call_center.group_admin"/>
 
+        <!--
+            WhatsApp Messages — admin debug list of every htf.message row.
+            End-users read messages on the related partner's chatter, not
+            here. Surfaced because UAT needs a window onto inbound +
+            outbound flow without DB shell access.
+        -->
+        <menuitem id="menu_htf_messages"
+                  name="WhatsApp Messages"
+                  parent="menu_root_htf"
+                  action="htf_message_action"
+                  sequence="55"
+                  groups="htf_call_center.group_admin"/>
+
         <menuitem id="menu_htf_webhook_events"
                   name="Webhook events"
                   parent="menu_root_htf"
