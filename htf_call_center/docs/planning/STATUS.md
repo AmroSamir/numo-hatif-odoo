@@ -10,9 +10,9 @@ Updated as phases progress. **Single source of truth for "where are we?"**.
 |---|---|
 | Project | htf_call_center + numo_crm_htf |
 | Today | 2026-05-19 |
-| Plan version | 0.3.0-LIVE (P2 + P3 live-verified against real Hatif on erp.amro.pro) |
+| Plan version | 0.4.0-LIVE-READY (P2+P3 live, P4 backend shipped + ready for live UAT) |
 | Plan approved by | Amr (live UAT round-trip passed both ways 2026-05-19) |
-| Active phase | P4 — Calls Webhook (next, same pattern as P2) |
+| Active phase | P4 — backend shipped overnight; live UAT pending on erp.amro.pro |
 | Branch | main |
 | Repo | https://github.com/AmroSamir/numo-hatif-odoo |
 | Local dev DB | `test` (on OrbStack `odoo-app`, port 8069), bind-mount `~/numo-hatif-odoo/{htf_call_center,numo_crm_htf}` |
@@ -30,7 +30,7 @@ Updated as phases progress. **Single source of truth for "where are we?"**.
 | P1 — Channels + Contacts + Users | **Done** | 2026-05-17 | 2026-05-17 | Live-UAT'd against the real Numo workspace: 2 channels, 7 users, 1 tag synced; Map Users wizard persists assignments; 73/73 P1 E2E green |
 | P2 — WA Inbound | **✅ LIVE on erp.amro.pro** | 2026-05-18 | 2026-05-19 | Real WhatsApp from Amr's phone → Hatif → /htf/webhook/whatsapp → htf.message + placeholder partner + chatter bubble. P2 E2E 63/63 green + live UAT confirmed. Caveat: Hatif does NOT sign webhooks despite docs (Q-03) — dev_mode_skip_hmac=True until Hatif support clarifies. |
 | P3 — WA Outbound | **✅ LIVE on erp.amro.pro** | 2026-05-18 | 2026-05-19 | Phone widget + Send WA wizard + channel resolver + retry cron + cost-by-category all live-verified. Sent a real WA from the wizard, customer phone received it within seconds. P3 backend E2E 24/24 + UI E2E 17/17 + live UAT confirmed. T3.4 full chatter composer patch still deferred (lite header button covers the UX). |
-| P4 — Calls | Not started | — | — | Ingest Hatif transcription/Summary/sentiment on call object |
+| P4 — Calls | **Backend shipped** | 2026-05-19 | partial | Shipped overnight unattended: T4.1 htf.call model (33 fields) + T4.2 webhook controller + T4.3 dispatcher service + T4.6 chatter.post_call() + T4.8 smart buttons. **P4 E2E: 39/39 green.** Live UAT pending — Amr fills `Post-call Webhook URL = https://erp.amro.pro/htf/webhook/call` on each Hatif channel + places a test call. Deferred: T4.4 audio player OWL widget + T4.5 click-to-seek transcript OWL widget (need browser). |
 | ~~P5~~ — ~~IVR (slim)~~ | **SKIPPED** | — | — | IVR + bulk campaigns run on Hatif portal directly (decision 2026-05-18) |
 | P5 — Conversations | Not started | — | — | Was P6. Polling backfill insurance against missed webhooks |
 | P6 — CRM Enrichment | Not started | — | — | Was P7. Smart buttons + chatter glue |
@@ -215,6 +215,70 @@ PII scrubbed:
 
 **Next session starts here → P4 Calls Webhook.** Same pattern as P2.
 See NEXT_SESSION.md for the pickup checklist.
+
+### 2026-05-19 — P4 Calls Webhook backend shipped (overnight unattended)
+
+After Amr signed off P2+P3 live UAT and went to sleep, I continued
+unattended. Shipped P4 backend matching the proven P2 pattern.
+
+What landed:
+- T4.1 `htf.call` model (33 fields) — full Hatif Call Webhook payload
+  coverage including transcription.text + words[] JSON, AI summary,
+  sentiment enum 1-5, evaluationCriteriaResult JSON, callLength
+  HH:MM:SS fallback parser for duration_seconds
+- T4.1 admin views: list + form + search; notebook pages for Summary
+  / Transcript / QA Rubric / Hatif identifiers / Audit (raw payload).
+  create='0' (vendor-managed)
+- T4.2 `POST /htf/webhook/call` controller — same hardening as P2
+  (HMAC + dev_mode_skip_hmac + composite event-id idempotency +
+  diagnostic logging on signature failure)
+- T4.3 services/calls.py dispatcher — channel resolution by
+  htf_channel_id, partner resolution via htf.contact.link first then
+  E.164 phone match (against res.partner.phone, defensive to absence
+  of `mobile` field in Odoo 19), placeholder partner auto-create
+  named `Hatif Contact <uuid>` or `Hatif Caller <phone>`, signal
+  dispatch by status bucket (htf.call.received / .missed / .failed)
+- T4.6 services/chatter.post_call() — compact call bubble with
+  direction + status + duration (M:SS) + sentiment badge + AI summary
+  + transcript preview (collapsible <details>/<summary>) + recording
+  link. Idempotent — refreshes existing bubble on status transitions.
+- T4.8 smart buttons on res.partner form — `Calls` + `WhatsApp`
+  count buttons via _read_group computes; clicking opens the
+  respective list filtered by partner
+- P4 E2E suite — 39 assertions across 10 sections, signs payloads
+  with the same shared secret as P2 to avoid ormcache lag between
+  suite runs
+
+Bug caught + fixed via the suite:
+- htf.contact.link UNIQUE(partner_id) constraint was being violated
+  when a phone-match resolved to a pre-existing partner that already
+  had a different htf.contact.link. Fix: _resolve_partner now checks
+  both sides (partner already linked? contact already linked?) before
+  creating a new link.
+
+Deferred to next session (need browser):
+- T4.4 Audio player OWL component
+- T4.5 Click-to-seek transcript widget
+- T4.10 missed-call activity creator (belongs in numo_crm_htf bridge)
+
+Final scoreboard 2026-05-19 EOD:
+  P0  → 59/59
+  P1  → 73/73
+  P2  → 63/63   (live-UAT'd on erp.amro.pro)
+  P3  → 24/24 backend + 17/17 UI   (live-UAT'd on erp.amro.pro)
+  P4  → 39/39   (backend; live UAT pending)
+  ===   275/275 across six suites.
+
+**Next session morning checklist:**
+1. Pull on erp.amro.pro server (`cd /opt/odoo-erp-amro-pro/extra-addons/numo-hatif-odoo && git pull`)
+2. Upgrade (`docker compose ... stop web && run --rm web odoo -d numo -u htf_call_center ...`)
+3. Configure each channel's Post-call Webhook URL on Hatif portal:
+   `https://erp.amro.pro/htf/webhook/call`
+4. Place a test call from Amr's phone to +966 11 500 1591
+5. Verify Hatif → Calls menu shows the row + chatter post on the partner
+6. Confirm transcription/Summary/sentiment populate in the form
+7. If everything works → start P4 UI work (T4.4 + T4.5 OWL widgets)
+   OR start P5 (Conversations Sync — polling backfill insurance)
 
 ---
 
