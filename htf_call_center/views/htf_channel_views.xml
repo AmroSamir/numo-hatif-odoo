@@ -6,7 +6,26 @@
             <field name="name">htf.channel.list</field>
             <field name="model">htf.channel</field>
             <field name="arch" type="xml">
-                <list string="Hatif Channels" editable="bottom" multi_edit="1">
+                <!--
+                    multi_edit="1" lets admin select multiple channels and
+                    bulk-edit team_id / default_*. The Bind Channels button
+                    in the list header opens the friendlier per-channel
+                    wizard (recommended path).
+
+                    NB: dropped `editable="bottom"` because the inline
+                    placeholder row was rendering as a confusing blank line
+                    on an empty list. New channels come from Hatif sync,
+                    not manual creation — admins click into a row to edit.
+                -->
+                <list string="Hatif Channels" multi_edit="1">
+                    <header>
+                        <button name="%(action_htf_bind_channels_wizard)d"
+                                type="action"
+                                string="Bind to Teams"
+                                class="btn-primary"
+                                icon="fa-link"
+                                groups="htf_call_center.group_admin"/>
+                    </header>
                     <field name="sequence" widget="handle"/>
                     <field name="display_name"/>
                     <field name="name" optional="hide"/>

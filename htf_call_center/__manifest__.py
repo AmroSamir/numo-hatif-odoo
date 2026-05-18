@@ -40,15 +40,17 @@ for every interaction afterwards.
         'data/ir_cron.xml',
         'views/res_config_settings_views.xml',
         'views/htf_webhook_event_views.xml',
+        # Wizards (with their act_window actions) must load BEFORE any
+        # view that references the wizard action xmlid in
+        # <button name="%(action_htf_*_wizard)d" .../>. That includes
+        # htf_channel_views.xml (Bind to Teams header button) AND
+        # res_partner_views.xml + crm_lead_views.xml (Send WA buttons).
+        'views/wizard_views.xml',
         'views/htf_channel_views.xml',
         'views/htf_tag_views.xml',
         'views/htf_user_link_views.xml',
         'views/htf_contact_link_views.xml',
         'views/htf_message_views.xml',
-        # Wizards (with their act_window actions) must load BEFORE the
-        # form-view inherits that reference the wizard action xmlid in
-        # <button name="%(action_htf_send_whatsapp_wizard)d" .../>.
-        'views/wizard_views.xml',
         'views/res_partner_views.xml',
         'views/res_users_views.xml',
         'views/crm_team_views.xml',

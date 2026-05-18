@@ -42,12 +42,12 @@
                   sequence="41"
                   groups="htf_call_center.group_admin"/>
 
-        <menuitem id="menu_htf_bind_channels_wizard"
-                  name="Bind Channels Wizard"
-                  parent="menu_root_htf"
-                  action="action_htf_bind_channels_wizard"
-                  sequence="21"
-                  groups="htf_call_center.group_admin"/>
+        <!--
+            Bind Channels Wizard removed from the navbar — it now lives
+            as a "Bind to Teams" header button inside the Channels list
+            view (see htf_channel_views.xml) so it's discoverable in
+            context instead of as a separate menu entry.
+        -->
 
         <menuitem id="menu_htf_import_vcards"
                   name="Import vCards"
