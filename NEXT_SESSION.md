@@ -1,317 +1,257 @@
-# Morning report — overnight unattended session, 2026-05-18
+# NEXT SESSION — start here
 
-You said "finish a lot while I sleep" — here's what happened. **Read
-this BEFORE doing anything else when you sit down**.
+Last updated: **2026-05-19** — after P2 + P3 went live on `erp.amro.pro`.
 
 ---
 
 ## TL;DR
 
-- **P5 (IVR) removed** from the roadmap entirely per your call. Hatif
-  portal owns IVR + bulk campaigns. P6→P5, P7→P6, etc. renumbered
-  throughout `00_OVERVIEW.md` and `STATUS.md`.
-- **P2 (WhatsApp Inbound) shipped** end-to-end. Webhook receiver, all
-  10 message kinds, opt-out detector (English + Arabic with diacritic
-  normalisation), STATUS transitions, signal bus, placeholder partner
-  auto-create — every piece verified.
-- **P3 backend (WhatsApp Outbound) shipped** — channel resolver, send
-  service (with **live-send safety gate** OFF by default — see below),
-  send wizard, retry cron, cost-by-category. UI (phone widget +
-  chatter composer) **deferred** because they need browser verification.
-- **Test scoreboard: 219/219 green** across all four phases
-  (P0 59/59 + P1 73/73 + **P2 63/63** + **P3 backend 24/24**).
-- **9 commits to `main`** during the session — listed at the bottom.
-- **Three things need YOUR action** before live UAT — listed below.
+**You're picking up after a major milestone.** P0–P3 are live on the
+test ERP at `https://erp.amro.pro`. A real WhatsApp message round-trip
+was confirmed in both directions against the real Numo Hatif workspace.
+
+| Phase | Status |
+|---|---|
+| P0 Foundation | ✅ live |
+| P1 Channels + Contacts + Users | ✅ live (2 channels, 7 users, 1 tag) |
+| P2 WhatsApp Inbound | ✅ **LIVE-UAT'd** — real phone → Odoo chatter |
+| P3 WhatsApp Outbound | ✅ **LIVE-UAT'd** — Odoo wizard → real phone |
+| P4 Calls Webhook | ▶️ **NEXT** |
+
+E2E suites scoreboard locally:
+- P0 → 59/59
+- P1 → 73/73
+- P2 → 63/63
+- P3 backend → 24/24
+- P3 UI → 17/17
+- **Total local: 236/236**
+
+GitHub: https://github.com/AmroSamir/numo-hatif-odoo (branch `main`)
+Last commit landed on staging: `664a5e4` (or later — `git pull` first)
 
 ---
 
-## What you need to do this morning (in order)
+## Where things live
 
-### Step 1 — Generate `webhookSecret` for your two Hatif channels (~5 min)
+### Code
+- Local working dir: `~/numo-hatif-odoo/`
+- GitHub: `https://github.com/AmroSamir/numo-hatif-odoo` (source of truth)
+- Bind-mount on local OrbStack: `~/numo-hatif-odoo/{htf_call_center,numo_crm_htf} → /mnt/extra-addons/`
+- Bind-mount on staging server: `/opt/odoo-erp-amro-pro/extra-addons/numo-hatif-odoo/` (with two symlinks `htf_call_center` and `numo_crm_htf` pointing into it)
 
-Go to `https://app.hatif.io/en/settings/api-connect`. For each of the
-two existing channels:
+### Environments
 
-- `+966115001591` (أكاديمية نمو)
-- `+966115001592` (الدعم الفني)
+| Env | URL | DB | Container | Notes |
+|---|---|---|---|---|
+| Local — empty | `http://localhost:8069` → DB `odoo` | `odoo` | `odoo-app` (OrbStack) | Starter DB, only mail+contacts+htf installed |
+| Local — full | DB `test` (same container) | `test` | `odoo-app` | Full module suite, used for live UAT against real Hatif workspace |
+| Staging | `https://erp.amro.pro` | `numo` | `web-erp-amro-pro` | **Where P2 + P3 are live-verified** |
+| Numo prod | `https://erp.numo.sa` | `numo` | TBD | Same DB name. Deploy pattern mirrors staging. |
 
-Set **WhatsApp Webhook URL** to (temporary local — see Step 2 for
-tunnelling) and click "Generate Secret". Copy each secret.
+### Planning docs
+- `htf_call_center/docs/planning/00_OVERVIEW.md` — phase index
+- `htf_call_center/docs/planning/STATUS.md` — phase tracker + changelog
+- `htf_call_center/docs/planning/OPEN_QUESTIONS.md` — Q-XX tracking
+- `htf_call_center/docs/planning/RISK_REGISTER.md` — risk table
+- `htf_call_center/docs/planning/P4_CALLS.md` — read this before P4 work
+- `htf_call_center/docs/HATIF_SUPPORT_WEBHOOK_SIGNING_REQUEST.md` — draft email to Hatif support (newly added)
 
-### Step 2 — Decide tunnel strategy (~3 min decision, ~10 min setup)
+### E2E suites (run locally — all must stay green)
+```bash
+python3 /tmp/htf_e2e_check.py     # P0 → 59/59
+python3 /tmp/htf_p1_check.py      # P1 → 73/73
+python3 /tmp/htf_p2_check.py      # P2 inbound → 63/63
+python3 /tmp/htf_p3_check.py      # P3 backend → 24/24
+python3 /tmp/htf_p3_ui_check.py   # P3 UI → 17/17
+```
 
-We need to expose local `http://localhost:8069` to Hatif for live
-UAT. Three options — tell me which when you're ready:
+---
 
-| Option | Pros | Cons |
+## Read THE DRILL before touching code
+
+`~/Downloads/Claude/odoo-modules/CLAUDE.md` opens with **THE DRILL**.
+It's non-negotiable:
+
+1. Edit code → re-read file to confirm change actually landed
+2. Upgrade module via `docker exec odoo-app odoo -d test -u htf_call_center --stop-after-init --log-level=warn`
+3. Restart container — `--dev=reload` on OrbStack misses inotify events
+4. Exercise the actual feature path end-to-end
+5. Verify the user-visible goal is met
+6. Only then ask Amr to verify in browser; report includes proof
+7. Push to GitHub once Amr signs off
+
+The DRILL also has 17 Odoo-19 footguns logged. Re-read them before
+touching XML, security, fields, or wizards.
+
+---
+
+## What's NEXT — P4 Calls Webhook
+
+Same architectural pattern as P2 (WhatsApp Inbound). Hatif sends call
+events to a Post-call Webhook URL when calls complete; we ingest them
+into Odoo as `htf.call` records, post to chatter, fire signals.
+
+### Tasks (read `P4_CALLS.md` for the spec)
+
+| Task | Effort | Output |
 |---|---|---|
-| **cloudflared one-shot trial** | zero-config, free, instant | URL changes every run; you'd re-paste it into Hatif each time |
-| **cloudflared named tunnel** | stable URL via your DNS (e.g. `htf-dev.numo.sa`), free | needs a `cloudflared` daemon as a system service + DNS record |
-| **Go straight to prod** (`erp.numo.sa`) | no tunnel needed; uses real domain | requires deploying P2 to prod first; less freedom to iterate |
+| T4.1 `htf.call` model | 1h | All fields from Hatif's Call Webhook payload (status int, type int, callerNumber, calleeNumber, pickupTime, hangupTime, recordingUrl, **transcription.text** + **transcription.words[]**, **Summary**, sentiment) |
+| T4.2 Webhook controller | 1.5h | `POST /htf/webhook/call`, same HMAC + idempotency + dev_mode_skip_hmac escape as P2 |
+| T4.3 Call dispatcher service | 2h | Branch by `status` (0=Active / 1=Completed / 2=Missed / 3=RejectedByCaller / 4=RejectedByCallee / 5=NoAnswer / 6=Cancelled / 7=Failed); partner resolution; htf.call persist; signal fire |
+| T4.4 Audio player widget | 1.5h | Inline `<audio>` element on htf.call form pointing at recordingUrl (stream from Hatif per Q-15) |
+| T4.5 Transcription widget | 2h | Render `transcription.words[]` as a clickable transcript that scrubs to the audio timestamp on click; speaker labels if Hatif provides them |
+| T4.6 Chatter post for calls | 1.5h | Inbound/outbound bubble on partner chatter with duration, status icon, recording link, Summary preview |
+| T4.7 Phone widget call-button wired | 0.5h | Hook the 📞 button on htf_phone widget into a "tel:" deep-link (already works); upgrade to Hatif app scheme if Hatif documents one |
+| T4.8 Lead form smart buttons | 1h | "X calls" smart button on crm.lead form via x_htf_call_count |
+| T4.9 Missed call activity creator | 1h | When status=Missed → create `mail.activity` on partner with type `to_do` and summary "Call back" |
+| T4.10 P4 E2E suite | 1h | `/tmp/htf_p4_check.py` — target 40+ assertions across all status types + transcript ingest |
 
-My recommendation: **named cloudflared tunnel** for active dev, then
-flip to `erp.numo.sa` for staging/prod when P2 is signed off.
+**Total estimate:** ~12-14h work. Same as my P2 spend.
 
-### Step 3 — Paste the secret into Odoo (~1 min)
-
-```bash
-docker exec -i odoo-app odoo shell -d test --no-http <<'PY'
-env['htf.config'].set_param('webhook_secret_current', 'PASTE_HATIF_SECRET_HERE')
-env.cr.commit()
-print(env['htf.config'].webhook_secrets())
-PY
-```
-
-(Run the same on the `odoo` db if you'll test against it instead.)
-
-### Step 4 — Send a real test WA from your phone (~30 sec)
-
-Send "hi" from your personal WhatsApp (`+966XXXXXXXXX`) to one of
-the two Hatif channel numbers. Within seconds:
-
-- a row should appear in **Settings → HTF → WhatsApp Messages** (admin
-  debug view)
-- a placeholder `res.partner` named "Hatif Contact …" gets created (or
-  your existing partner gets the chatter post if your phone is already
-  linked)
-- partner chatter has the inbound bubble + the 24h window indicator
-  turns green
-
-If anything goes sideways, paste the failing webhook payload into
-`htf_call_center/tools/fixtures/<name>.json` and run
-`python3 htf_call_center/tools/replay_webhook.py --payload <path>` to
-reproduce offline.
-
-### Step 5 — Sign off P2 → I finish P3 UI
-
-When Step 4 passes a green path, say **"P2 signed, finish P3"** and
-I'll do the last two P3 pieces I deferred overnight (both need browser
-verification):
-
-- **T3.3 Phone widget** — replaces the standard Odoo phone widget on
-  `res.partner` / `crm.lead` with `+966… [📞] [💬]`. The 💬 button
-  opens the Send WhatsApp wizard (already shipped — see below).
-- **T3.4 Chatter composer extension** — adds a WA toggle + channel
-  picker to the standard chatter composer. WA toggle disables itself
-  when the 24h window is closed (with tooltip).
-
-### Step 6 — Test the outbound pipeline live (optional, low-risk)
-
-The P3 backend is already shipped with a **safety gate**:
-`htf.config.allow_real_outbound` defaults OFF — every send goes through
-the full pipeline (DNC check + window check + channel resolution +
-chatter post + signal fire) but **does NOT** call Hatif's API. Instead,
-the message lands with a synthetic `dryrun:<uuid>` event id.
-
-To flip the gate ON safely:
+### Deploy after coding
+Same pattern as the P2 + P3 deploy that just landed on `erp.amro.pro`:
 
 ```bash
-docker exec -i odoo-app odoo shell -d odoo --no-http <<'PY'
-Cfg = env['htf.config']
-# 1. (optional but recommended) whitelist your dev phone only
-Cfg.set_param('outbound_phone_whitelist', '+966XXXXXXXXX')
-# 2. flip the gate
-Cfg.set_param('allow_real_outbound', 'True')
-env.cr.commit()
-print('Gate ON. Whitelist:', Cfg.get_param('outbound_phone_whitelist'))
-PY
+# On staging server
+cd /opt/odoo-erp-amro-pro/extra-addons/numo-hatif-odoo/
+git pull origin main
+
+docker compose -f /opt/odoo-erp-amro-pro/docker-compose.yml stop web
+docker compose -f /opt/odoo-erp-amro-pro/docker-compose.yml run --rm web \
+    odoo -d numo -u htf_call_center --stop-after-init --no-http --log-level=warn 2>&1 | tail -10
+docker compose -f /opt/odoo-erp-amro-pro/docker-compose.yml up -d web
+sleep 6
 ```
 
-Then send a test from the wizard: open any partner with
-`x_htf_last_inbound_at` set (your phone, after Step 4), click "Send
-WhatsApp" → Type a message → Send. You'll get a real WA on your phone
-if the whitelist matches.
+Then on Hatif portal: each channel's **Post-call Webhook URL** →
+paste `https://erp.amro.pro/htf/webhook/call`. Place a test call to
+`+966 11 500 1591` and confirm the htf.call row + chatter post appears.
 
-To go back to dryrun mode:
+---
+
+## Things to do BEFORE P4 (defence-in-depth follow-up)
+
+These came out of the P2/P3 live UAT. None are blocking P4, but
+they should land soon:
+
+### 1. Email Hatif support about webhook signing
+Draft is ready at:
+`htf_call_center/docs/HATIF_SUPPORT_WEBHOOK_SIGNING_REQUEST.md`
+
+Send it via Hatif support / their account manager. Until they confirm
+signing + give us the per-channel `webhookSecret`, our
+`dev_mode_skip_hmac=True` setting is what makes inbound work.
+
+### 2. Add Nginx IP allowlist for Hatif source IPs
+We've only seen `8.213.48.16` so far. Add a location-specific allow
+rule in Nginx so that even though HMAC is bypassed, only Hatif's IPs
+can reach `/htf/webhook/whatsapp` (and later `/htf/webhook/call`):
+
+```nginx
+location /htf/webhook/ {
+    allow 8.213.48.16;
+    # add more if Hatif publishes a range
+    deny all;
+    proxy_pass http://odoo;
+}
+```
+
+(Confirm Hatif's full source IP range in the support email above.)
+
+### 3. Disable `dev_mode_skip_hmac` once signing is back
+When Hatif confirms signing + secrets:
+```bash
+docker exec db-erp-amro-pro psql -U odoo -d numo -c \
+  "UPDATE ir_config_parameter SET value='False' WHERE key='htf_call_center.dev_mode_skip_hmac';"
+# + restart web container to bust ormcache
+```
+
+---
+
+## Notable design decisions made during P2+P3 live UAT
+
+### Hatif does not sign webhooks (Q-03 contradicted by reality)
+Their apidog spec claims HMAC-SHA256 in `X-Voxa-Signature`. Live
+delivery shows NO signature header at all. We're working around it
+with `dev_mode_skip_hmac`. Track resolution via the support email.
+
+### Composite idempotency key for outbound STATUS lifecycle
+Hatif reuses the SAME `messageId` across Sent → Delivered → Read →
+Failed transitions, so a bare `messageId` dedupe key falsely collapsed
+all transitions into one event. Controller now uses
+`<messageId>:<status>:<direction>` — each transition is addressable
+but genuine retries (same status/direction) still collapse.
+
+### Channel resolver 5-step chain
+For outbound: `lead.team → partner.team → partner override →
+sender_user.team → htf.config workspace fallback`. Anything that
+doesn't resolve raises `HtfChannelNotFoundError` with admin-readable
+hints.
+
+### Phone canonicalization for whitelist
+`outbound_phone_whitelist` is compared after both sides go through
+`utils.phone.normalize_e164` (the KSA-aware phonenumbers wrapper).
+Handles `0561868578`, `966561868578`, `+966 56 186 8578`,
+`966056xxxxx`, etc. all collapsing to `+966XXXXXXXXX`.
+
+### CRM dependency added
+`htf_call_center` was intentionally CRM-agnostic at start. Live UAT
+proved the real user surface is `crm.lead` forms (sales agents live
+there). Added `crm` to depends so the htf_phone widget + Send WA
+header button apply on lead forms too. Bridge module `numo_crm_htf`
+still planned for richer CRM workflows in P6.
+
+### Channels list create='0' + ⚙ Actions menu wizards
+Admins must not manually create channels (they come from Hatif sync).
+The Channels list has `create='0'` and surfaces "Sync Channels from
+Hatif" + "Bind Channels to Teams" via the ⚙ Actions dropdown.
+Empty-state CTA explains the workflow.
+
+### PII placeholder convention
+Use `+966XXXXXXXXX` for the dev phone in all code/docs. Amr's real
+number was scrubbed on 2026-05-19; git history still contains it.
+
+---
+
+## Sanity-check checklist when you sit down
 
 ```bash
-docker exec -i odoo-app odoo shell -d odoo --no-http <<'PY'
-env['htf.config'].set_param('allow_real_outbound', 'False')
-env.cr.commit()
-PY
+# Local container up?
+docker ps | grep odoo-app
+
+# Module installed locally?
+docker exec odoo-db psql -U odoo -d test -c \
+  "SELECT name, state FROM ir_module_module WHERE name='htf_call_center';"
+
+# All 5 suites green?
+python3 /tmp/htf_e2e_check.py | tail -3
+python3 /tmp/htf_p1_check.py | tail -3
+python3 /tmp/htf_p2_check.py | tail -3
+python3 /tmp/htf_p3_check.py | tail -3
+python3 /tmp/htf_p3_ui_check.py | tail -3
+
+# Staging healthy?
+curl -I https://erp.amro.pro/web/login 2>&1 | head -3
 ```
 
 ---
 
-## What got committed (9 commits, all pushed)
+## Open Questions still pending answers (only for P6+/P7+ work)
 
-```
-38fa271 docs(plan): skip P5 (IVR) entirely — Hatif portal owns IVR + campaigns
-d535ff2 feat(htf.message): P2 T2.1 — WhatsApp message model + admin debug view
-246fc2e feat(webhook): P2 T2.2 — POST /htf/webhook/whatsapp controller
-29b1253 feat(htf-wa): P2 T2.3+T2.4+T2.5+T2.5b — full WhatsApp dispatcher pipeline
-25b3d91 feat(htf-wa): P2 T2.6 + T2.7 — signal smoke + replay tool
-e5f4ea5 test(htf-wa): P2 E2E suite — 63/63 green
-8783776 docs(handoff): morning report after overnight P2 ship
-9731c5b feat(htf-wa): P3 backend (T3.1b + T3.2 + T3.5 + T3.6 + T3.7)
-<this commit> docs(handoff): refresh morning report after P3 backend ship
-```
+| Q | Owner | Status | Topic |
+|---|---|---|---|
+| Q-02 | Hatif | ASSUMED | IP allowlist |
+| Q-03 | Hatif | **ACTIVELY CONTRADICTED** | HMAC signing — see support email draft |
+| Q-06 | Hatif | ASSUMED | Recording URL expiry |
+| Q-19 | answered | | Hatif provides transcription + Summary + sentiment — use them in P9 |
+| Q-26/27 | Hatif | ASSUMED | Metrics endpoints |
+| Q-28 | Hatif | DEFERRED | AI agent API |
 
-All pushed to `main` at https://github.com/AmroSamir/numo-hatif-odoo
+All Amr-owned Qs are resolved. The 3 still open (Q-14, Q-16, Q-30)
+were answered before P3 shipped.
 
 ---
 
-## Files delivered
+Welcome back. Don't skip THE DRILL. P4 next.
 
-```
-htf_call_center/
-├── controllers/
-│   ├── __init__.py
-│   └── webhook_whatsapp.py          ← /htf/webhook/whatsapp (POST)
-├── models/
-│   └── htf_message.py               ← 33-field WA message record
-├── services/
-│   ├── whatsapp_inbound.py          ← inbound dispatcher (in/out STATUS)
-│   ├── whatsapp.py                  ← outbound send_text + send_template
-│   ├── channel_resolver.py          ← 5-step resolution chain
-│   ├── chatter.py                   ← bubble renderers + status refresh
-│   └── dnc_listener.py              ← opt-out keyword detector
-├── wizards/
-│   └── send_whatsapp.py             ← Send WhatsApp wizard
-├── views/
-│   ├── htf_message_views.xml        ← admin list + form
-│   └── wizard_views.xml             ← +1 Send WhatsApp wizard view
-├── data/
-│   └── ir_cron.xml                  ← +1 retry cron
-├── tools/
-│   ├── signal_smoke.py              ← signal-bus smoke harness
-│   ├── replay_webhook.py            ← CLI replay tool
-│   ├── htf_p2_check.py              ← 63-assertion P2 E2E suite
-│   ├── htf_p3_check.py              ← 24-assertion P3 backend E2E suite
-│   └── fixtures/
-│       ├── inbound_text.json
-│       ├── inbound_image.json
-│       ├── inbound_optout_arabic.json
-│       └── outbound_status_read.json
-└── security/ir.model.access.csv     ← +2 rows htf.message, +2 wizard
-```
-
-`__manifest__.py` updated with `views/htf_message_views.xml` in data.
-
----
-
-## Notable design decisions made overnight
-
-### Composite idempotency key
-
-Hatif reuses the SAME `messageId` across the outbound lifecycle
-(Sent → Delivered → Read → Failed), so the original "use `messageId`
-as the dedupe key" plan would have collapsed every status transition
-to a single 200-OK no-op. The controller now uses
-`<messageId>:<status>:<direction>` as the idempotency key. This keeps
-each transition addressable while still collapsing genuine Hatif
-retries (same status, same direction).
-
-This was caught during the first E2E pass and fixed before the commit
-that introduced T2.3 — would have been a nasty production bug.
-
-### Placeholder partners on unknown contactId
-
-The WhatsApp webhook payload does NOT include the contact's phone
-number — only Hatif's `contactId` UUID. To avoid blocking the webhook
-on a synchronous `/v1/contacts/{id}` fetch, we create a placeholder
-`res.partner` named `Hatif Contact <short-uuid>` and an
-`htf.contact.link` row with `sync_state='pending'`. The contacts-poll
-cron (already shipped in P1) will backfill name + phone on its next
-run.
-
-### Opt-out detector: Arabic-aware whole-message matching
-
-The DNC detector strips diacritics (NFKD + combining-mark removal)
-and normalises alefs (إ/أ/آ → ا) so `إلغاء الاشتراك` matches
-`الغاء الاشتراك`. Matching is **strict whole-message** —
-"Stop, my order is wrong" does NOT trigger STOP. We'd rather miss a
-real opt-out than annoy a paying customer who didn't intend it. The
-keyword list is configurable via `htf.config.dnc_keywords`.
-
-### Outbound from Hatif portal still gets logged
-
-If a Numo agent sends WA directly from the Hatif portal (not via
-Odoo P3), the resulting outbound STATUS webhook hits our same
-endpoint. The dispatcher detects "outbound with no pre-existing
-htf.message row" and creates one + posts to chatter. So even before
-P3 ships, every WA conversation Numo agents have shows up in Odoo
-chatter automatically.
-
-### Recording auto-bubble refresh
-
-Status updates (Sent → Delivered → Read → Failed) edit the existing
-`mail.message.body` in place instead of posting a new chatter row.
-That means each outbound message produces ONE chatter bubble that
-visually progresses through ✓ → ✓✓ → read → ⚠️ states, not four
-separate bubbles. Stored as `htf.message.chatter_message_id`.
-
----
-
-## What's NOT done (deferred — need browser verification or future phases)
-
-**Deferred from P3 because they're OWL UI work:**
-
-- **Phone widget on `res.partner` / `crm.lead`** with deep-link to
-  Hatif app + WA composer → P3 T3.3. The wizard the widget would
-  open (Send WhatsApp) IS shipped — just no widget button yet.
-- **Chatter composer extension** for outbound WA → P3 T3.4. Right now
-  agents click "Send WhatsApp" from the partner form Action menu.
-
-**Deferred to later phases by design:**
-
-- **`htf.dnc` model + bridge subscriber on `htf.wa.optout`** → P6
-  (CRM Enrichment). For now the inbound message gets
-  `is_opt_out=True` and the signal fires; the bridge does the
-  partner-level DNC flip later. The Send WA service already respects
-  `partner.x_htf_opted_out` so DNC works end-to-end via the partner
-  flag.
-- **media URL → ir.attachment caching** → P4 calls phase (Q-15
-  ANSWERED-PARTIAL). For v1 we link the URL directly in chatter;
-  you'll see a broken link if it expires.
-- **Live tunnel + Hatif portal config** → blocked on Steps 1-3 above.
-
----
-
-## How to run the suites yourself
-
-```bash
-# All four should be green
-python3 /tmp/htf_e2e_check.py        # P0           → 59/59
-python3 /tmp/htf_p1_check.py         # P1           → 73/73
-python3 /tmp/htf_p2_check.py         # P2 inbound   → 63/63
-python3 /tmp/htf_p3_check.py         # P3 backend   → 24/24
-# Combined: 219/219.
-```
-
-P2 suite hits live HTTP (`localhost:8069`); P3 suite drives the
-ORM via odoo shell (faster, no HTTP). The container must be up.
-
-P2 suite auto-sets `webhook_secret_current=p2-test-secret` on the
-`odoo` db if not already set — that's the suite's secret, separate
-from whatever you'll get from Hatif in Step 1.
-
-P3 suite expects an `htf.channel` row + a workspace fallback in
-`htf.config.default_outbound_wa_channel_id`. It creates one and
-commits before the test run. Both safe to re-run.
-
----
-
-## Resume point after P3 UI
-
-When you say "P2 signed, finish P3" I'll do the OWL UI:
-
-1. **T3.3 phone widget** — `static/src/components/HatifPhoneField/`
-   replacing the standard Odoo phone widget on `res.partner` /
-   `crm.lead` with `+966… [📞] [💬]`. The 📞 button opens `tel:` deep
-   link, 💬 opens the Send WhatsApp wizard.
-2. **T3.4 chatter composer extension** — WA toggle + channel picker on
-   standard mail composer. Disabled when 24h window is closed.
-3. Update `htf_p3_check.py` to drive the widget via Playwright (or
-   describe a manual UAT checklist if Playwright isn't set up).
-
-After P3 fully ships, **P4 (Calls)** is next: Hatif Call Webhook,
-recording link in chatter, ingest transcription/Summary/sentiment from
-Hatif into `htf.call`, fire `htf.call.received` / `htf.call.missed`
-signals. Read `htf_call_center/docs/planning/P4_CALLS.md`.
-
----
-
-Welcome back. Don't skip THE DRILL.
-
-— overnight Claude
+— end of NEXT_SESSION.md

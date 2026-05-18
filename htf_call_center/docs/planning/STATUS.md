@@ -9,13 +9,15 @@ Updated as phases progress. **Single source of truth for "where are we?"**.
 | Field | Value |
 |---|---|
 | Project | htf_call_center + numo_crm_htf |
-| Today | 2026-05-18 |
-| Plan version | 0.2.1-LOCKED (P2 shipped overnight, Hatif portal step pending) |
-| Plan approved by | Amr (verbal — P0/P1/P2 all signed off ahead of build) |
-| Active phase | P3 — WA Outbound (ready to start after morning Hatif-portal step) |
+| Today | 2026-05-19 |
+| Plan version | 0.3.0-LIVE (P2 + P3 live-verified against real Hatif on erp.amro.pro) |
+| Plan approved by | Amr (live UAT round-trip passed both ways 2026-05-19) |
+| Active phase | P4 — Calls Webhook (next, same pattern as P2) |
 | Branch | main |
 | Repo | https://github.com/AmroSamir/numo-hatif-odoo |
 | Local dev DB | `test` (on OrbStack `odoo-app`, port 8069), bind-mount `~/numo-hatif-odoo/{htf_call_center,numo_crm_htf}` |
+| Staging deploy | `https://erp.amro.pro` — DB `numo`, container `web-erp-amro-pro`, addons at `/opt/odoo-erp-amro-pro/extra-addons/numo-hatif-odoo/` |
+| Prod target | `https://erp.numo.sa` — same DB `numo`, deploy pattern mirrors staging |
 
 ---
 
@@ -26,8 +28,8 @@ Updated as phases progress. **Single source of truth for "where are we?"**.
 | P0 — Foundation | **Done** | 2026-05-17 | 2026-05-17 | Token refresh against real api.voxa.sa works; 59/59 E2E green; Settings page renders Hatif tab |
 | **P0.5 — UI Skeleton + Mock Data** | **Skipped** | — | — | Skipped per Amr's call — fast local-Odoo loop + 130+ E2E checks replaced the mocks-first gate |
 | P1 — Channels + Contacts + Users | **Done** | 2026-05-17 | 2026-05-17 | Live-UAT'd against the real Numo workspace: 2 channels, 7 users, 1 tag synced; Map Users wizard persists assignments; 73/73 P1 E2E green |
-| P2 — WA Inbound | **Done** | 2026-05-18 | 2026-05-18 | Shipped overnight unattended. All 7 sub-tasks complete. Webhook receiver + 10 message kinds + composite-key idempotency + STATUS transitions + opt-out detector (EN+AR with diacritic normalisation + false-positive guard) + placeholder partner auto-create + chatter posting with back-ref + signal bus all wired. **P2 E2E: 63/63 green.** Awaiting Hatif portal webhook URL registration for live UAT. |
-| P3 — WA Outbound | **Backend Done** | 2026-05-18 | partial | Shipped overnight: T3.1b channel resolver, T3.2 send_text + send_template + parameter builders + live-send safety gate, T3.5 Send WhatsApp wizard, T3.6 retry cron, T3.7 cost-by-category. **P3 backend E2E: 24/24 green.** Deferred until next session: T3.3 phone widget + T3.4 chatter composer (need browser verification). |
+| P2 — WA Inbound | **✅ LIVE on erp.amro.pro** | 2026-05-18 | 2026-05-19 | Real WhatsApp from Amr's phone → Hatif → /htf/webhook/whatsapp → htf.message + placeholder partner + chatter bubble. P2 E2E 63/63 green + live UAT confirmed. Caveat: Hatif does NOT sign webhooks despite docs (Q-03) — dev_mode_skip_hmac=True until Hatif support clarifies. |
+| P3 — WA Outbound | **✅ LIVE on erp.amro.pro** | 2026-05-18 | 2026-05-19 | Phone widget + Send WA wizard + channel resolver + retry cron + cost-by-category all live-verified. Sent a real WA from the wizard, customer phone received it within seconds. P3 backend E2E 24/24 + UI E2E 17/17 + live UAT confirmed. T3.4 full chatter composer patch still deferred (lite header button covers the UX). |
 | P4 — Calls | Not started | — | — | Ingest Hatif transcription/Summary/sentiment on call object |
 | ~~P5~~ — ~~IVR (slim)~~ | **SKIPPED** | — | — | IVR + bulk campaigns run on Hatif portal directly (decision 2026-05-18) |
 | P5 — Conversations | Not started | — | — | Was P6. Polling backfill insurance against missed webhooks |
@@ -153,16 +155,77 @@ Q-25, Q-30 — see OPEN_QUESTIONS.md.
 **Next session starts here → P2 (WhatsApp Inbound webhook).** Read
 NEXT_SESSION.md for the pickup checklist.
 
+### 2026-05-19 — P2 + P3 LIVE-VERIFIED on erp.amro.pro
+
+Deployment landed cleanly. Real-Hatif round trip working both directions.
+
+Deploy details:
+- Server: Contabo VPS, container `web-erp-amro-pro` (Odoo 19 Enterprise),
+  DB `numo`, addons-path includes `/opt/odoo-erp-amro-pro/extra-addons/`
+- Module installed via `docker compose run --rm web odoo -d numo
+  -i htf_call_center --stop-after-init --no-http` (running container's
+  port 8069 conflicts with `--no-http` skip)
+- `phonenumbers 8.12.57` already Debian-packaged on the image — no
+  pip install needed
+- Both Hatif channels (أكاديمية نمو / الدعم الفني) bound to sales teams
+  with default outbound WA set
+
+Live UAT proof:
+
+**Inbound (real WA from Amr's phone):**
+- Hatif POSTs from `8.213.48.16` to `/htf/webhook/whatsapp`
+- HMAC verification was failing — diagnostic logging proved Hatif
+  sends NO signature header at all (despite Q-03 ANSWERED docs)
+- `htf.config.dev_mode_skip_hmac=True` flipped on; bridge now accepts
+  unsigned and processes the payload
+- Placeholder partner `id=101704` auto-created for the inbound contactId
+- All 4 status transitions (Pending → Sent → Delivered → Read) dispatched
+- Hatif retries deduplicated via composite event-id key
+
+**Outbound (Odoo wizard → real WA on Amr's phone):**
+- Whitelist canonicalization bug found + fixed: partner phone arrived as
+  `+966 56 186 8578` (with spaces) but `outbound_phone_whitelist` was
+  `+966XXXXXXXXX` — naive comparison missed. Now uses
+  `utils.phone.normalize_e164` to canonicalize both sides.
+- `allow_real_outbound=True` + whitelist set + container restarted
+  (to bust ormcache from raw-SQL writes)
+- Wizard → action_send → real POST to `api.voxa.sa/v1/whatsapp/sendText`
+- Phone received the WA within seconds
+
+UX fixes shipped alongside:
+- Channels list `create='0'` (no manual creation; sync-only)
+- "Sync Channels from Hatif" + "Bind Channels to Teams" surfaced in
+  ⚙ Actions menu instead of as separate navbar tabs
+- "Send WhatsApp" header button on res.partner + crm.lead forms
+  (alongside the 💬 button in the htf_phone widget)
+- WhatsApp Messages menu entry added under Hatif (was missing — only
+  reachable via Settings before)
+- `crm` added to depends — htf_phone widget + Send WA button now apply
+  to crm.lead forms too (was missed because htf_call_center was
+  intentionally CRM-agnostic; reality: Numo always has CRM installed)
+
+Known caveat carried to next session:
+- Hatif webhooks are unsigned. Defense-in-depth via Nginx IP allowlist
+  for `8.213.48.16` is the next hardening task. Email to Hatif support
+  drafted at `docs/HATIF_SUPPORT_WEBHOOK_SIGNING_REQUEST.md`.
+
+PII scrubbed:
+- Amr's personal phone number replaced with `+966XXXXXXXXX` placeholder
+  across all docs and code comments. Git history still has it.
+
+**Next session starts here → P4 Calls Webhook.** Same pattern as P2.
+See NEXT_SESSION.md for the pickup checklist.
+
 ---
 
 ## Sign-offs
 
 | Phase | UAT signed off by | Date | Comments |
 |---|---|---|---|
-| P0 | _pending_ | | |
-| P1 | _pending_ | | |
-| P2 | _pending_ | | |
-| P3 | _pending_ | | |
+| P0 | Amr | 2026-05-17 | Test Connection green against real api.voxa.sa |
+| P1 | Amr | 2026-05-17 | 2 channels + 7 users + 1 tag synced from real Numo workspace |
+| P2 | Amr | 2026-05-19 | Live WA inbound on erp.amro.pro — real phone → Odoo chatter |
+| P3 | Amr | 2026-05-19 | Live WA outbound on erp.amro.pro — Odoo wizard → real phone |
 | P4 | _pending_ | | |
 | P5 | _pending_ | | |
 | P6 | _pending_ | | |
