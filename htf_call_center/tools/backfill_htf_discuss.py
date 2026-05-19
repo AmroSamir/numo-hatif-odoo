@@ -26,8 +26,14 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import os
 import subprocess
 import sys
+
+# Default container name is the local-dev `odoo-app`. Override with
+# `HTF_CONTAINER=web-erp-amro-pro python3 backfill_htf_discuss.py numo`
+# on environments where the Odoo container has a different name.
+CONTAINER = os.environ.get('HTF_CONTAINER', 'odoo-app')
 
 
 def log(msg: str) -> None:
@@ -36,10 +42,10 @@ def log(msg: str) -> None:
 
 
 def shell(db: str, script: str) -> str:
-    """Run a python snippet inside the running odoo-app container."""
+    """Run a python snippet inside the Odoo container."""
     proc = subprocess.run(
         [
-            'docker', 'exec', '-i', 'odoo-app',
+            'docker', 'exec', '-i', CONTAINER,
             'odoo', 'shell', '-d', db, '--no-http', '--log-level=error',
         ],
         input=script.encode(), capture_output=True, timeout=300,

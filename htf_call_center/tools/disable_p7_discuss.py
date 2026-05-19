@@ -43,7 +43,12 @@ import subprocess
 import sys
 
 
-CONTAINER = 'odoo-app'
+import os
+
+# Default container name is the local-dev `odoo-app`. Override with
+# `HTF_CONTAINER=web-erp-amro-pro python3 disable_p7_discuss.py numo`
+# on environments where the Odoo container has a different name.
+CONTAINER = os.environ.get('HTF_CONTAINER', 'odoo-app')
 
 FLAGS = (
     'htf_call_center.discuss_mirror_enabled',
