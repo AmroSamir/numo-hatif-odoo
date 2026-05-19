@@ -266,9 +266,12 @@ def _resolve_partner(env, hatif_contact_id):
     # First time we see this contact — create a placeholder partner +
     # a contact link. The contacts-poll cron (Q-10 ANSWERED: polling
     # required) will backfill name + phone on its next pass.
+    # The Hatif logo on partner.image_1920 (migration 19.0.1.4.0)
+    # already brands the row visually, so the name is just the
+    # contactId-short.
     short = (hatif_contact_id or '')[:8] + '…' if hatif_contact_id else 'unknown'
     partner = env['res.partner'].sudo().create({
-        'name': f'Hatif Contact {short}',
+        'name': short,
         'comment': (
             f'[htf] Auto-created from inbound WA webhook. '
             f'contactId={hatif_contact_id}. '

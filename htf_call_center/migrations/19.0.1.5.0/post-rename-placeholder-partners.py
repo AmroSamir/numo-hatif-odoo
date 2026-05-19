@@ -50,7 +50,23 @@ def _is_placeholder(name):
 
 
 def _better_name(partner):
-    return (partner.phone or '').strip() or None
+    """Pick a usable display name for a placeholder partner.
+
+    Phone first. Otherwise, strip the "Hatif Contact " / "Hatif Caller "
+    prefix from the existing name and keep just the suffix (uuid short
+    or whatever was after the prefix) — the Hatif logo on the avatar
+    already conveys "this is a Hatif contact", so the prefix is noise.
+    """
+    phone = (partner.phone or '').strip()
+    if phone:
+        return phone
+    raw = (partner.name or '').strip()
+    for prefix in ('Hatif Contact ', 'Hatif Caller '):
+        if raw.startswith(prefix):
+            suffix = raw[len(prefix):].strip()
+            if suffix:
+                return suffix
+    return None
 
 
 def _rename_partners(env):

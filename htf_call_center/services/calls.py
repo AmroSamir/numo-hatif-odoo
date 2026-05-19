@@ -249,19 +249,18 @@ def _resolve_partner(env, payload: dict, direction: str):
                             })
                     return p
 
-    # Placeholder fallback. Prefer the actual phone number as the
-    # partner name so it reads usefully in Discuss + CRM lists.
-    # Synthetic "Hatif Contact <uuid>" / "Hatif Caller <phone>" names
-    # only appear when no phone is available at all.
+    # Placeholder fallback. The Hatif logo on partner.image_1920 (set
+    # by the 19.0.1.4.0 migration) already brands these rows visually,
+    # so the name no longer needs "Hatif" in it — agents read the
+    # phone number (or a UUID short) directly.
     if normalised:
         name = normalised
     elif candidate_phone:
         name = candidate_phone
     elif hatif_contact_id:
-        short = hatif_contact_id[:8] + '…'
-        name = f'Hatif Contact {short}'
+        name = hatif_contact_id[:8] + '…'
     else:
-        name = 'Hatif Caller (unknown)'
+        name = 'Unknown caller'
 
     partner = Partner.create({
         'name': name,
