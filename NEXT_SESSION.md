@@ -18,15 +18,56 @@ inbound + outbound flows are verified across calls + WhatsApp.
 | P2 WhatsApp Inbound | ✅ live |
 | P3 WhatsApp Outbound | ✅ live |
 | P4 Calls Webhook | ✅ live |
+| **P7 Discuss as Hatif conversation surface** | ✅ merged to `main`, awaiting UAT |
 | ★ **P8 Outbound Sales Acceleration** | approved, **NEXT** |
 | ★ P9 Speech Analytics via n8n | approved, after P8 |
 | ★ P5 Conversations Sync | approved, lower priority |
 
 GitHub: https://github.com/AmroSamir/numo-hatif-odoo
-Latest commit: `2bfe333` (or whatever's on `main` when you sit down).
-Test scoreboard: **274/274** across 6 suites locally
-(dropped one stale P1 assertion that required a `Bind Channels Wizard`
-top-level submenu — that menu lives as a header button now).
+Latest commit on `main`: P7 squash (see `git log --oneline`).
+Test scoreboard: **299/299** across 7 suites locally
+(P7 adds 25 assertions covering channel auto-provisioning, mirror
+writes, voice attachment, 5-gate outbound override, OWL store-default
+gating, and idempotency).
+
+### P7 — what shipped (2026-05-19)
+
+`feat/discuss-hatif-mirror` → squashed into `main`. Every customer
+with Hatif activity now gets one Odoo `discuss.channel`; the bottom-
+right Discuss popup IS the conversation surface. Native voice-call
+icon is hidden on Hatif-linked channels and a "Call via Hatif" button
+opens `app.hatif.io/ar/inbox?conversationId=<id>` in a new tab.
+Agent replies typed in Discuss route through Hatif outbound. Window-
+closed = explicit UserError toast.
+
+Five revert tiers — all tested end-to-end on local db `odoo`:
+
+  L1: toggle `htf_call_center.discuss_mirror_enabled` -> False    (30s)
+  L2: toggle a sub-flag (e.g., `discuss_outbound_route` -> False)  (30s)
+  L3: `python3 disable_p7_discuss.py <db>`  flags off + archive    (2m)
+  L4: `git revert <squash-sha>` + module upgrade                   (10m)
+  L5: `python3 unbackfill_htf_discuss.py <db> --commit`            (5m)
+
+Full runbook: `htf_call_center/docs/P7_REVERT_RUNBOOK.md`.
+
+**Default state on deploy: all 5 flags OFF.** The feature is opt-in
+per-environment via Settings → Technical → Parameters or the
+`enable_p7_discuss.py` script.
+
+UAT plan (Amr): on `erp.amro.pro`:
+  1. Pull `main`, upgrade `htf_call_center` (no behaviour change yet).
+  2. Run `python3 enable_p7_discuss.py numo`.
+  3. Run `python3 backfill_htf_discuss.py numo` to replay history.
+  4. Open Discuss left rail — every Hatif customer should appear.
+  5. Open one — verify the voice-note bubbles play inline + the
+     "Call via Hatif" button opens the right Hatif conversation.
+  6. Type a reply in the composer — confirm it lands on the
+     customer's WhatsApp.
+  7. Try the same against a customer whose 24h window expired —
+     confirm the red toast appears.
+
+If anything is off, run `disable_p7_discuss.py numo` for instant
+rollback.
 
 ---
 

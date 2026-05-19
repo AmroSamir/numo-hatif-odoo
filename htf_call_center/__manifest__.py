@@ -38,6 +38,7 @@ for every interaction afterwards.
         'security/ir.model.access.csv',
         'security/record_rules.xml',
         'data/ir_cron.xml',
+        'data/htf_discuss_mirror.xml',
         'views/res_config_settings_views.xml',
         'views/htf_webhook_event_views.xml',
         # Wizards (with their act_window actions) must load BEFORE any
@@ -63,6 +64,9 @@ for every interaction afterwards.
             'htf_call_center/static/src/views/fields/phone/htf_phone_field.scss',
             'htf_call_center/static/src/views/fields/phone/htf_phone_field.js',
             'htf_call_center/static/src/views/fields/phone/htf_phone_field.xml',
+            # P7.5 — Discuss ChatWindow patch for Hatif-linked channels.
+            'htf_call_center/static/src/discuss/thread_model_patch.js',
+            'htf_call_center/static/src/discuss/chat_window_patch.xml',
         ],
     },
     'installable': True,

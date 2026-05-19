@@ -61,6 +61,26 @@ class ResPartner(models.Model):
         compute='_compute_x_htf_message_count',
         copy=False,
     )
+    # P7 — Discuss conversation surface back-references. Set lazily by
+    # services/calls.py + services/whatsapp_inbound.py when the master
+    # flag is on. With flag off both stay empty and nothing reads them.
+    x_htf_discuss_channel_id = fields.Many2one(
+        'discuss.channel',
+        string='Hatif Discuss Channel',
+        copy=False,
+        index=True,
+        ondelete='set null',
+        help='Auto-created per-partner discuss.channel that mirrors '
+             'every Hatif call + WhatsApp message. Created lazily on '
+             'first Hatif activity when htf.config.discuss_mirror_enabled.',
+    )
+    x_htf_last_conversation_id = fields.Char(
+        string='Last Hatif conversationId',
+        copy=False,
+        help='Stored from the most recent Hatif webhook. Used by the '
+             'phone-widget Call button to deep-link directly to that '
+             'conversation in the Hatif portal.',
+    )
 
     @api.depends('x_htf_last_inbound_at')
     def _compute_x_htf_24h_window_open(self):
