@@ -1,30 +1,42 @@
 /** @odoo-module **/
 /**
- * P7.5 — Hatif overrides on the OWL Thread model.
+ * P7.8 — Hatif overrides on the OWL Thread + ChatWindow header actions.
  *
- * For Hatif-linked channels (those with x_htf_partner_id populated by
- * the server-side mirror), we:
+ * For Hatif-linked channels (those with x_htf_partner_id pushed to the
+ * OWL store by `discuss.channel._to_store_defaults`), we:
  *
- *   1. Force allowCalls to return false — this hides every native
- *      voice-call button in the ChatWindow header because the
- *      built-in thread_actions registrations gate on
- *      `thread.allowCalls`. Internal colleague-to-colleague chats are
- *      untouched (they have no x_htf_partner_id).
+ *   1. Force ``allowCalls`` to return false. Every native voice / video
+ *      / call-settings thread action registered by Odoo's mail module
+ *      gates on ``thread.allowCalls``, so flipping this getter makes
+ *      them auto-hide. Internal colleague-to-colleague chats are
+ *      untouched (no ``x_htf_partner_id``, super getter runs unchanged).
  *
- *   2. Expose `hatifCallHref` — the deep-link target for the custom
- *      "Call via Hatif" button rendered by chat_window.xml. Uses the
- *      stored conversationId when known, falls back to the inbox root.
+ *   2. Register a "Call via Hatif" header action via the supported
+ *      ``registerThreadAction`` registry. It only appears when
+ *      ``hatifCallHref`` is truthy. Click opens app.hatif.io/ar/inbox
+ *      in a new tab, with the ``conversationId`` deep-link when known.
  *
- * Activation is gated on the server side by the `discuss_ui_override`
- * sub-flag: when the flag is off, `_to_store_defaults` doesn't push
- * x_htf_partner_id to the frontend, so the patch's checks see
- * `undefined` and fall through to the default behaviour.
+ * Server-side gate: the OWL store only receives ``x_htf_partner_id`` +
+ * ``x_htf_last_conversation_id`` when the ``discuss_ui_override``
+ * sub-flag is ON (see ``discuss_channel._to_store_defaults``). With
+ * the flag off the patch sees ``undefined``, super.allowCalls runs,
+ * the registered action's ``condition`` returns false, and the native
+ * Discuss UI is fully restored without restarting Odoo or touching code.
+ *
+ * Approach choice: this used to be ``<t t-inherit="mail.ChatWindow">``
+ * with an xpath inject — that pattern is fragile against upstream
+ * refactors and broke the asset bundle in an earlier attempt. The
+ * ``registerThreadAction`` registry is the documented extension point
+ * for adding ChatWindow header buttons and survives upstream changes.
  */
 
 import { patch } from "@web/core/utils/patch";
 import { Thread } from "@mail/core/common/thread_model";
+import { registerThreadAction } from "@mail/core/common/thread_actions";
+import { _t } from "@web/core/l10n/translation";
 
 const HATIF_PORTAL_BASE = "https://app.hatif.io/ar/inbox";
+const HATIF_BRAND_TEAL = "#02c7b5";
 
 patch(Thread.prototype, {
     get allowCalls() {
@@ -35,8 +47,8 @@ patch(Thread.prototype, {
     },
 
     /**
-     * Returns the deep-link URL for the "Call via Hatif" button or
-     * `false` when the thread is not a Hatif-linked channel.
+     * Deep-link URL for the "Call via Hatif" header button, or
+     * ``false`` when the thread is not a Hatif-linked channel.
      */
     get hatifCallHref() {
         if (!this.x_htf_partner_id) {
@@ -48,4 +60,25 @@ patch(Thread.prototype, {
         }
         return HATIF_PORTAL_BASE;
     },
+});
+
+registerThreadAction("hatif-call", {
+    condition: ({ thread }) => Boolean(thread?.hatifCallHref),
+    icon: "fa fa-fw fa-phone",
+    name: _t("Call via Hatif"),
+    open: ({ thread }) => {
+        const href = thread.hatifCallHref;
+        if (href) {
+            window.open(href, "_blank", "noopener,noreferrer");
+        }
+    },
+    // Sit where the native ``call`` action used to render so the header
+    // spacing/order stays familiar after the swap.
+    sequence: 10,
+    sequenceQuick: 30,
+    // Hatif teal brand colour via inline style on the button element.
+    btnAttrs: () => ({
+        style: `color: ${HATIF_BRAND_TEAL}`,
+        title: "Open Hatif portal in a new tab",
+    }),
 });

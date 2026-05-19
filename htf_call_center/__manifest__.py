@@ -1,6 +1,6 @@
 {
     'name': 'HTF Call Center',
-    'version': '19.0.1.8.0',
+    'version': '19.0.1.9.0',
     'category': 'Productivity/Discuss',
     'summary': 'Hatif/Voxa BPaaS integration: telephony + WhatsApp + IVR',
     'description': """
@@ -72,10 +72,15 @@ for every interaction afterwards.
             # 80px (Odoo default, too narrow) to 240px so call-recording
             # durations render without truncation.
             'htf_call_center/static/src/discuss/htf_voice_player.scss',
-            # P7.5 — Discuss ChatWindow JS/XML patches (temporarily disabled
-            # while the t-inherit xpath is being refactored; tracked as P7.8).
-            # 'htf_call_center/static/src/discuss/thread_model_patch.js',
-            # 'htf_call_center/static/src/discuss/chat_window_patch.xml',
+            # P7.8 — Hatif ChatWindow header override: hides native call
+            # icons on Hatif-linked channels and registers a teal "Call
+            # via Hatif" header action that deep-links into the Hatif
+            # portal. Server-gated by the `discuss_ui_override` sub-flag
+            # (see `discuss_channel._to_store_defaults`). JS-only — the
+            # earlier `<t t-inherit="mail.ChatWindow">` xpath approach
+            # was dropped because xpath-into-OWL-asset patches break
+            # the bundle when upstream re-renders the template.
+            'htf_call_center/static/src/discuss/thread_model_patch.js',
         ],
     },
     'installable': True,
