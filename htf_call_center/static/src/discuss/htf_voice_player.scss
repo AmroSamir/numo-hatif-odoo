@@ -33,6 +33,20 @@
     max-width: 100%;
 }
 
+// Inside the bottom-right Discuss chat-window popup, the conversation
+// pane is narrower (~340-380px usable) than 320px once you account
+// for the message padding + avatar gutter. The min-width above would
+// then force a horizontal scrollbar inside the audio bubble.
+//
+// Drop the min-width when the ancestor AttachmentList is in
+// chat-window mode (Odoo's own class `.o-inChatWindow`). The voice
+// player's own flex layout (.o-mail-VoicePlayer-wrapper min-width 120px,
+// duration .text-muted no-shrink) still keeps the row legible at
+// any width.
+.o-inChatWindow .o-mail-AttachmentContainer[data-mimetype^="audio/"] {
+    min-width: 0;
+}
+
 // Defensive companions on the voice player itself. With the container
 // width unlocked these are mostly redundant, but they keep the
 // duration on a single line in any narrow edge case (e.g. the
