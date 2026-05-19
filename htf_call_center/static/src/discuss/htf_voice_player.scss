@@ -9,25 +9,43 @@
 // All overrides scoped to .o-mail-VoicePlayer subtree so we don't
 // touch the recorder UI or unrelated voice components.
 
+// Root cause of the truncated voice-player layout (found via DevTools
+// inspection on erp.amro.pro):
+//
+//   .o-mail-AttachmentContainer:not(.o-inMessage.o-isImage),
+//   .o-mail-AttachmentContainer.o-inChatter.o-inMessage.o-isImage {
+//       width: 13em;   /* ≈208px @ 16px base */
+//       height: 10em;
+//   }
+//
+// This forces every non-image attachment container to 13em wide.
+// MP3 attachments end up here, and the inner .o-mail-VoicePlayer can
+// never exceed that width — so the duration label wrapped vertically
+// or got clipped depending on container.
+//
+// Fix: drop the width constraint for audio attachment containers.
+// Target via `data-mimetype^="audio/"` so other attachment types
+// (PDFs, images, generic files) keep their default sizing untouched.
+
+.o-mail-AttachmentContainer[data-mimetype^="audio/"] {
+    width: auto !important;
+    min-width: 320px;
+    max-width: 100%;
+}
+
+// Defensive companions on the voice player itself. With the container
+// width unlocked these are mostly redundant, but they keep the
+// duration on a single line in any narrow edge case (e.g. the
+// bottom-right Discuss popup when minimised).
 .o-mail-VoicePlayer {
-    // Cap by container width — the bottom-right Discuss popup is
-    // ~360-400px wide, the main center pane is hundreds of px wider.
-    // We want the player to grow up to the available width without
-    // overflowing or pushing the duration off-screen.
     max-width: 100%;
 
     > .o-mail-VoicePlayer-wrapper {
-        // Default 80px is too narrow everywhere. Min 120px keeps the
-        // waveform legible in cramped contexts; flex: 1 1 auto lets
-        // it grow to consume the remaining space in wider contexts.
         min-width: 120px;
         width: auto;
         flex: 1 1 auto;
     }
 
-    // The .text-muted div that renders state.visualTime ("0:00 / 0:32")
-    // is the last flex child. Lock it on a single line and never let
-    // it shrink — clipping the duration is the worst-case UX.
     > .text-muted {
         white-space: nowrap;
         flex-shrink: 0;
