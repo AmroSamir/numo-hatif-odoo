@@ -26,7 +26,7 @@
                t-att-href="phoneHref"
                target="_blank"
                class="o_htf_phone_btn o_phone_form_link ms-2 d-inline-flex align-items-center"
-               title="اتصال (يفتح تطبيق الهاتف / Hatif)">
+               title="اتصال عبر هاتف">
                 <i class="fa fa-phone"/>
                 <small class="fw-bold ms-1">اتصال</small>
             </a>
