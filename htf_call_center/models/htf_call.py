@@ -220,6 +220,33 @@ class HtfCall(models.Model):
              'form view.',
     )
 
+    # CSAT (customer satisfaction) — Hatif fields not in the apidog
+    # spec but present on every live Call Webhook payload (verified
+    # 2026-05-19 via raw_payload inspection on erp.amro.pro).
+    csat_rating = fields.Integer(
+        string='CSAT Rating',
+        help='Customer satisfaction score from Hatif (when collected).',
+    )
+    csat_method = fields.Char(
+        string='CSAT Method',
+        help='How the rating was collected (e.g. IVR, post-call SMS).',
+    )
+    csat_collected_at = fields.Datetime(
+        string='CSAT Collected At',
+        help='When the rating was captured (may post-date the call).',
+    )
+
+    # Hatif now flags AI-handled calls so we can route + filter them
+    # separately from human-handled ones (P11 / numo_crm_htf concern).
+    is_ai_call = fields.Boolean(
+        string='AI-Handled',
+        default=False,
+        index=True,
+        help='Hatif flag — call was answered by an AI agent rather '
+             'than a human. P11 bridge consumes this to route AI '
+             'handoffs differently.',
+    )
+
     # Audit ----------------------------------------------------------- #
     chatter_message_id = fields.Many2one(
         'mail.message',

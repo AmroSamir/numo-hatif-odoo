@@ -79,6 +79,13 @@
                             <field name="sentiment" readonly="1"/>
                             <field name="recording_url" readonly="1"
                                    widget="url"/>
+                            <field name="is_ai_call" readonly="1"/>
+                            <field name="csat_rating" readonly="1"
+                                   invisible="not csat_rating"/>
+                            <field name="csat_method" readonly="1"
+                                   invisible="not csat_method"/>
+                            <field name="csat_collected_at" readonly="1"
+                                   invisible="not csat_collected_at"/>
                         </group>
                     </group>
                     <notebook>

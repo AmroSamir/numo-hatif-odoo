@@ -70,7 +70,10 @@ def process(env, payload: dict) -> str:
     transcription_words = transcription.get('words') if isinstance(transcription, dict) else None
 
     Call = env['htf.call'].sudo()
-    call_id = payload.get('id') or payload.get('callId') or payload.get('CallId') or ''
+    # Hatif's actual payload uses 'callId' (verified 2026-05-19 against
+    # erp.amro.pro raw_payloads). Apidog spec implied 'id' might be used
+    # too; we accept both for forward compatibility.
+    call_id = payload.get('callId') or payload.get('id') or payload.get('CallId') or ''
     existing = Call.find_by_call_id(call_id) if call_id else Call.browse()
 
     vals = {
@@ -104,6 +107,13 @@ def process(env, payload: dict) -> str:
                        ensure_ascii=False)
             if payload.get('evaluationCriteriaResult') else False
         ),
+        # CSAT + AI flag — present on Hatif's real payload but not in
+        # the apidog spec. Verified 2026-05-19.
+        'csat_rating': payload.get('csatRating') or 0,
+        'csat_method': payload.get('csatMethod') or False,
+        'csat_collected_at': _parse_dt(payload.get('csatCollectedAt'),
+                                        allow_none=True),
+        'is_ai_call': bool(payload.get('isAiCall')),
         'raw_payload': json.dumps(payload, ensure_ascii=False, default=str),
     }
 
