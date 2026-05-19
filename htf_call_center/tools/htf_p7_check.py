@@ -216,7 +216,7 @@ if msgs:
     print(f'BODY_HAS_STRONG_TAG:{"<strong>" in body}')
     print(f'BODY_HAS_SUMMARY:{"Summary" in body or "استفسر" in body}')
 
-# Missed call: pickup_kind='none', body should say "مكالمة فائتة" (Arabic)
+# Missed call: pickup_kind='none', body should say "Missed call" (English source — Arabic via i18n/ar.po)
 p2 = env['res.partner'].create({'name': 'P7chk missed', 'phone': '+9665000P7005'})
 c2 = env['htf.call'].create({
     'htf_call_id': 'p7chk-call-2', 'direction': 'inbound', 'status': 'missed',
@@ -227,7 +227,7 @@ discuss_mirror.mirror_call(env, p2, c2, {})
 p2.invalidate_recordset()
 ch2 = p2.x_htf_discuss_channel_id
 m2 = env['mail.message'].search([('model','=','discuss.channel'),('res_id','=',ch2.id)], limit=1)
-print(f'MISSED_BODY_HAS_MISSED:{"مكالمة فائتة" in (m2.body or "") if m2 else False}')
+print(f'MISSED_BODY_HAS_MISSED:{"Missed" in (m2.body or "") or "مكالمة فائتة" in (m2.body or "") if m2 else False}')
 
 cfg.set_param('discuss_mirror_enabled', False)
 cfg.set_param('discuss_mirror_calls', False)
@@ -238,7 +238,7 @@ env.cr.rollback()
     check('call body has phone icon', 'True' in L.get('BODY_HAS_PHONE_ICON', 'False'))
     check('call body uses <strong> (Markup survived sanitizer)',
           'True' in L.get('BODY_HAS_STRONG_TAG', 'False'))
-    check('missed-call body says مكالمة فائتة (Arabic)',
+    check('missed-call body says Missed (EN) or مكالمة فائتة (AR)',
           'True' in L.get('MISSED_BODY_HAS_MISSED', 'False'))
 
 

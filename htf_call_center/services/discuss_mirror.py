@@ -313,20 +313,13 @@ def _render_call_body(call_row) -> Markup:
     """Compose the HTML body of the call bubble.
 
     Returned as `markupsafe.Markup` so Odoo's mail sanitizer recognises
-    the markup as pre-sanitised. Without this, Odoo escapes every `<`
-    in the body because `message_post(body=...)` expects HTML and falls
-    back to text-escape mode for plain str.
-
-    Strings are emitted in Arabic to match Numo's customer-conversation
-    locale — Hatif's customer messages are Arabic, the partner names
-    are Arabic, and Numo's agents read both. Arabic-first is the
-    sensible default; if we ever need English fallback for non-AR
-    workspaces we'll swap to a .po-driven gettext path.
+    the markup as pre-sanitised. Strings use `_()` so the user's locale
+    drives the language — English source + `i18n/ar.po` for Arabic.
 
     Layout (renders next to the voice-note bubble in Discuss):
-      📞 <verb>  ·  <duration>  ·  بدأت <time>
-      رد عليه <agent>  (if pickup_kind=human)
-      الملخص: <ai summary first 200 chars>  (if present)
+      📞 <verb>  ·  <duration>  ·  started <time>
+      Answered by <agent>  (if pickup_kind=human)
+      Summary: <ai summary first 200 chars>  (if present)
     """
     status = (call_row.status or '').lower()
     pickup_kind = (call_row.pickup_kind or '').lower()
@@ -337,29 +330,32 @@ def _render_call_body(call_row) -> Markup:
     if duration:
         parts.append(f' · {escape(duration)}')
     if started:
-        parts.append(f' · بدأت {escape(started)}')
+        parts.append(f' · {escape(str(_("started")))} {escape(started)}')
     head = ''.join(parts)
     extra = []
     if pickup_kind == 'human' and call_row.handler_user_id and call_row.handler_user_id.name:
         extra.append(
-            f'<small>رد عليه {escape(call_row.handler_user_id.name)}</small>'
+            f'<small>{escape(str(_("Answered by")))} '
+            f'{escape(call_row.handler_user_id.name)}</small>'
         )
     elif pickup_kind == 'system':
         extra.append(
-            f'<small><em>تم الرد بواسطة المجيب الآلي / IVR</em></small>'
+            f'<small><em>{escape(str(_("Picked up by auto-responder / IVR")))}</em></small>'
         )
     if call_row.summary:
         summary = _clean_summary(call_row.summary)
         snippet = summary[:200] + ('…' if len(summary) > 200 else '')
-        # Suppress the "الملخص:" label when Hatif's own summary already
-        # starts with "ملخص" (≈ "Summary" in Arabic). With ### markdown
-        # stripped, the typical Hatif call-summary is e.g.
-        # "ملخص المكالمة • …" — adding "الملخص:" in front would
-        # double-label the bubble.
-        if summary.startswith('ملخص'):
+        # Suppress the "Summary:" label when Hatif's own summary already
+        # begins with the word "ملخص" / "Summary" — typical Hatif
+        # call summaries start with "ملخص المكالمة • …" which would
+        # double-label as "Summary: ملخص المكالمة …" otherwise.
+        lowered = summary.lower()
+        if summary.startswith('ملخص') or lowered.startswith('summary'):
             extra.append(f'<div>{escape(snippet)}</div>')
         else:
-            extra.append(f'<div><em>الملخص:</em> {escape(snippet)}</div>')
+            extra.append(
+                f'<div><em>{escape(str(_("Summary")))}:</em> {escape(snippet)}</div>'
+            )
     html = head + ('<br/>' + '<br/>'.join(extra) if extra else '')
     return Markup(html)
 
@@ -380,16 +376,16 @@ def _clean_summary(raw: str) -> str:
 
 def _call_icon_and_verb(status: str, pickup_kind: str) -> tuple[str, str]:
     if status == 'missed' and pickup_kind == 'none':
-        return '📞', 'مكالمة فائتة'
+        return '📞', str(_('Missed call'))
     if status == 'missed':
-        return '📞', 'مكالمة (لم يرد الموظف)'
+        return '📞', str(_('Call (no agent pickup)'))
     if status in ('answered', 'completed'):
-        return '📞', 'انتهت المكالمة'
+        return '📞', str(_('Call ended'))
     if status == 'ringing':
-        return '📞', 'جارٍ الاتصال'
+        return '📞', str(_('Call ringing'))
     if status == 'failed':
-        return '📞', 'فشلت المكالمة'
-    return '📞', f'مكالمة — {status or "غير معروف"}'
+        return '📞', str(_('Call failed'))
+    return '📞', str(_('Call %s')) % (status or _('unknown'))
 
 
 def _maybe_download_recording(call_row) -> list:
@@ -434,21 +430,21 @@ def _render_wa_body(htf_message, direction: str) -> Markup:
 
     Returned as `markupsafe.Markup` so HTML survives Odoo's
     message_post sanitiser. Plain-text body (escaped) for text
-    messages. Media types get a labelled placeholder in Arabic
-    (Numo's customer locale) — media itself is NOT downloaded
-    because Hatif's mediaUrl is short-lived.
+    messages. Media types get a labelled placeholder — English
+    source string with `_()` so `i18n/ar.po` controls the Arabic
+    translation per-user locale.
     """
     msg_type = htf_message.message_type or 'text'
     body = htf_message.body or ''
     if msg_type == 'text':
         return Markup(escape(body).replace('\n', '<br/>'))
     label = {
-        'image': '📷 صورة',
-        'video': '🎥 فيديو',
-        'audio': '🎵 تسجيل صوتي',
-        'document': '📎 مستند',
-        'location': '📍 موقع',
-    }.get(msg_type, 'مرفق')
+        'image': _('📷 Image'),
+        'video': _('🎥 Video'),
+        'audio': _('🎵 Audio'),
+        'document': _('📎 Document'),
+        'location': _('📍 Location'),
+    }.get(msg_type, _('Attachment'))
     caption = escape(body) if body else ''
-    html = f'<em>{escape(label)}</em>' + (f'<br/>{caption}' if caption else '')
+    html = f'<em>{escape(str(label))}</em>' + (f'<br/>{caption}' if caption else '')
     return Markup(html)

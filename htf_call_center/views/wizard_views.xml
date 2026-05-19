@@ -141,47 +141,47 @@
             <field name="name">htf.send.whatsapp.wizard.form</field>
             <field name="model">htf.send.whatsapp.wizard</field>
             <field name="arch" type="xml">
-                <form string="إرسال واتساب">
+                <form string="Send WhatsApp">
                     <sheet>
                         <div class="alert alert-warning" role="alert"
                              invisible="not preflight_error">
                             <field name="preflight_error" readonly="1" nolabel="1"/>
                         </div>
                         <group>
-                            <group string="إلى">
-                                <field name="partner_id" string="جهة الاتصال" readonly="1"/>
-                                <field name="to_number" string="رقم المستلم"/>
-                                <field name="channel_id" string="القناة"
+                            <group string="To">
+                                <field name="partner_id" readonly="1"/>
+                                <field name="to_number"/>
+                                <field name="channel_id"
                                        options="{'no_create': True}"/>
-                                <field name="resolved_channel_display" string="القناة المعتمدة" readonly="1"/>
-                                <field name="dnc_blocked" string="محظور (DNC)" readonly="1"/>
-                                <field name="window_open" string="نافذة الـ 24 ساعة مفتوحة" readonly="1"/>
+                                <field name="resolved_channel_display" readonly="1"/>
+                                <field name="dnc_blocked" readonly="1"/>
+                                <field name="window_open" readonly="1"/>
                             </group>
-                            <group string="الوضع">
-                                <field name="mode" string="نوع الإرسال" widget="radio"/>
+                            <group string="Mode">
+                                <field name="mode" widget="radio"/>
                             </group>
                         </group>
-                        <group invisible="mode != 'text'" string="نص حر">
+                        <group invisible="mode != 'text'" string="Free-form text">
                             <field name="text" nolabel="1"
-                                   placeholder="اكتب رسالتك..."/>
+                                   placeholder="Type your message…"/>
                         </group>
-                        <group invisible="mode != 'template'" string="قالب رسالة">
-                            <field name="template_name" string="اسم القالب"
-                                   placeholder="اسم القالب المعتمد في Hatif بالضبط"/>
-                            <field name="template_language" string="لغة القالب"/>
-                            <field name="template_category" string="فئة القالب"/>
-                            <field name="template_body_params" string="معاملات النص"
+                        <group invisible="mode != 'template'" string="Template">
+                            <field name="template_name"
+                                   placeholder="exact Hatif-approved template name"/>
+                            <field name="template_language"/>
+                            <field name="template_category"/>
+                            <field name="template_body_params"
                                    placeholder="Ahmed|ORD-5123|confirmed"/>
-                            <field name="template_parameters_json" string="JSON المعاملات"
+                            <field name="template_parameters_json"
                                    placeholder='[{"Type":"Body","Values":[...]}]'
                                    widget="text"/>
                         </group>
                     </sheet>
                     <footer>
                         <button name="action_send" type="object"
-                                string="إرسال" class="btn-primary"
+                                string="Send" class="btn-primary"
                                 invisible="preflight_error"/>
-                        <button special="cancel" string="إلغاء"
+                        <button special="cancel" string="Cancel"
                                 class="btn-secondary"/>
                     </footer>
                 </form>
@@ -189,7 +189,7 @@
         </record>
 
         <record id="action_htf_send_whatsapp_wizard" model="ir.actions.act_window">
-            <field name="name">إرسال واتساب</field>
+            <field name="name">Send WhatsApp</field>
             <field name="res_model">htf.send.whatsapp.wizard</field>
             <field name="view_mode">form</field>
             <field name="target">new</field>
