@@ -194,11 +194,10 @@ def mirror_outbound_wa_from_hatif(env, partner, htf_message, payload: dict) -> N
             return  # idempotent
         body = _render_wa_body(htf_message, direction='outbound')
         # Author: the agent who sent it via Hatif (if mapped). Otherwise
-        # fall back to OdooBot — NOT env.user.partner_id, which during
-        # webhook dispatch resolves to the public partner ("Public user")
-        # and renders as anonymous in Discuss. OdooBot reads clearly as
-        # a system actor.
-        author = _resolve_outbound_author(env, htf_message)
+        # anchor to the customer's partner — visually consistent (their
+        # name + Hatif logo avatar) and avoids "Public user" / OdooBot
+        # noise when the webhook doesn't tell us the agent.
+        author = _resolve_outbound_author(env, htf_message, partner=partner)
         channel.with_context(
             mail_create_nosubscribe=True,
             htf_mirror_write=True,
@@ -287,38 +286,27 @@ def _resolve_call_author(env, call_row, partner):
     if direction == 'outbound':
         if call_row.handler_user_id and call_row.handler_user_id.partner_id:
             return call_row.handler_user_id.partner_id
-        return _system_actor_partner(env)
+        return partner  # anchor to the customer when no agent identified
     # inbound (or unknown direction) — anchor to the customer
     return partner
 
 
-def _resolve_outbound_author(env, htf_message):
+def _resolve_outbound_author(env, htf_message, partner=None):
     """Pick the author for an outbound mirror mail.message bubble.
 
     Order of preference:
       1. htf.message.sender_user_id.partner_id — the agent Hatif tells
          us sent it via their portal
-      2. OdooBot (base.partner_root) — never the public user partner,
-         which would render as "Public user" and look like spam
+      2. The customer's partner (passed in) — gives Hatif-icon avatar
+         + the customer name, which is what Numo agents want for
+         visual consistency in Hatif channels
+      3. OdooBot only as last-resort fallback
     """
     if htf_message.sender_user_id and htf_message.sender_user_id.partner_id:
         return htf_message.sender_user_id.partner_id
-    return _system_actor_partner(env)
-
-
-def _system_actor_partner(env):
-    """Return a sane system-actor partner (OdooBot).
-
-    During webhook dispatch `env.user` resolves to the anonymous
-    public user — its partner renders as "Public user" which looks
-    wrong on a customer-conversation bubble. base.partner_root
-    (OdooBot) is the canonical "system did this" persona.
-    """
-    bot = env.ref('base.partner_root', raise_if_not_found=False)
-    if bot:
-        return bot
-    # Defensive fallback — env.user when nothing else available.
-    return env.user.partner_id
+    if partner:
+        return partner
+    return env.ref('base.partner_root', raise_if_not_found=False) or env.user.partner_id
 
 
 def _render_call_body(call_row) -> Markup:

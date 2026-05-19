@@ -164,7 +164,11 @@ msgs = env['mail.message'].search([('model','=','discuss.channel'),('res_id','='
 print(f'MSG_COUNT:{len(msgs)}')
 if msgs:
     msg = msgs[0]
-    print(f'MSG_AUTHOR_NOT_PARTNER:{msg.author_id.id != p.id}')
+    # In 19.0.1.4.0+ the outbound mirror author falls back to the
+    # customer's partner when sender_user_id is unmapped — that way
+    # the bubble renders with the Hatif logo + customer name instead
+    # of an unhelpful OdooBot/Public-user attribution.
+    print(f'MSG_AUTHOR_IS_PARTNER_OR_SENDER:{msg.author_id.id == p.id or (m.sender_user_id and msg.author_id == m.sender_user_id.partner_id)}')
     print(f'MSG_BODY_HAS_TEXT:{"reply from portal" in (msg.body or "")}')
 
 cfg.set_param('discuss_mirror_enabled', False)
@@ -173,7 +177,8 @@ env.cr.rollback()
 """)
     L = {l.split(':', 1)[0]: l for l in out.splitlines() if ':' in l}
     check('outbound portal WA -> 1 mail.message', 'MSG_COUNT:1' in L.get('MSG_COUNT', ''))
-    check('outbound author != partner', 'True' in L.get('MSG_AUTHOR_NOT_PARTNER', 'False'))
+    check('outbound author = customer (no sender_user_id mapping)',
+          'True' in L.get('MSG_AUTHOR_IS_PARTNER_OR_SENDER', 'False'))
     check('outbound body present', 'True' in L.get('MSG_BODY_HAS_TEXT', 'False'))
 
 
