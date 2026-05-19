@@ -123,10 +123,12 @@ class DiscussChannel(models.Model):
             if not partner.x_htf_discuss_channel_id:
                 partner.sudo().write({'x_htf_discuss_channel_id': existing.id})
             return existing
-        # Create. Use _create_channel to get sensible defaults, then
-        # adjust. The display_name fallback handles partners without
-        # x_htf_contact_id (e.g., manual creations).
-        channel_name = f'Hatif · {partner.display_name or partner.name or "?"}'
+        # Create. Channel name uses a 📞 emoji prefix so the rows sort
+        # together alphabetically AND are visually distinct from regular
+        # Odoo channels (general, etc.) in the Discuss sidebar — Odoo 19
+        # doesn't support custom sidebar categories, so prefix-grouping
+        # is the cheapest legible solution.
+        channel_name = f'📞 {partner.display_name or partner.name or "?"}'
         channel = self.sudo().create({
             'name': channel_name[:200],  # mail enforces 200-char cap somewhere
             'channel_type': 'channel',

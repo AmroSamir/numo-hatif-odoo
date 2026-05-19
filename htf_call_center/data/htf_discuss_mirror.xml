@@ -22,7 +22,15 @@
             <field name="name">Hatif Mirror</field>
             <field name="internal" eval="True"/>
             <field name="sequence">99</field>
-            <field name="description">System-generated mirror of a Hatif call or WhatsApp message. Used by the Discuss-as-Hatif-conversation feature; do not select manually.</field>
+            <!--
+                description is INTENTIONALLY EMPTY. Earlier we put a
+                "do not select manually" tooltip here but Odoo Discuss
+                renders subtype.description as a small caption beneath
+                every chat bubble, which made every mirrored message
+                look like spam. The internals of the feature live in
+                this manifest entry and in CLAUDE.md instead.
+            -->
+            <field name="description"></field>
         </record>
     </data>
 </odoo>
