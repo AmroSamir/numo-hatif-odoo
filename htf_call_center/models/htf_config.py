@@ -68,6 +68,17 @@ _PARAM_SCHEMA = {
     # chain matches. Stored as integer id of htf.channel (or empty).
     'default_outbound_wa_channel_id': ('', str),
     'default_outbound_call_channel_id': ('', str),
+    # P7 — Mirror Hatif activity into per-partner discuss.channel rows so
+    # Odoo's native Discuss popup becomes the conversation surface.
+    # Master flag + 4 per-feature sub-flags. ALL default OFF — the module
+    # is shipping behaviour-neutral and is opted-in per environment via
+    # Settings → Technical → Parameters (or the helper method below).
+    # Toggle the master flag OFF to instantly disable every P7 codepath.
+    'discuss_mirror_enabled': ('False', lambda v: v == 'True'),
+    'discuss_mirror_inbound': ('False', lambda v: v == 'True'),
+    'discuss_mirror_calls': ('False', lambda v: v == 'True'),
+    'discuss_outbound_route': ('False', lambda v: v == 'True'),
+    'discuss_ui_override': ('False', lambda v: v == 'True'),
 }
 
 
@@ -111,6 +122,35 @@ class HtfConfig(models.AbstractModel):
     def get_all_params(self) -> dict:
         """Snapshot of every parameter (for debug + test fixtures)."""
         return {name: self.get_param(name) for name in _PARAM_SCHEMA}
+
+    # ------------------------------------------------------------------ #
+    # P7 — Discuss mirror feature-flag helper                             #
+    # ------------------------------------------------------------------ #
+
+    @api.model
+    def discuss_mirror_active(self, sub_flag: str | None = None) -> bool:
+        """True iff the master flag AND (optionally) the named sub-flag are on.
+
+        Every P7 codepath must call this in its first line and bail out if
+        False. With the master flag off the module behaves exactly like
+        the pre-P7 codebase (commit 0a4d674).
+
+        Known sub-flag names: 'inbound', 'calls', 'outbound', 'ui'.
+        Pass None to check only the master flag.
+        """
+        if not self.get_param('discuss_mirror_enabled'):
+            return False
+        if sub_flag is None:
+            return True
+        key = {
+            'inbound': 'discuss_mirror_inbound',
+            'calls': 'discuss_mirror_calls',
+            'outbound': 'discuss_outbound_route',
+            'ui': 'discuss_ui_override',
+        }.get(sub_flag)
+        if key is None:
+            raise HtfConfigError(_('Unknown discuss sub-flag: %s') % sub_flag)
+        return bool(self.get_param(key))
 
     # ------------------------------------------------------------------ #
     # Token cache helpers (auth service uses these)                       #
