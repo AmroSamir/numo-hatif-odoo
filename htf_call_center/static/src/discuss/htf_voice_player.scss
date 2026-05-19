@@ -95,3 +95,26 @@
     direction: ltr !important;
     unicode-bidi: isolate;
 }
+
+// P7.8 — "Call via Hatif" header action: paint the Font Awesome
+// fa-phone icon AND the label text Hatif teal (#02c7b5).
+//
+// Why a CSS class and not inline ``btnAttrs.style``: the Action class
+// in Odoo 19's mail module exposes a ``btnAttrs`` getter, but the
+// upstream ``mail.Action.main`` template at
+// odoo/addons/mail/static/src/core/common/action_list.xml does NOT
+// actually splat it onto the rendered <button> — only ``btnClass`` is
+// applied via ``t-att-class``. So inline style on btnAttrs is silently
+// dropped and we have to colour the icon via a class. ``!important``
+// because the upstream stack also assigns ``btn-secondary`` which sets
+// its own text color.
+.o-htf-hatif-call,
+.o-htf-hatif-call:hover,
+.o-htf-hatif-call:focus,
+.o-htf-hatif-call:active,
+.o-htf-hatif-call-label {
+    color: #02c7b5 !important;
+}
+.o-htf-hatif-call:hover {
+    background-color: rgba(2, 199, 181, 0.08);
+}

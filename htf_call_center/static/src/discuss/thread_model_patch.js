@@ -76,9 +76,13 @@ registerThreadAction("hatif-call", {
     // spacing/order stays familiar after the swap.
     sequence: 10,
     sequenceQuick: 30,
-    // Hatif teal brand colour via inline style on the button element.
-    btnAttrs: () => ({
-        style: `color: ${HATIF_BRAND_TEAL}`,
-        title: "Open Hatif portal in a new tab",
-    }),
+    // ``btnClass`` is rendered as a class on the <button> element by
+    // mail.Action.main; ``color`` cascades down to the <i> icon and
+    // the <span class="o-mail-ActionList-actionLabel"> label so both
+    // pick up the Hatif teal. ``btnAttrs`` is defined by the Action
+    // class but NOT consumed by the upstream button template in 19.0,
+    // so inline style on btnAttrs doesn't render — we have to apply
+    // the colour via a CSS class.
+    btnClass: "o-htf-hatif-call",
+    nameClass: "o-htf-hatif-call-label",
 });
