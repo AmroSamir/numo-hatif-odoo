@@ -24,19 +24,22 @@
 
             <!--
                 Call button — opens Hatif portal in a new tab.
-                Replaces the standard widget's tel: deep-link, which on
-                desktop hands off to the OS protocol handler (Facetime /
-                Skype) and bypasses Hatif entirely. Hatif portal has the
-                softphone + conversation history the agent actually needs.
+                Visible label + tooltip kept short ("Call" / "اتصال")
+                so they don't wrap awkwardly in the inline form layout
+                or in the Arabic RTL view. The href is the only thing
+                that changed vs. the standard widget: it now points at
+                the Hatif portal (deep-linked to the partner's
+                conversation when known) instead of the desktop-useless
+                ``tel:`` protocol handler.
             -->
             <a t-if="hasPhoneValue"
                t-att-href="hatifCallHref"
                target="_blank"
                rel="noopener noreferrer"
                class="o_htf_phone_btn ms-2 d-inline-flex align-items-center"
-               title="Call via Hatif (opens Hatif portal in a new tab)">
+               title="Call (opens phone / Hatif app)">
                 <i class="fa fa-phone"/>
-                <small class="fw-bold ms-1">Call via Hatif</small>
+                <small class="fw-bold ms-1">Call</small>
             </a>
 
             <!-- WhatsApp button — opens Send WA wizard if partner context exists -->

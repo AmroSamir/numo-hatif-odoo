@@ -23,14 +23,14 @@ msgstr ""
 #. module: htf_call_center
 #. odoo-javascript
 #: code:addons/htf_call_center/static/src/views/fields/phone/htf_phone_field.xml:0
-msgid "Call via Hatif"
-msgstr "اتصال عبر Hatif"
+msgid "Call"
+msgstr "اتصال"
 
 #. module: htf_call_center
 #. odoo-javascript
 #: code:addons/htf_call_center/static/src/views/fields/phone/htf_phone_field.xml:0
-msgid "Call via Hatif (opens Hatif portal in a new tab)"
-msgstr "اتصال عبر Hatif (يفتح بوابة Hatif في نافذة جديدة)"
+msgid "Call (opens phone / Hatif app)"
+msgstr "اتصال عبر هاتف"
 
 #. module: htf_call_center
 #. odoo-javascript

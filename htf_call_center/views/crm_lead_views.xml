@@ -25,6 +25,20 @@
                 <xpath expr="//field[@name='phone']" position="attributes">
                     <attribute name="widget">htf_phone</attribute>
                 </xpath>
+                <!--
+                    Expose the related ``x_htf_last_conversation_id``
+                    (read-through to ``partner_id.x_htf_last_conversation_id``,
+                    declared on crm.lead in ``models/crm_lead.py``) as an
+                    invisible field so the OWL record loader pulls it
+                    into ``record.data``. The ``htf_phone`` widget's
+                    ``hatifCallHref`` getter reads it to deep-link the
+                    Call button into the partner's Hatif conversation —
+                    matching the Discuss ChatWindow "Call via Hatif"
+                    header action behaviour.
+                -->
+                <xpath expr="//field[@name='phone']" position="after">
+                    <field name="x_htf_last_conversation_id" invisible="1"/>
+                </xpath>
                 <xpath expr="//header" position="inside">
                     <button name="%(action_htf_send_whatsapp_wizard)d"
                             type="action"
