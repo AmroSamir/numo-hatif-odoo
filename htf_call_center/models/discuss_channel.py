@@ -304,10 +304,21 @@ class DiscussChannel(models.Model):
                 'This partner has opted out (DNC). WhatsApp send blocked.'
             )) from None
         except HtfWindowExpiredError:
+            # Locked wording matches Hatif's portal notice so agents see
+            # consistent messaging across both surfaces. Arabic line
+            # follows the English so workspaces with an Arabic locale
+            # see the same message directly without needing a .po file
+            # round-trip.
             raise UserError(_(
-                'The 24-hour WhatsApp window is closed for %s. '
-                'Use a template via the partner form Send WhatsApp button instead.'
-            ) % partner.display_name) from None
+                "Template message required\n\n"
+                "To start or resume a conversation, you must send an "
+                "approved Meta template message. Once the customer "
+                "replies, you can message freely for 24 hours.\n\n"
+                "يلزم إرسال قالب رسالة\n\n"
+                "لبدء المحادثة أو استئنافها، يجب إرسال قالب رسالة "
+                "معتمد من Meta. بعد رد العميل، ستتمكن من الكتابة "
+                "بحرية لمدة 24 ساعة."
+            )) from None
         # Tag the Discuss-composer mail.message with the SAME message_id
         # sentinel a server-side mirror write would use. Reason: when
         # Hatif's outbound STATUS webhook later fires
