@@ -38,6 +38,7 @@ for every interaction afterwards.
         'security/ir.model.access.csv',
         'security/record_rules.xml',
         'data/ir_cron.xml',
+        'data/htf_discuss_mirror.xml',
         'views/res_config_settings_views.xml',
         'views/htf_webhook_event_views.xml',
         # Wizards (with their act_window actions) must load BEFORE any

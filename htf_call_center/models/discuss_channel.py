@@ -19,7 +19,11 @@ a no-op and the field is read but ignored.
 
 from __future__ import annotations
 
-from odoo import fields, models
+import logging
+
+from odoo import api, fields, models
+
+_logger = logging.getLogger(__name__)
 
 
 class DiscussChannel(models.Model):
@@ -61,3 +65,62 @@ class DiscussChannel(models.Model):
         help='Updated on every webhook. Tells the outbound override '
              'which Hatif channel to route the agent reply through.',
     )
+
+    # ------------------------------------------------------------------ #
+    # Channel auto-provisioning                                          #
+    # ------------------------------------------------------------------ #
+
+    @api.model
+    def _ensure_htf_discuss_channel(self, partner):
+        """Get-or-create the per-partner Hatif Discuss channel.
+
+        Idempotent. Returns the channel record. CALLER MUST CHECK the
+        master feature flag before calling — this method assumes it is
+        on and proceeds unconditionally.
+
+        Channel shape (decisions locked 2026-05-19):
+          - channel_type='channel' (private)
+          - name = f"Hatif · {partner.display_name}"
+          - members: the partner (so their name + avatar render on
+            inbound bubbles via author_id=partner.id)
+          - x_htf_partner_id = partner.id (this is what the OWL patch
+            and revert tooling look for)
+        """
+        if not partner:
+            return self.env['discuss.channel']
+        # Fast path — back-reference on the partner.
+        if partner.x_htf_discuss_channel_id and partner.x_htf_discuss_channel_id.active:
+            return partner.x_htf_discuss_channel_id
+        # Slow path — orphan-search by x_htf_partner_id (handles the case
+        # where partner.x_htf_discuss_channel_id got cleared somehow).
+        existing = self.sudo().search(
+            [('x_htf_partner_id', '=', partner.id), ('active', '=', True)], limit=1,
+        )
+        if existing:
+            if not partner.x_htf_discuss_channel_id:
+                partner.sudo().write({'x_htf_discuss_channel_id': existing.id})
+            return existing
+        # Create. Use _create_channel to get sensible defaults, then
+        # adjust. The display_name fallback handles partners without
+        # x_htf_contact_id (e.g., manual creations).
+        channel_name = f'Hatif · {partner.display_name or partner.name or "?"}'
+        channel = self.sudo().create({
+            'name': channel_name[:200],  # mail enforces 200-char cap somewhere
+            'channel_type': 'channel',
+            'group_public_id': False,  # private — only invited members see it
+            'x_htf_partner_id': partner.id,
+        })
+        # Add the customer as a participant so author_id=partner.id renders
+        # their name + avatar on inbound bubbles. They have no res.users
+        # — they never log in. This is the "partner-as-participant"
+        # decision from the spec.
+        self.env['discuss.channel.member'].sudo().create({
+            'channel_id': channel.id,
+            'partner_id': partner.id,
+        })
+        partner.sudo().write({'x_htf_discuss_channel_id': channel.id})
+        _logger.info(
+            "[htf-discuss] auto-provisioned channel id=%s for partner id=%s (%s)",
+            channel.id, partner.id, partner.display_name,
+        )
+        return channel

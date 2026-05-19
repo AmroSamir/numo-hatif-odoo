@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!--
+            P7 — Mirror sentinel subtype.
+
+            Every mail.message written by the Hatif to Discuss mirror
+            service is tagged with this subtype. The outbound override
+            (P7.4) checks for this subtype before re-firing a Hatif
+            send — this is the loop-prevention sentinel. Also used by
+            the unbackfill revert tool to identify mirror messages
+            distinct from agent posts.
+
+            internal=True keeps it out of partner-follower notification
+            email cascades. sequence=99 puts it at the bottom of any
+            subtype picker (admins rarely select it manually).
+
+            noupdate="1" so admins can rename or disable it in production
+            without it being clobbered on the next module upgrade.
+        -->
+        <record id="mt_htf_mirror" model="mail.message.subtype">
+            <field name="name">Hatif Mirror</field>
+            <field name="internal" eval="True"/>
+            <field name="sequence">99</field>
+            <field name="description">System-generated mirror of a Hatif call or WhatsApp message. Used by the Discuss-as-Hatif-conversation feature; do not select manually.</field>
+        </record>
+    </data>
+</odoo>

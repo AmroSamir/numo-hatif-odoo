@@ -29,7 +29,7 @@ from datetime import datetime
 from odoo.tools import safe_eval  # noqa: F401 — keep import bag tidy
 
 from ..signals import htf_signals
-from . import chatter, dnc_listener
+from . import chatter, discuss_mirror, dnc_listener
 
 _logger = logging.getLogger(__name__)
 
@@ -122,6 +122,10 @@ def _process_inbound(env, payload: dict) -> str:
                 "[htf-wa] chatter post failed for partner=%s msg_id=%s",
                 partner.id, new_msg.id,
             )
+        # P7 — Mirror into the partner's Discuss channel. No-op when
+        # htf_call_center.discuss_mirror_enabled is off. Best-effort —
+        # discuss_mirror.mirror_inbound_wa swallows its own exceptions.
+        discuss_mirror.mirror_inbound_wa(env, partner, new_msg, payload)
 
     # Fire the signal so the bridge can react (auto-create lead, etc.).
     _fire_signal('htf.wa.inbound', {
@@ -193,6 +197,8 @@ def _process_outbound_status(env, payload: dict) -> str:
                     "[htf-wa] outbound chatter post failed for partner=%s msg_id=%s",
                     partner.id, new_msg.id,
                 )
+            # P7 — Mirror to Discuss. No-op when flags off.
+            discuss_mirror.mirror_outbound_wa_from_hatif(env, partner, new_msg, payload)
         _fire_signal('htf.wa.outbound', {
             'message_id': new_msg.id,
             'partner_id': partner.id if partner else None,
