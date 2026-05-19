@@ -64,15 +64,17 @@
         white-space: nowrap;
         flex-shrink: 0;
         // direction: ltr + unicode-bidi: isolate force "00:33" to
-        // render left-to-right even in the Arabic (RTL) UI. Without
-        // this the colon is treated as a weak directional character
-        // and the time visually flips to "33:00" — a 33-second
-        // recording then reads as "33 minutes 00 seconds".
+        // render left-to-right even in the Arabic (RTL) UI.
         //
-        // !important is required because the surrounding Discuss
-        // panel inherits direction: rtl from the Arabic locale, and
-        // browsers favour the more-specific ancestor's direction
-        // over our cascade unless we mark this explicit.
+        // CRITICAL: the `/*rtl:ignore*/` comment is mandatory.
+        // Odoo's asset pipeline runs every compiled CSS bundle through
+        // an RTL flipper (postcss-rtlcss / rtlcss) for the Arabic
+        // locale. That flipper treats "direction: ltr" as a value to
+        // mirror and rewrites it as "direction: rtl !important" in
+        // the served bundle — defeating the whole purpose. The
+        // `/*rtl:ignore*/` annotation tells the flipper to leave this
+        // declaration untouched.
+        /*rtl:ignore*/
         direction: ltr !important;
         unicode-bidi: isolate;
     }
@@ -82,13 +84,14 @@
 // date, or duration so the Arabic-RTL bidi algorithm doesn't flip
 // "+966 56 186 8578" to "8578 186 56 966+" or "00:32" to "32:00".
 //
-// Scope is intentionally broad inside Discuss-only classes — these
-// rules ONLY trigger on elements that already carry the listed mail
-// classes, so they don't leak into other Odoo screens.
+// `/*rtl:ignore*/` is the rtlcss directive — without it the Odoo
+// asset compiler flips our "direction: ltr" to "direction: rtl" for
+// the Arabic locale bundle (verified via DevTools on erp.amro.pro).
 .o-mail-Message-author,
 .o-mail-Message-date,
 .o-mail-ChatWindow-header .text-truncate.fw-bold,
 .o-mail-VoicePlayer .text-muted {
+    /*rtl:ignore*/
     direction: ltr !important;
     unicode-bidi: isolate;
 }
