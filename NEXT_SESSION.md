@@ -1,270 +1,124 @@
 # NEXT SESSION — start here
 
-Last updated: **2026-05-19** — after live UAT confirmed P4 backend
-+ Hatif analytics flowing (full Arabic summary + sentiment for
-calls ≥ 30s) + fuzzy Arabic-name user mapping working.
+Last updated: **2026-05-19** (end of day) — P0-P4 all live on
+`erp.amro.pro` after a full UAT round. Session closed cleanly.
 
 ---
 
-## 🗒️ Amr's "do these later" queue (priority order)
+## 30-second TL;DR
 
-All three big phases below are **approved by Amr** for build. Order is
-priority — finish each before starting the next unless explicitly
-re-prioritised. Open the corresponding planning docs for the spec.
-
-1. **★ P8 — Outbound Sales Acceleration** ✅ APPROVED
-   - Daily call queue per agent, click-to-call, pre-call brief panel,
-     post-call wrap-up wizard auto-opens on htf.call.received,
-     agent scorecard dashboard
-   - ~12-16h, lives in `numo_crm_htf` bridge module
-   - **Highest ROI** given 99% outbound reality — every Numo sales
-     agent's daily workflow happens here
-   - Pre-build questions (need answers before T8.1 starts):
-       (a) What 'Outcome' options? (Interested / Not interested /
-           Voicemail / Wrong number / Reschedule / …)
-       (b) What 'Next step' options? (Send template — which? /
-           Schedule callback / Move stage / Won / Lost / …)
-       (c) Should the wrap-up wizard be MANDATORY or skippable?
-       (d) Daily queue priority rule — default I proposed:
-           `(activity deadline overdue) > (lead score) > (days since last touch)`.
-           Want a Numo-specific rule instead?
-
-2. **★ P9 — Speech Analytics via n8n** ✅ APPROVED
-   - Now that transcripts + summaries are landing for calls ≥30s,
-     ship the n8n bridge: post each completed htf.call to an n8n
-     webhook → n8n calls LLM (Claude/GPT/whatever Numo picks) →
-     n8n PUSHES back stage progression + agent score via JSON-RPC
-   - Q-19 ANSWERED, Q-30 ANSWERED with n8n routing path
-   - ~8h, lives in `numo_crm_htf` bridge
-   - Depends on P8 being live so the wrap-up form can show LLM
-     suggestions inline.
-
-3. **★ P5 — Conversations Sync** ✅ APPROVED
-   - Polling backfill insurance against missed webhooks; cron-polls
-     Hatif `/conversations` and reconciles into htf.message + htf.call
-   - Lower priority than P8/P9 since live UAT shows webhooks are
-     flowing reliably so far; promote if/when we see lost events
-   - ~6h, lives in htf_call_center wrapper
-
-4. **Send Hatif support email**
-   - Draft at `htf_call_center/docs/HATIF_SUPPORT_WEBHOOK_SIGNING_REQUEST.md`
-   - Asks about (a) webhook signing, (b) source IP allowlist,
-     (c) post-call webhook re-fire timing, (d) status=8 enum,
-     (e) per-channel analytics toggle
-5. **T4.5 transcript click-to-seek widget**
-   - OWL polish — clicking a word in the transcript seeks the
-     embedded audio player. ~3h. Browser-verify required.
-
----
-
-## Morning checklist (in order)
-
-### 1. Pull + upgrade on erp.amro.pro
-
-```bash
-cd /opt/odoo-erp-amro-pro/extra-addons/numo-hatif-odoo/
-git pull origin main
-# expect: de0f29b..de16663 (or later)
-
-docker compose -f /opt/odoo-erp-amro-pro/docker-compose.yml stop web
-docker compose -f /opt/odoo-erp-amro-pro/docker-compose.yml run --rm web \
-    odoo -d numo -u htf_call_center --stop-after-init --no-http --log-level=warn 2>&1 | tail -10
-docker compose -f /opt/odoo-erp-amro-pro/docker-compose.yml up -d web
-sleep 6
-```
-
-### 2. Register Post-call Webhook URL on Hatif portal
-
-For each channel at `https://app.hatif.io/en/settings/api-connect`:
-
-- **Post-call Webhook URL:** `https://erp.amro.pro/htf/webhook/call`
-
-(Same pattern as the WA webhook URL you already set yesterday. The
-secret slot stays blank — Hatif still doesn't sign webhooks, so the
-controller relies on `dev_mode_skip_hmac=True` which is already on
-from yesterday's session.)
-
-### 3. Place a test call
-
-Call your phone → **+966 11 500 1591** (أكاديمية نمو). Let it ring,
-either answer or miss. Either way Hatif sends a Post-call webhook
-when the call ends.
-
-### 4. Verify in Odoo
-
-`https://erp.amro.pro/odoo` →
-
-- **Hatif → Calls** menu (new today!) → your call should appear at
-  the top with status (Completed / Missed / Failed), direction,
-  duration, sentiment badge
-- **Open the call row** → notebook tabs show Summary / Transcript /
-  QA Rubric — all populated by Hatif's analytics
-- **Open the partner** (auto-created or matched by phone) → chatter
-  has a 📞 bubble with duration, recording link, summary preview
-- **Smart buttons** on the partner form: `Calls` count, `WhatsApp`
-  count — click either to drill into the filtered list
-
-### 5. If it works → sign off P4 backend
-
-Tell me "P4 live ✓" and I'll start either:
-- P4 UI polish (T4.4 audio player + T4.5 click-to-seek transcript OWL
-  widgets) — needs browser verification, defer if you're not in a
-  testing mood
-- P5 Conversations Sync — polling backfill insurance against missed
-  webhooks
-- Or just start P6 CRM Enrichment (the bridge module)
-
----
-
-## What was shipped overnight
-
-7 commits between the late-night signoff and this report:
-
-```
-de0f29b  docs: P2+P3 live-UAT session wrap-up + Hatif support note
-637f823  feat(htf-call): P4 backend (T4.1 + T4.2 + T4.3 + T4.6)
-de16663  test(htf-call): P4 E2E (39/39) + smart buttons on res.partner (T4.8)
-<this>   docs(handoff): refresh after overnight P4 ship
-```
-
-Plus a few from the live-UAT session earlier today:
-```
-664a5e4  fix(outbound): proper E.164 canonicalization + PII scrub
-738e33c  fix(outbound): canonicalize phones for whitelist comparison
-aef4f14  fix(webhook): honor dev_mode_skip_hmac
-ced6a98  debug(webhook): verbose HMAC failure diagnostics
-77775a7  fix(ui): bind Bind-Channels wizard to ⚙ Actions menu
-cdf83c8  feat(channels-ux): disable manual create + add Sync action
-```
-
----
-
-## Where we are
+The Hatif↔Odoo bridge `htf_call_center` is **production-shape** on
+the staging ERP (`https://erp.amro.pro`, db `numo`). Real-world
+inbound + outbound flows are verified across calls + WhatsApp.
 
 | Phase | Status |
 |---|---|
-| P0 Foundation | ✅ live on erp.amro.pro |
-| P1 Channels + Contacts + Users | ✅ live (2 channels, 7 users, 1 tag) |
-| P2 WhatsApp Inbound | ✅ **LIVE-UAT'd** — real phone → Odoo chatter |
-| P3 WhatsApp Outbound | ✅ **LIVE-UAT'd** — Odoo wizard → real phone |
-| P4 Calls Webhook | ✅ **backend shipped + tested**, live UAT pending step 3 above |
-| P5 Conversations Sync | — |
-| P6 CRM Enrichment | — |
-| P7 Reporting + Differentiators | — |
-| P8 Outbound Sales Acceleration | — |
-| P9 Speech Analytics via n8n | — |
+| P0 Foundation | ✅ live |
+| P1 Channels + Contacts + Users | ✅ live |
+| P2 WhatsApp Inbound | ✅ live |
+| P3 WhatsApp Outbound | ✅ live |
+| P4 Calls Webhook | ✅ live |
+| ★ **P8 Outbound Sales Acceleration** | approved, **NEXT** |
+| ★ P9 Speech Analytics via n8n | approved, after P8 |
+| ★ P5 Conversations Sync | approved, lower priority |
 
-E2E scoreboard:
-- P0 → 59/59
-- P1 → 73/73
-- P2 → 63/63
-- P3 backend → 24/24
-- P3 UI → 17/17
-- P4 → 39/39
-- **Total local: 275/275**
-
-GitHub: https://github.com/AmroSamir/numo-hatif-odoo (branch `main`)
+GitHub: https://github.com/AmroSamir/numo-hatif-odoo
+Latest commit: `2bfe333` (or whatever's on `main` when you sit down).
+Test scoreboard: **275/275** across 6 suites locally.
 
 ---
 
-## P4 — what the model captures
+## 🗒️ Amr's approved queue (priority order)
 
-`htf.call` is 33 fields covering Hatif's full Call Webhook payload:
+### 1. ★ P8 — Outbound Sales Acceleration (NEXT)
 
-| Group | Fields |
+Lives in `numo_crm_htf` bridge module (sibling repo dir,
+not started yet). ~12-16h. Highest ROI because 99% of Numo's calls
+are outbound (Q-29 ANSWERED).
+
+**What it ships:**
+
+| Task | What |
 |---|---|
-| Routing | direction (inbound/outbound), status (8-way enum), channel_id, partner_id, handler_user_id |
-| Phones | caller_number, callee_number, contact_number |
-| Timing | created_at, pickup_time, hangup_time, duration_seconds (auto), call_length_raw |
-| Analytics | recording_url, transcription_text, transcription_words_json, summary, sentiment, evaluation_criteria_json |
-| Hatif IDs | htf_call_id (unique), workspace_uuid, contact_uuid, ai_agent_uuid |
-| Audit | chatter_message_id (back-ref), raw_payload |
+| T8.1 | Daily Call Queue list view per agent. Priority order from CRM activity + lead score + last touch |
+| T8.2 | Click-to-call from the queue → opens Hatif app via `tel:` deep-link (or Hatif outbound API if Hatif publishes one) |
+| T8.3 | Pre-call Brief side panel — last calls (transcripts, summaries, sentiment from P4) + last WA thread + CRM activity + partner tags, all in one screen |
+| T8.4 | Post-call Wrap-up wizard — auto-opens on `htf.call.received` signal. Outcome / Next step / Notes form writes to crm.lead + creates `mail.activity` |
+| T8.5 | Agent Scorecard widget — calls today/week/month, connect rate, avg duration, avg sentiment, conversion |
 
-Signal dispatch:
-- `status=completed` → `htf.call.received`
-- `status in {missed, no_answer, rejected_by_callee, cancelled}` → `htf.call.missed`
-- `status=failed` → `htf.call.failed`
-- `status=active` → no signal (call still in flight)
+**P8 pre-build questions Amr needs to answer before T8.1 starts:**
 
----
+- (a) **Outcome enum:** Interested / Not interested / Voicemail /
+  Wrong number / Reschedule / ... — additions or removals?
+- (b) **Next step options:** which templates to surface? Schedule
+  callback / Move stage / Won / Lost / others?
+- (c) **Wrap-up wizard:** mandatory (blocking until filled) or
+  skippable?
+- (d) **Daily queue priority rule:** default proposal is
+  `(activity deadline overdue) > (lead score) > (days since last touch)`.
+  Want a Numo-specific rule instead?
 
-## Notes for live UAT verification
+### 2. ★ P9 — Speech Analytics via n8n (after P8)
 
-### What to expect from Hatif's analytics on a real call
+`numo_crm_htf` bridge. ~8h. Q-19 + Q-30 ANSWERED with n8n routing.
 
-Per the Hatif Call Webhook spec, when a call completes Hatif POSTs us:
+Now that Hatif sends transcripts + summaries + sentiment for calls
+≥30s (verified live), ship the n8n bridge:
+- Post each completed `htf.call` to an n8n webhook (HMAC-signed)
+- n8n calls LLM (Claude/GPT/whatever) with structured prompt
+- n8n PUSHES back `{stage, confidence, agent_score, notes}` via
+  Odoo JSON-RPC to `/htf/internal/llm/result` (HMAC-signed)
+- Bridge writes stage to `crm.lead`, creates `htf.agent.scorecard`
 
-```json
-{
-  "id": "<call-uuid>",
-  "workspaceId": "...",
-  "channelId": "3a20ffce-cc80-7229-8300-a394d13725a4",
-  "status": 1,   // Completed
-  "type": 1,     // Inbound
-  "callerNumber": "+966XXXXXXXXX",
-  "calleeNumber": "+966115001591",
-  "pickupTime":  "2026-05-19T08:30:00Z",
-  "hangupTime":  "2026-05-19T08:35:32Z",
-  "callLength":  "00:05:32",
-  "userId":      "<hatif-user-uuid>",   // agent who picked up
-  "userName":    "سامي العنزي",
-  "contactId":   "<hatif-contact-uuid>",
-  "contactNumber": "+966XXXXXXXXX",
-  "recordingUrl": "https://cdn.hatif/calls/...mp3",
-  "transcription": {
-    "text": "Full transcript ...",
-    "words": [{"text":"...","start":0.0,"end":0.4,"type":"word","speaker":"agent"}, ...]
-  },
-  "summary": "AI-generated summary ...",
-  "sentiment": 1,   // Positive
-  "evaluationCriteriaResult": [{"id":"...","description":"Greeted properly","value":"Yes","rationale":"..."}, ...],
-  "creationTime": "2026-05-19T08:30:00Z"
-}
-```
+Depends on P8 because the wrap-up form should show LLM suggestions
+inline ("LLM thinks: move to Qualified, confidence 0.84").
 
-If any field is missing on a real call, that's a Hatif analytics gap
-(not our bridge). Note it and we'll handle the falsy case gracefully —
-the dispatcher already does `(payload.get('field') or False)` on
-everything optional.
+### 3. ★ P5 — Conversations Sync (later)
 
-### Likely first-call observations
+`htf_call_center` wrapper. ~6h. Live UAT shows webhooks flowing
+reliably so this is insurance, not urgent.
 
-- **Status starts as Active (0)** when the call connects. Hatif may
-  send a webhook for this BEFORE the call ends. Our dispatcher will
-  create the htf.call row with status='active' and no analytics
-  fields populated, then UPDATE it in-place when the post-call
-  payload arrives. Single row across the lifecycle.
-- **First inbound from a new caller creates a placeholder partner**
-  named `Hatif Contact <short-uuid>` if Hatif's contactId is new.
-  Once Hatif's contact-sync polling catches up (P1 cron), the name
-  + phone get backfilled. You can also manually rename to the real
-  customer once you know who they are.
-- **handler_user_id may be empty** if the Hatif userId hasn't been
-  mapped to an Odoo user via the Map Users wizard. The hatif_user_name
-  string still shows so chatter is readable.
+Cron-poll Hatif `/v1/conversations` every 15 min and reconcile any
+missing events into `htf.message` + `htf.call`. Catches the rare
+case where Hatif's webhook delivery silently drops.
 
-### What if a real call shows up weird
+### 4. Send Hatif support email (5 min)
 
-Paste the offending row's `raw_payload` field (Audit tab on the call
-form) — that's the exact bytes Hatif sent. I can reverse-engineer
-any field shape mismatch and ship a fix in minutes.
+Draft is ready at:
+`htf_call_center/docs/HATIF_SUPPORT_WEBHOOK_SIGNING_REQUEST.md`
+
+Asks 7 questions: webhook signing status, source IPs, secret
+distribution, post-call re-fire timing, status=8 enum, per-channel
+analytics toggle, and the apidog/actual implementation gap.
+
+### 5. T4.5 — Transcript click-to-seek widget (3h)
+
+OWL polish: clicking a word in the transcript seeks the embedded
+audio player. The data is already there (`transcription_words_json`
+on `htf.call`). Needs browser-based verification — defer until
+you're at a machine with Chrome.
 
 ---
 
-## Still-deferred items
+## Reference
 
-| Task | Why deferred |
-|---|---|
-| T4.4 audio player OWL widget | Needs browser verification (Playwright Chrome not installed locally) |
-| T4.5 click-to-seek transcript OWL widget | Same OWL constraint |
-| T4.10 missed-call activity creator | Belongs in `numo_crm_htf` bridge (P6) |
-| T3.4 full chatter composer patch | Lite header button covers main UX; full patch is heavy OWL work |
-| Nginx IP allowlist for Hatif source IPs | Defense-in-depth follow-up to the unsigned-webhook reality |
-| Email Hatif support about webhook signing | Draft ready at `htf_call_center/docs/HATIF_SUPPORT_WEBHOOK_SIGNING_REQUEST.md` — just send it |
+### Environments
 
----
+| Env | URL | DB | Container | Path |
+|---|---|---|---|---|
+| Local (empty) | `localhost:8069` | `odoo` | `odoo-app` (OrbStack) | bind-mount `~/numo-hatif-odoo/` |
+| Local (full) | same | `test` | same | same |
+| **Staging** | `https://erp.amro.pro` | `numo` | `web-erp-amro-pro` | `/opt/odoo-erp-amro-pro/extra-addons/numo-hatif-odoo/` |
+| Prod | `https://erp.numo.sa` | `numo` | TBD | not deployed yet |
 
-## Suite-runner reference
+### Credentials
+
+In the workspace `.env` file at
+`/Users/amro/Downloads/Claude/odoo-modules/extra-addons/custom/call center modules/.env`.
+
+For erp.amro.pro: `ODOO_USERNAME=a.afifi@numo.sa` + `ODOO_API_KEY` (XML-RPC works for inspection).
+
+### Suite runner
 
 ```bash
 python3 /tmp/htf_e2e_check.py     # P0  → 59/59
@@ -275,75 +129,171 @@ python3 /tmp/htf_p3_ui_check.py   # P3 UI → 17/17
 python3 /tmp/htf_p4_check.py      # P4  → 39/39
 ```
 
-All six must stay green. They use the same shared HMAC secret
-(`p2-test-secret`) so they can run in sequence without
-ormcache-invalidation races on the running worker.
+Each suite's source is also under `htf_call_center/tools/htf_*_check.py`.
+
+### Deploy to staging
+
+```bash
+ssh root@<server>  # vmi3095315
+cd /opt/odoo-erp-amro-pro/extra-addons/numo-hatif-odoo/
+git pull origin main
+
+docker compose -f /opt/odoo-erp-amro-pro/docker-compose.yml stop web
+docker compose -f /opt/odoo-erp-amro-pro/docker-compose.yml run --rm web \
+    odoo -d numo -u htf_call_center --stop-after-init --no-http --log-level=warn 2>&1 | tail -10
+docker compose -f /opt/odoo-erp-amro-pro/docker-compose.yml up -d web
+sleep 6
+docker logs --tail 30 web-erp-amro-pro
+```
 
 ---
 
-## How the bridge is laid out (refresher)
+## Hatif live-UAT findings (critical knowledge)
+
+Captured 2026-05-19 against the real Numo workspace + Numo's two
+channels (أكاديمية نمو + الدعم الفني). Reality differs from the
+apidog spec in several places — keep this list handy for any future
+phase that touches Hatif data.
+
+### Webhooks
+
+1. **Hatif does NOT sign webhooks** despite the apidog spec claiming
+   HMAC-SHA256 in `X-Voxa-Signature`. Live captures show
+   `signature_headers={}` — no signature at all.
+   - Workaround: `htf.config.dev_mode_skip_hmac=True` on every env.
+   - Long-term: get Hatif to enable signing (support email
+     drafted).
+
+2. **Source IP observed:** `8.213.48.16` (single IP so far).
+   Use for Nginx allowlist if going defense-in-depth before signing
+   is fixed.
+
+3. **Composite event-id idempotency** (`<callId|messageId>:<status>:<direction>`)
+   is critical because Hatif reuses the same ID across the
+   lifecycle (Active → Completed for calls; Pending → Sent →
+   Delivered → Read for WA messages).
+
+### Call payload behaviour
+
+4. **Hatif sends `status=8`** ~1 second before `status=2` (Missed).
+   We map 8 → 'ringing'. Undocumented in apidog.
+
+5. **Analytics threshold ~30s.** Calls < 30s get a transcript only
+   (sometimes), no summary, no sentiment, no evaluationCriteriaResult.
+   Hatif's own UI shows the warning
+   *"This call is too short to analyse"*.
+
+6. **Analytics arrive in the FIRST webhook** for calls ≥30s
+   completed. We have NOT observed re-fired webhooks after enrichment
+   — calls 5 + 6 (32s and 50s completed) had null analytics in
+   their original webhook. Could be intermittent / per-channel
+   config. Question (e) in the support email asks about this.
+
+7. **Hatif's `Missed` status doesn't mean "nobody answered"** — it
+   means "the intended human agent didn't pick up". The call CAN
+   have `pickup_time` + duration + recording (auto-responder / IVR
+   / unmapped agent answered). Our `pickup_kind` computed field
+   (human/system/none) is what reports should bucket on.
+
+8. **Extra fields Hatif sends that aren't in apidog:**
+   `csatRating`, `csatMethod`, `csatCollectedAt`, `isAiCall`, `callId`.
+   All captured on `htf.call`.
+
+### WhatsApp payload behaviour
+
+9. **`messageId` is null on first inbound** sometimes — we synthesise
+   a dedupe key from `conversationId + creationTime` to keep
+   idempotency working.
+
+10. **Same `messageId` reused** across the outbound STATUS lifecycle
+    (Sent → Delivered → Read → Failed). Composite event-id splits
+    them.
+
+### Phone matching
+
+11. **Saudi phone formats vary wildly:** `+966 56 ...`, `0561...`,
+    `966056...`, `+966-56-...`. The `utils.phone.normalize_e164`
+    KSA-aware wrapper handles them all; use it at every boundary.
+
+### Hatif user mapping
+
+12. **Hatif user emails ≠ Odoo logins** on Numo's workspace.
+    Fuzzy Arabic-name matching is the practical default (شموس Hatif
+    ↔ شموس Odoo with prefix-of name). `wizards/map_users.py:_suggest_user`
+    implements two-stage: email-on-login → email-on-partner.email →
+    fuzzy normalised name tokens.
+
+### PII
+
+13. Amr's real phone scrubbed from code+docs and replaced with
+    `+966XXXXXXXXX` placeholder. Git history still has older
+    commits with the number. **Never paste a real customer number
+    into committed code/docs** — use the placeholder.
+
+---
+
+## Re-entry sequence (when you sit down)
+
+1. Read this file first (you're doing it now).
+2. Confirm staging is healthy:
+   ```bash
+   curl -I https://erp.amro.pro/web/login 2>&1 | head -3
+   ```
+3. Check git status / pull anything new:
+   ```bash
+   cd ~/numo-hatif-odoo && git status && git pull origin main
+   ```
+4. Run the local suites to confirm baseline still green:
+   ```bash
+   for s in e2e p1 p2 p3 p3_ui p4; do python3 /tmp/htf_${s}_check.py | tail -2; done
+   ```
+5. Ask Amr for the 4 P8 pre-build questions OR pick a different
+   approved item from the queue.
+
+---
+
+## Where things are in the repo
 
 ```
-htf_call_center/
+htf_call_center/                       (vendor wrapper, fully shipped)
 ├── __manifest__.py
-├── models/
-│   ├── htf_config.py       singleton config (params)
-│   ├── htf_webhook_event.py idempotency
-│   ├── htf_channel.py
-│   ├── htf_message.py     WA messages (P2)
-│   ├── htf_call.py        ← NEW (P4)
-│   ├── htf_user_link.py
-│   ├── htf_contact_link.py
-│   ├── htf_tag.py
-│   ├── res_partner.py     +x_htf_* extension + smart buttons (T4.8)
-│   ├── res_users.py
-│   ├── crm_team.py
-│   └── res_config_settings.py
-├── controllers/
-│   ├── webhook_whatsapp.py
-│   └── webhook_call.py    ← NEW (P4)
-├── services/
-│   ├── auth.py
-│   ├── http_client.py
-│   ├── hmac_verify.py
-│   ├── channels.py
-│   ├── tags.py
-│   ├── workspace.py
-│   ├── contacts.py
-│   ├── contact_properties.py
-│   ├── whatsapp_inbound.py
-│   ├── whatsapp.py        outbound + retry
-│   ├── channel_resolver.py
-│   ├── chatter.py         +post_call (T4.6)
-│   ├── dnc_listener.py
-│   └── calls.py           ← NEW (P4 T4.3)
-├── views/
-│   ├── htf_message_views.xml
-│   ├── htf_call_views.xml ← NEW (P4 T4.1)
-│   ├── res_partner_views.xml (+smart buttons xpath)
-│   ├── crm_lead_views.xml
-│   ├── wizard_views.xml
-│   ├── menus.xml          +Calls menu under Hatif
-│   └── ... (channel, tag, user_link, etc.)
-├── wizards/
-│   └── send_whatsapp.py
+├── models/                            P0+P1+P2+P3+P4 models
+├── controllers/                       webhook_whatsapp + webhook_call
+├── services/                          auth, http, hmac, channels, tags,
+│                                      workspace, contacts, contact_properties,
+│                                      whatsapp_inbound, whatsapp, channel_resolver,
+│                                      chatter, dnc_listener, calls
+├── wizards/                           bind_channels, map_users, import_vcards,
+│                                      send_whatsapp
+├── views/                             htf_message_views, htf_call_views,
+│                                      htf_channel_views, htf_tag_views,
+│                                      htf_user_link_views, htf_contact_link_views,
+│                                      htf_webhook_event_views, res_partner_views,
+│                                      crm_lead_views, res_users_views, crm_team_views,
+│                                      wizard_views, menus, res_config_settings_views
+├── static/src/views/fields/phone/     htf_phone OWL widget (Call + WhatsApp btns)
 ├── tools/
-│   ├── replay_webhook.py    can drive /htf/webhook/whatsapp too
-│   ├── htf_p2_check.py
-│   ├── htf_p3_check.py
-│   ├── htf_p3_ui_check.py
-│   ├── htf_p4_check.py     ← NEW
-│   ├── signal_smoke.py
-│   └── fixtures/ (P2 only so far)
+│   ├── replay_webhook.py              CLI replay tool
+│   ├── signal_smoke.py                signal bus harness
+│   ├── htf_p2_check.py                63 assertions
+│   ├── htf_p3_check.py                24 assertions
+│   ├── htf_p3_ui_check.py             17 assertions
+│   ├── htf_p4_check.py                39 assertions
+│   ├── fixtures/                      P2 webhook fixtures
+│   └── pylint_htf_no_internal_import.py
 └── docs/
-    ├── planning/ (10+ phase docs)
+    ├── planning/ (12 phase docs + STATUS.md, OPEN_QUESTIONS.md, RISK_REGISTER.md)
+    ├── HATIF_SUPPORT_WEBHOOK_SIGNING_REQUEST.md   ← send-ready
     ├── hatif_apidog_export.json
-    └── HATIF_SUPPORT_WEBHOOK_SIGNING_REQUEST.md  ← draft email
+    └── Hatif api.md
+
+numo_crm_htf/                          (bridge — NOT YET CODED)
+└── (empty — this is where P6+ work goes)
 ```
 
 ---
 
-Welcome back. Don't skip THE DRILL. Have a coffee, do the 4-step
-morning checklist, watch a real call land in Odoo.
+Welcome back. Don't skip THE DRILL (`/Users/amro/Downloads/Claude/odoo-modules/CLAUDE.md`).
+Pick an item from the approved queue (P8 is #1) and start.
 
-— end of NEXT_SESSION.md
+— end of NEXT_SESSION.md (clean handoff 2026-05-19)

@@ -10,9 +10,9 @@ Updated as phases progress. **Single source of truth for "where are we?"**.
 |---|---|
 | Project | htf_call_center + numo_crm_htf |
 | Today | 2026-05-19 |
-| Plan version | 0.4.0-LIVE-READY (P2+P3 live, P4 backend shipped + ready for live UAT) |
-| Plan approved by | Amr (live UAT round-trip passed both ways 2026-05-19) |
-| Active phase | P4 — backend shipped overnight; live UAT pending on erp.amro.pro |
+| Plan version | 0.5.0-P4-LIVE (P0-P4 all live on erp.amro.pro; P8 approved as next) |
+| Plan approved by | Amr (live UAT confirmed inbound calls + outbound calls + WA both ways 2026-05-19) |
+| Active phase | session closed — next: ★ P8 Outbound Sales Acceleration (approved, awaiting 4 pre-build answers) |
 | Branch | main |
 | Repo | https://github.com/AmroSamir/numo-hatif-odoo |
 | Local dev DB | `test` (on OrbStack `odoo-app`, port 8069), bind-mount `~/numo-hatif-odoo/{htf_call_center,numo_crm_htf}` |
@@ -30,7 +30,7 @@ Updated as phases progress. **Single source of truth for "where are we?"**.
 | P1 — Channels + Contacts + Users | **Done** | 2026-05-17 | 2026-05-17 | Live-UAT'd against the real Numo workspace: 2 channels, 7 users, 1 tag synced; Map Users wizard persists assignments; 73/73 P1 E2E green |
 | P2 — WA Inbound | **✅ LIVE on erp.amro.pro** | 2026-05-18 | 2026-05-19 | Real WhatsApp from Amr's phone → Hatif → /htf/webhook/whatsapp → htf.message + placeholder partner + chatter bubble. P2 E2E 63/63 green + live UAT confirmed. Caveat: Hatif does NOT sign webhooks despite docs (Q-03) — dev_mode_skip_hmac=True until Hatif support clarifies. |
 | P3 — WA Outbound | **✅ LIVE on erp.amro.pro** | 2026-05-18 | 2026-05-19 | Phone widget + Send WA wizard + channel resolver + retry cron + cost-by-category all live-verified. Sent a real WA from the wizard, customer phone received it within seconds. P3 backend E2E 24/24 + UI E2E 17/17 + live UAT confirmed. T3.4 full chatter composer patch still deferred (lite header button covers the UX). |
-| P4 — Calls | **Backend shipped** | 2026-05-19 | partial | Shipped overnight unattended: T4.1 htf.call model (33 fields) + T4.2 webhook controller + T4.3 dispatcher service + T4.6 chatter.post_call() + T4.8 smart buttons. **P4 E2E: 39/39 green.** Live UAT pending — Amr fills `Post-call Webhook URL = https://erp.amro.pro/htf/webhook/call` on each Hatif channel + places a test call. Deferred: T4.4 audio player OWL widget + T4.5 click-to-seek transcript OWL widget (need browser). |
+| P4 — Calls | **✅ LIVE on erp.amro.pro** | 2026-05-19 | 2026-05-19 | Backend shipped overnight, live UAT confirmed same-day. 8 real calls flowed: completed/missed/failed with full Hatif analytics for calls ≥30s (Arabic AI summary + sentiment + transcript + word-level timing + recording URL + CSAT capture). pickup_kind classifier handles Hatif's 'Missed-but-system-answered' quirk. Fuzzy Arabic-name user mapping working (شموس مapped via tokens, not email). **P4 E2E: 39/39 green.** Deferred: T4.4 audio player OWL widget + T4.5 click-to-seek transcript OWL widget. |
 | ~~P5~~ — ~~IVR (slim)~~ | **SKIPPED** | — | — | IVR + bulk campaigns run on Hatif portal directly (decision 2026-05-18) |
 | P5 — Conversations | Not started | — | — | Was P6. Polling backfill insurance against missed webhooks |
 | P6 — CRM Enrichment | Not started | — | — | Was P7. Smart buttons + chatter glue |
@@ -280,6 +280,44 @@ Final scoreboard 2026-05-19 EOD:
 7. If everything works → start P4 UI work (T4.4 + T4.5 OWL widgets)
    OR start P5 (Conversations Sync — polling backfill insurance)
 
+### 2026-05-19 (EOD) — Session-close checkpoint after full P0-P4 live UAT
+
+Live UAT successful on `erp.amro.pro`:
+- 8 real calls flowed (completed/missed/failed)
+- Full Hatif analytics arrived for calls ≥30s (Arabic AI summary +
+  sentiment + word-level transcript + recording URL + CSAT)
+- Calls <30s get transcript only (Hatif's threshold per their own
+  portal warning *"too short to analyse"*)
+- Fuzzy Arabic-name user mapping shipped + working (شموس عبدالكريم
+  → شموس عبدالكريم السليمان via token containment after diacritic
+  + alef normalisation)
+- `pickup_kind` classifier handles Hatif's `status=Missed`+
+  `pickup_time` set quirk (auto-responder picked up)
+- Hatif undocumented `status=8` mapped to 'ringing' (observed 1s
+  before status=Missed events)
+- Hatif extras captured: csatRating/csatMethod/csatCollectedAt/
+  isAiCall fields not in the apidog spec
+- All 6 local E2E suites still green (275/275)
+
+Amr approved 3 phases as the next-build queue (priority order):
+1. ★ P8 Outbound Sales Acceleration (NEXT, BLOCKED on 4 questions)
+2. ★ P9 Speech Analytics via n8n (depends on P8)
+3. ★ P5 Conversations Sync (insurance layer)
+
+P8 pre-build questions Amr needs to answer:
+  (a) What 'Outcome' options? (Interested/Not interested/Voicemail/Wrong number/Reschedule/...)
+  (b) What 'Next step' options? (Send template — which? / Schedule callback / Move stage / Won / Lost / ...)
+  (c) Wrap-up wizard MANDATORY or skippable?
+  (d) Daily queue priority rule — default: `activity deadline overdue > lead score > days since last touch`
+
+Other pending:
+- Hatif support email (7 questions ready, draft at
+  `docs/HATIF_SUPPORT_WEBHOOK_SIGNING_REQUEST.md`)
+- T4.5 OWL transcript click-to-seek widget (3h polish)
+- Production deployment to `erp.numo.sa` (wait for P8 ship + sign-off)
+
+**Next session entry point:** read NEXT_SESSION.md first.
+
 ---
 
 ## Sign-offs
@@ -290,7 +328,7 @@ Final scoreboard 2026-05-19 EOD:
 | P1 | Amr | 2026-05-17 | 2 channels + 7 users + 1 tag synced from real Numo workspace |
 | P2 | Amr | 2026-05-19 | Live WA inbound on erp.amro.pro — real phone → Odoo chatter |
 | P3 | Amr | 2026-05-19 | Live WA outbound on erp.amro.pro — Odoo wizard → real phone |
-| P4 | _pending_ | | |
+| P4 | Amr | 2026-05-19 | Live calls on erp.amro.pro — full analytics (summary/transcript/sentiment) for calls ≥30s |
 | P5 | _pending_ | | |
 | P6 | _pending_ | | |
 | P7 | _pending_ | | |
