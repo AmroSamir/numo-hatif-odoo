@@ -81,23 +81,64 @@ export class HtfPhoneField extends PhoneField {
     /**
      * Hatif portal deep-link for the "Call via Hatif" button.
      *
-     * When the partner has a stored ``x_htf_last_conversation_id`` (the
-     * UUID of the most recent Hatif conversation, kept in sync by the
-     * webhook), we deep-link straight into that conversation — same
-     * pattern as the Discuss ChatWindow header button. Without one we
-     * land on the inbox root and the agent searches by phone there.
+     * Resolution priority:
+     *   1. ``x_htf_last_conversation_id`` on the record → deep-link
+     *      ``?conversationId=<uuid>`` (the partner / lead has previously
+     *      had a Hatif call or WA message, mirrored by the webhook).
+     *   2. The phone-field value → fall back to ``?phone=<E.164>`` so
+     *      the agent at least lands pre-filtered on that number in the
+     *      Hatif inbox. Hatif may or may not honour the param — if it
+     *      doesn't, it lands on inbox root (same as if we'd sent no
+     *      param), so this is always >= the previous behaviour.
+     *   3. Otherwise the inbox root.
      *
-     * The view must expose ``x_htf_last_conversation_id`` (typically as
-     * an invisible field) for ``record.data.x_htf_last_conversation_id``
-     * to be populated. Without the field declaration, this getter returns
-     * the base URL — still better than ``tel:`` for desktop agents.
+     * Phone normalisation is intentionally light: strip whitespace and
+     * common separators, ensure a leading ``+`` if the value already
+     * looked international. We don't attempt full E.164 reformatting
+     * here — the server-side ``utils.phone.normalize_e164`` is the
+     * source of truth for that, and the value stored in the field is
+     * usually already in shape.
      */
     get hatifCallHref() {
         const convoId = this.props.record?.data?.x_htf_last_conversation_id;
         if (convoId) {
             return `${HATIF_PORTAL_BASE}?conversationId=${encodeURIComponent(convoId)}`;
         }
+        const phone = this._normalizePhoneForUrl(
+            this.props.record?.data?.[this.props.name]
+        );
+        if (phone) {
+            return `${HATIF_PORTAL_BASE}?phone=${encodeURIComponent(phone)}`;
+        }
         return HATIF_PORTAL_BASE;
+    }
+
+    /**
+     * Light client-side normaliser for the ``?phone=`` query param.
+     *
+     * - Strips whitespace, dashes, parentheses, dots — common UI noise.
+     * - Preserves a leading ``+`` if the raw value already had one,
+     *   so E.164 values like ``+966 57 983 5885`` survive as
+     *   ``+966579835885``.
+     * - Does NOT try to add country codes — the server-side
+     *   ``utils.phone.normalize_e164`` is the canonical normaliser and
+     *   we don't want to second-guess it from JS. Falls back to the
+     *   trimmed digits-only string for non-international input.
+     */
+    _normalizePhoneForUrl(raw) {
+        if (!raw) {
+            return "";
+        }
+        const trimmed = String(raw).trim();
+        if (!trimmed) {
+            return "";
+        }
+        const startsWithPlus = trimmed.startsWith("+");
+        const digits = trimmed.replace(/\D+/g, "");
+        if (!digits) {
+            return "";
+        }
+        return startsWithPlus ? `+${digits}` : digits;
     }
 
     async onWhatsAppClick(ev) {
