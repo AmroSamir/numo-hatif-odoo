@@ -19,7 +19,9 @@ a no-op and the field is read but ignored.
 
 from __future__ import annotations
 
+import base64
 import logging
+import os
 from datetime import timedelta
 
 from odoo import _, api, fields, models
@@ -29,6 +31,29 @@ from odoo.tools import html2plaintext
 from ..exceptions import HtfDncBlockedError, HtfWindowExpiredError
 
 _logger = logging.getLogger(__name__)
+
+
+# Cache the encoded logo so we don't re-read + re-encode it on every
+# channel auto-creation. Loaded lazily on first use.
+_HATIF_LOGO_CACHE: bytes | None = None
+
+
+def _hatif_logo_b64() -> bytes | None:
+    """Return base64-encoded Hatif logo, or None if the file is missing."""
+    global _HATIF_LOGO_CACHE
+    if _HATIF_LOGO_CACHE is not None:
+        return _HATIF_LOGO_CACHE
+    here = os.path.dirname(__file__)
+    path = os.path.normpath(os.path.join(
+        here, '..', 'static', 'src', 'img', 'hatif-logo.png',
+    ))
+    try:
+        with open(path, 'rb') as f:
+            _HATIF_LOGO_CACHE = base64.b64encode(f.read())
+        return _HATIF_LOGO_CACHE
+    except OSError:
+        _logger.warning("[htf-discuss] hatif-logo.png missing at %s", path)
+        return None
 
 # Hard dedup window for the outbound override. The Discuss voice-recording
 # composer in Odoo 19 has been observed firing message_post 8+ times for a
@@ -132,17 +157,17 @@ class DiscussChannel(models.Model):
             if not partner.x_htf_discuss_channel_id:
                 partner.sudo().write({'x_htf_discuss_channel_id': existing.id})
             return existing
-        # Create. Channel name uses a 📞 emoji prefix so the rows sort
-        # together alphabetically AND are visually distinct from regular
-        # Odoo channels (general, etc.) in the Discuss sidebar — Odoo 19
-        # doesn't support custom sidebar categories, so prefix-grouping
-        # is the cheapest legible solution.
-        channel_name = f'📞 {partner.display_name or partner.name or "?"}'
+        # Create. Channel name = just the partner display_name; the
+        # Hatif-branded image_128 below is what makes the row visually
+        # distinct in the Discuss sidebar (we used to prefix with 📞
+        # but the channel image is a cleaner solution).
+        channel_name = partner.display_name or partner.name or 'Hatif Customer'
         channel = self.sudo().create({
             'name': channel_name[:200],  # mail enforces 200-char cap somewhere
             'channel_type': 'channel',
             'group_public_id': False,  # private — only invited members see it
             'x_htf_partner_id': partner.id,
+            'image_128': _hatif_logo_b64(),
         })
         # Add the customer as a participant so author_id=partner.id renders
         # their name + avatar on inbound bubbles. They have no res.users

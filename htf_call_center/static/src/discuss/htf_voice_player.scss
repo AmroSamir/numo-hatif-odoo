@@ -1,0 +1,14 @@
+// P7 polish — widen the Discuss voice-player wrapper.
+//
+// Odoo 19 ships voice_player.scss with width: 80px which is too narrow
+// for the typical Hatif call recording (00:10 .. 02:00+ durations
+// truncate visually). Widening to 240px is roughly the width of a
+// WhatsApp-style voice-note bubble and accommodates a 4-character
+// duration string (e.g. "1:23") plus the waveform play head.
+//
+// Scoped to `.o-mail-VoicePlayer-wrapper` only, so we don't touch the
+// recorder UI or any other unrelated voice components.
+
+.o-mail-VoicePlayer-wrapper {
+    width: 240px;
+}

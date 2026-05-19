@@ -71,8 +71,11 @@ print(f'CH2:{ch2.id}')
 mem_partner_ids = [m.partner_id.id for m in ch.channel_member_ids]
 print(f'MEM_HAS_PARTNER:{p.id in mem_partner_ids}')
 
-# Channel name pattern — phone emoji prefix for visual grouping
-print(f'NAME_HAS_PREFIX:{ch.name.startswith("📞")}')
+# Channel name = partner display_name (no prefix). Hatif logo on
+# channel.image_128 + on base.public_partner avatar is the visual
+# branding now, replacing the 📞 prefix used in 19.0.1.1.0.
+print(f'NAME_MATCHES_PARTNER:{p.display_name in ch.name}')
+print(f'CHANNEL_HAS_LOGO:{bool(ch.image_128)}')
 
 cfg.set_param('discuss_mirror_enabled', False)
 cfg.set_param('discuss_mirror_inbound', False)
@@ -82,7 +85,10 @@ env.cr.rollback()
     ch1 = lines.get('CH1', '')
     ch2 = lines.get('CH2', '')
     check('channel auto-provisioned with id', 'CH1:' in ch1 and 'partner=' in ch1, ch1)
-    check('channel name starts with 📞', 'NAME_HAS_PREFIX:True' in lines.get('NAME_HAS_PREFIX', ''))
+    check('channel name contains partner display_name',
+          'NAME_MATCHES_PARTNER:True' in lines.get('NAME_MATCHES_PARTNER', ''))
+    check('channel has Hatif logo on image_128',
+          'CHANNEL_HAS_LOGO:True' in lines.get('CHANNEL_HAS_LOGO', ''))
     check('partner is a channel member',
           'MEM_HAS_PARTNER:True' in lines.get('MEM_HAS_PARTNER', ''))
     # Idempotent: ch1.id == ch2.id

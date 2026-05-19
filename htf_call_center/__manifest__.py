@@ -1,6 +1,6 @@
 {
     'name': 'HTF Call Center',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.2.0',
     'category': 'Productivity/Discuss',
     'summary': 'Hatif/Voxa BPaaS integration: telephony + WhatsApp + IVR',
     'description': """
@@ -39,6 +39,10 @@ for every interaction afterwards.
         'security/record_rules.xml',
         'data/ir_cron.xml',
         'data/htf_discuss_mirror.xml',
+        # data/htf_public_user_avatar.xml removed — the <field file=…/>
+        # syntax didn't persist the image on Odoo 19 for reasons I
+        # didn't fully diagnose. The post_init_hook in __init__.py
+        # does the same thing programmatically and is reliable.
         'views/res_config_settings_views.xml',
         'views/htf_webhook_event_views.xml',
         # Wizards (with their act_window actions) must load BEFORE any
@@ -64,12 +68,18 @@ for every interaction afterwards.
             'htf_call_center/static/src/views/fields/phone/htf_phone_field.scss',
             'htf_call_center/static/src/views/fields/phone/htf_phone_field.js',
             'htf_call_center/static/src/views/fields/phone/htf_phone_field.xml',
-            # P7.5 — Discuss ChatWindow patch (temporarily disabled while debugging)
+            # P7 polish — widen the Discuss voice-player wrapper from
+            # 80px (Odoo default, too narrow) to 240px so call-recording
+            # durations render without truncation.
+            'htf_call_center/static/src/discuss/htf_voice_player.scss',
+            # P7.5 — Discuss ChatWindow JS/XML patches (temporarily disabled
+            # while the t-inherit xpath is being refactored; tracked as P7.8).
             # 'htf_call_center/static/src/discuss/thread_model_patch.js',
             # 'htf_call_center/static/src/discuss/chat_window_patch.xml',
         ],
     },
     'installable': True,
+    'post_init_hook': 'post_init_hook',
     # `application=True` makes Odoo show this module as a top-level app
     # tile on the Apps page AND surfaces it as a tab in the Settings
     # left rail. Required for our <app name="htf_call_center"> block in
