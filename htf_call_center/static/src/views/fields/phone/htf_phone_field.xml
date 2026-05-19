@@ -7,7 +7,8 @@
                 <a t-if="hasPhoneValue"
                    class="o_form_uri"
                    target="_blank"
-                   t-att-href="phoneHref"
+                   rel="noopener noreferrer"
+                   t-att-href="hatifCallHref"
                    t-esc="props.record.data[props.name]"/>
             </t>
             <t t-else="">
@@ -21,14 +22,21 @@
                 />
             </t>
 
-            <!-- Call button — same tel: deep-link as the standard widget -->
+            <!--
+                Call button — opens Hatif portal in a new tab.
+                Replaces the standard widget's tel: deep-link, which on
+                desktop hands off to the OS protocol handler (Facetime /
+                Skype) and bypasses Hatif entirely. Hatif portal has the
+                softphone + conversation history the agent actually needs.
+            -->
             <a t-if="hasPhoneValue"
-               t-att-href="phoneHref"
+               t-att-href="hatifCallHref"
                target="_blank"
-               class="o_htf_phone_btn o_phone_form_link ms-2 d-inline-flex align-items-center"
-               title="Call (opens phone / Hatif app)">
+               rel="noopener noreferrer"
+               class="o_htf_phone_btn ms-2 d-inline-flex align-items-center"
+               title="Call via Hatif (opens Hatif portal in a new tab)">
                 <i class="fa fa-phone"/>
-                <small class="fw-bold ms-1">Call</small>
+                <small class="fw-bold ms-1">Call via Hatif</small>
             </a>
 
             <!-- WhatsApp button — opens Send WA wizard if partner context exists -->

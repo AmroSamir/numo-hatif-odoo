@@ -21,6 +21,18 @@
                     <attribute name="widget">htf_phone</attribute>
                 </xpath>
                 <!--
+                    Expose `x_htf_last_conversation_id` as an invisible
+                    field in the form so the HtfPhoneField widget can
+                    read it via `record.data.x_htf_last_conversation_id`
+                    and deep-link the Call button into the right Hatif
+                    conversation. Without this declaration the OWL
+                    record loader skips the field and the widget falls
+                    back to the Hatif inbox root URL.
+                -->
+                <xpath expr="//field[@name='phone']" position="after">
+                    <field name="x_htf_last_conversation_id" invisible="1"/>
+                </xpath>
+                <!--
                     Header button: visible whenever the partner has a phone,
                     greyed out when window is closed + opt-out is on.
                     The wizard's own preflight banner explains the block.

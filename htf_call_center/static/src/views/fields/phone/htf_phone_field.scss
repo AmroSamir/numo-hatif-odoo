@@ -1,6 +1,8 @@
-// HTF phone widget — minor visual nudges only. Inherits look-and-feel
-// from the standard phone field; we just space the WA button a bit
-// and let Bootstrap's text-success drive the green tint.
+// HTF phone widget — Hatif brand teal #02c7b5 on the Call button so
+// it visually matches the "Call via Hatif" header action in the
+// Discuss ChatWindow. WhatsApp button stays Bootstrap text-success
+// green (matches the WhatsApp brand colour, which the user explicitly
+// preserved).
 
 .o_htf_phone_btn,
 .o_htf_wa_btn {
@@ -10,11 +12,28 @@
 
     &:hover {
         text-decoration: none;
-        opacity: 0.85;
     }
 
     i {
         font-size: 1rem;
+    }
+}
+
+.o_htf_phone_btn {
+    color: #02c7b5 !important;
+    padding: 0.05rem 0.4rem;
+    border-radius: 0.25rem;
+
+    i,
+    small {
+        color: #02c7b5 !important;
+    }
+
+    &:hover,
+    &:focus,
+    &:active {
+        color: #02c7b5 !important;
+        background-color: rgba(2, 199, 181, 0.08);
     }
 }
 
@@ -25,5 +44,18 @@
 
     &:hover {
         background-color: rgba(37, 211, 102, 0.08); // WhatsApp green @ 8%
+    }
+}
+
+// When the phone field renders in readonly mode the value itself is
+// wrapped in an <a class="o_form_uri">. We don't want that to flash
+// in blue/underline (the default link colour) — it's now a Hatif
+// portal link so paint it teal to match the Call button.
+.o_phone_content > a.o_form_uri {
+    color: #02c7b5 !important;
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
     }
 }
