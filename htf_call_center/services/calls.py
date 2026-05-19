@@ -249,12 +249,17 @@ def _resolve_partner(env, payload: dict, direction: str):
                             })
                     return p
 
-    # Placeholder fallback.
-    if hatif_contact_id:
+    # Placeholder fallback. Prefer the actual phone number as the
+    # partner name so it reads usefully in Discuss + CRM lists.
+    # Synthetic "Hatif Contact <uuid>" / "Hatif Caller <phone>" names
+    # only appear when no phone is available at all.
+    if normalised:
+        name = normalised
+    elif candidate_phone:
+        name = candidate_phone
+    elif hatif_contact_id:
         short = hatif_contact_id[:8] + '…'
         name = f'Hatif Contact {short}'
-    elif normalised:
-        name = f'Hatif Caller {normalised}'
     else:
         name = 'Hatif Caller (unknown)'
 
