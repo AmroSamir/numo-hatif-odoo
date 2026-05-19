@@ -26,9 +26,9 @@
                t-att-href="phoneHref"
                target="_blank"
                class="o_htf_phone_btn o_phone_form_link ms-2 d-inline-flex align-items-center"
-               title="Call (opens phone / Hatif app)">
+               title="اتصال (يفتح تطبيق الهاتف / Hatif)">
                 <i class="fa fa-phone"/>
-                <small class="fw-bold ms-1">Call</small>
+                <small class="fw-bold ms-1">اتصال</small>
             </a>
 
             <!-- WhatsApp button — opens Send WA wizard if partner context exists -->
@@ -36,9 +36,9 @@
                href="#"
                t-on-click="onWhatsAppClick"
                class="o_htf_wa_btn ms-2 d-inline-flex align-items-center"
-               title="Send WhatsApp message">
+               title="إرسال رسالة واتساب">
                 <i class="fa fa-whatsapp text-success"/>
-                <small class="fw-bold ms-1 text-success">WhatsApp</small>
+                <small class="fw-bold ms-1 text-success">واتساب</small>
             </a>
         </div>
     </t>
