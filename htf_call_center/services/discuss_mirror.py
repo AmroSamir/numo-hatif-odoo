@@ -193,13 +193,12 @@ def mirror_outbound_wa_from_hatif(env, partner, htf_message, payload: dict) -> N
         if _already_mirrored(env, channel.id, sentinel):
             return  # idempotent
         body = _render_wa_body(htf_message, direction='outbound')
-        # Author: the agent who sent it via Hatif (if mapped), else the
-        # current Odoo user's partner.
-        author = (
-            htf_message.sender_user_id.partner_id
-            if htf_message.sender_user_id and htf_message.sender_user_id.partner_id
-            else env.user.partner_id
-        )
+        # Author: the agent who sent it via Hatif (if mapped). Otherwise
+        # fall back to OdooBot — NOT env.user.partner_id, which during
+        # webhook dispatch resolves to the public partner ("Public user")
+        # and renders as anonymous in Discuss. OdooBot reads clearly as
+        # a system actor.
+        author = _resolve_outbound_author(env, htf_message)
         channel.with_context(
             mail_create_nosubscribe=True,
             htf_mirror_write=True,
@@ -288,9 +287,38 @@ def _resolve_call_author(env, call_row, partner):
     if direction == 'outbound':
         if call_row.handler_user_id and call_row.handler_user_id.partner_id:
             return call_row.handler_user_id.partner_id
-        return env.user.partner_id
+        return _system_actor_partner(env)
     # inbound (or unknown direction) — anchor to the customer
     return partner
+
+
+def _resolve_outbound_author(env, htf_message):
+    """Pick the author for an outbound mirror mail.message bubble.
+
+    Order of preference:
+      1. htf.message.sender_user_id.partner_id — the agent Hatif tells
+         us sent it via their portal
+      2. OdooBot (base.partner_root) — never the public user partner,
+         which would render as "Public user" and look like spam
+    """
+    if htf_message.sender_user_id and htf_message.sender_user_id.partner_id:
+        return htf_message.sender_user_id.partner_id
+    return _system_actor_partner(env)
+
+
+def _system_actor_partner(env):
+    """Return a sane system-actor partner (OdooBot).
+
+    During webhook dispatch `env.user` resolves to the anonymous
+    public user — its partner renders as "Public user" which looks
+    wrong on a customer-conversation bubble. base.partner_root
+    (OdooBot) is the canonical "system did this" persona.
+    """
+    bot = env.ref('base.partner_root', raise_if_not_found=False)
+    if bot:
+        return bot
+    # Defensive fallback — env.user when nothing else available.
+    return env.user.partner_id
 
 
 def _render_call_body(call_row) -> Markup:
@@ -333,12 +361,33 @@ def _render_call_body(call_row) -> Markup:
             f'<small><em>تم الرد بواسطة المجيب الآلي / IVR</em></small>'
         )
     if call_row.summary:
-        snippet = call_row.summary[:200] + ('…' if len(call_row.summary) > 200 else '')
-        extra.append(
-            f'<div><em>الملخص:</em> {escape(snippet)}</div>'
-        )
+        summary = _clean_summary(call_row.summary)
+        snippet = summary[:200] + ('…' if len(summary) > 200 else '')
+        # Suppress the "الملخص:" label when Hatif's own summary already
+        # starts with "ملخص" (≈ "Summary" in Arabic). With ### markdown
+        # stripped, the typical Hatif call-summary is e.g.
+        # "ملخص المكالمة • …" — adding "الملخص:" in front would
+        # double-label the bubble.
+        if summary.startswith('ملخص'):
+            extra.append(f'<div>{escape(snippet)}</div>')
+        else:
+            extra.append(f'<div><em>الملخص:</em> {escape(snippet)}</div>')
     html = head + ('<br/>' + '<br/>'.join(extra) if extra else '')
     return Markup(html)
+
+
+def _clean_summary(raw: str) -> str:
+    """Trim Hatif's markdown noise from a call summary string.
+
+    Hatif's AI summarisation prefixes the output with `### ملخص المكالمة`
+    (a level-3 markdown heading) which Discuss renders as literal "###"
+    characters because the mail.message body sanitiser doesn't process
+    markdown. Strip every leading `#` and surrounding whitespace.
+    """
+    s = (raw or '').strip()
+    while s.startswith('#'):
+        s = s.lstrip('#').strip()
+    return s
 
 
 def _call_icon_and_verb(status: str, pickup_kind: str) -> tuple[str, str]:
