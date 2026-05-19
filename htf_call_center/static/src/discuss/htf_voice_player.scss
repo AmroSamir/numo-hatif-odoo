@@ -10,17 +10,24 @@
 // touch the recorder UI or unrelated voice components.
 
 .o-mail-VoicePlayer {
-    min-width: 320px;
+    // Cap by container width — the bottom-right Discuss popup is
+    // ~360-400px wide, the main center pane is hundreds of px wider.
+    // We want the player to grow up to the available width without
+    // overflowing or pushing the duration off-screen.
+    max-width: 100%;
 
     > .o-mail-VoicePlayer-wrapper {
-        width: 220px;
-        min-width: 180px;
-        flex-grow: 1;
+        // Default 80px is too narrow everywhere. Min 120px keeps the
+        // waveform legible in cramped contexts; flex: 1 1 auto lets
+        // it grow to consume the remaining space in wider contexts.
+        min-width: 120px;
+        width: auto;
+        flex: 1 1 auto;
     }
 
-    // The text-muted div that renders state.visualTime ("0:00 / 0:32")
-    // is the last flex child. Lock it to a single line so the colon
-    // isn't treated as a wrap point in narrow containers.
+    // The .text-muted div that renders state.visualTime ("0:00 / 0:32")
+    // is the last flex child. Lock it on a single line and never let
+    // it shrink — clipping the duration is the worst-case UX.
     > .text-muted {
         white-space: nowrap;
         flex-shrink: 0;
