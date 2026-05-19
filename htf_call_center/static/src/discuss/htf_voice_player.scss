@@ -68,7 +68,27 @@
         // this the colon is treated as a weak directional character
         // and the time visually flips to "33:00" — a 33-second
         // recording then reads as "33 minutes 00 seconds".
-        direction: ltr;
+        //
+        // !important is required because the surrounding Discuss
+        // panel inherits direction: rtl from the Arabic locale, and
+        // browsers favour the more-specific ancestor's direction
+        // over our cascade unless we mark this explicit.
+        direction: ltr !important;
         unicode-bidi: isolate;
     }
+}
+
+// Force LTR on every Discuss element that renders a phone number,
+// date, or duration so the Arabic-RTL bidi algorithm doesn't flip
+// "+966 56 186 8578" to "8578 186 56 966+" or "00:32" to "32:00".
+//
+// Scope is intentionally broad inside Discuss-only classes — these
+// rules ONLY trigger on elements that already carry the listed mail
+// classes, so they don't leak into other Odoo screens.
+.o-mail-Message-author,
+.o-mail-Message-date,
+.o-mail-ChatWindow-header .text-truncate.fw-bold,
+.o-mail-VoicePlayer .text-muted {
+    direction: ltr !important;
+    unicode-bidi: isolate;
 }
