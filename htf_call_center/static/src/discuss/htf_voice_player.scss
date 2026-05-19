@@ -63,5 +63,12 @@
     > .text-muted {
         white-space: nowrap;
         flex-shrink: 0;
+        // direction: ltr + unicode-bidi: isolate force "00:33" to
+        // render left-to-right even in the Arabic (RTL) UI. Without
+        // this the colon is treated as a weak directional character
+        // and the time visually flips to "33:00" — a 33-second
+        // recording then reads as "33 minutes 00 seconds".
+        direction: ltr;
+        unicode-bidi: isolate;
     }
 }
