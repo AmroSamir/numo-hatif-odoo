@@ -247,6 +247,29 @@ class HtfCall(models.Model):
              'handoffs differently.',
     )
 
+    # Derived classification (live-UAT 2026-05-19 finding): Hatif's
+    # status=Missed semantic means 'no INTENDED human agent picked
+    # up' — it can still co-exist with pickup_time + recording when
+    # the auto-responder / IVR / AI / unmapped agent answered. This
+    # field lets reports bucket cleanly: truly missed vs after-hours-
+    # handled vs human-answered.
+    pickup_kind = fields.Selection(
+        selection=[
+            ('human',  'Human agent'),
+            ('system', 'System / bot / unmapped agent'),
+            ('none',   'No pickup'),
+        ],
+        compute='_compute_pickup_kind',
+        store=True,
+        index=True,
+        string='Pickup By',
+        help='How the call was answered:\n'
+             '  • Human agent — pickup_time AND handler_user_id set\n'
+             '  • System — pickup_time set but no Odoo-mapped agent\n'
+             '    (likely IVR / auto-responder / AI / unmapped human)\n'
+             '  • No pickup — phone rang but nobody answered',
+    )
+
     # Audit ----------------------------------------------------------- #
     chatter_message_id = fields.Many2one(
         'mail.message',
@@ -283,6 +306,16 @@ class HtfCall(models.Model):
             who = rec.partner_id.name or _('Unknown')
             via = rec.channel_id.display_name or rec.channel_id.name or '—'
             rec.name = f"[{direction} {status}] {who} via {via}"
+
+    @api.depends('pickup_time', 'handler_user_id')
+    def _compute_pickup_kind(self):
+        for rec in self:
+            if not rec.pickup_time:
+                rec.pickup_kind = 'none'
+            elif rec.handler_user_id:
+                rec.pickup_kind = 'human'
+            else:
+                rec.pickup_kind = 'system'
 
     @api.depends('duration_seconds')
     def _compute_duration_display(self):

@@ -17,6 +17,7 @@
                 <field name="partner_id"/>
                 <field name="channel_id"/>
                 <field name="handler_user_id"/>
+                <field name="pickup_kind" optional="show"/>
                 <field name="duration_display" string="Duration"/>
                 <field name="duration_seconds" optional="hide" string="Duration (s)"/>
                 <field name="sentiment" optional="show"/>
@@ -76,6 +77,7 @@
                                    invisible="not contact_number"/>
                         </group>
                         <group string="Analytics">
+                            <field name="pickup_kind" readonly="1"/>
                             <field name="sentiment" readonly="1"/>
                             <field name="recording_url" readonly="1"
                                    widget="url"/>
@@ -149,6 +151,19 @@
                             ['missed','no_answer','rejected_by_callee','cancelled'])]"/>
                 <filter name="failed" string="Failed"
                         domain="[('status', '=', 'failed')]"/>
+                <separator/>
+                <filter name="truly_missed"
+                        string="Truly missed (no pickup)"
+                        domain="[('pickup_kind', '=', 'none')]"
+                        help="Phone rang, nobody answered — not even auto-bot."/>
+                <filter name="after_hours_handled"
+                        string="After-hours handled"
+                        domain="[('status', 'in', ['missed','no_answer','rejected_by_callee','cancelled']),
+                                 ('pickup_kind', '=', 'system')]"
+                        help="Hatif marked Missed but system/IVR/bot picked up."/>
+                <filter name="human_answered"
+                        string="Human-answered"
+                        domain="[('pickup_kind', '=', 'human')]"/>
                 <separator/>
                 <filter name="has_recording" string="Has Recording"
                         domain="[('recording_url', '!=', False)]"/>

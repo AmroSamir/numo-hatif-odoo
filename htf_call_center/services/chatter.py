@@ -258,6 +258,8 @@ _SENTIMENT_BADGE = {
 
 
 def _render_call(htf_call) -> Markup:
+    from ..models.htf_call import MISSED_STATUSES
+
     direction = htf_call.direction
     direction_label = _('Inbound') if direction == 'inbound' else _('Outbound')
     arrow = '⬅️' if direction == 'inbound' else '➡️'
@@ -277,6 +279,19 @@ def _render_call(htf_call) -> Markup:
     summary_html = _render_summary(htf_call.summary)
     transcript_preview_html = _render_transcript_preview(htf_call.transcription_text)
 
+    # Special-case status label when Hatif marked Missed but a
+    # system/bot/unmapped agent picked up. P4 live UAT (2026-05-19)
+    # showed this is common — auto-responder answers, agent missed.
+    status_html = f'<span>{icon} {escape(status_label)}</span>'
+    if htf_call.status in MISSED_STATUSES and htf_call.pickup_kind == 'system':
+        status_html = (
+            f'<span>{icon} {escape(_("Missed by agent"))}</span>'
+            f'<span class="ms-2">🤖 {escape(_("System answered"))}</span>'
+        )
+    elif htf_call.pickup_kind == 'human' and htf_call.status == 'completed':
+        # Standard "Completed by Sami" — already shown via handler row above.
+        pass
+
     parts = [
         '<div class="o_htf_call_bubble">',
         '<div class="o_htf_call_meta">',
@@ -285,7 +300,7 @@ def _render_call(htf_call) -> Markup:
         f' · {escape(handler)}',
         '</div>',
         '<div class="o_htf_call_status">',
-        f'<span>{icon} {escape(status_label)}</span>',
+        status_html,
         f'<span class="ms-2">⏱ {duration_html}</span>',
         f'<span class="ms-2">{sentiment_html}</span>',
         '</div>',
