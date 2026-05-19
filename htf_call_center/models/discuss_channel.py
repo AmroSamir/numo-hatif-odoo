@@ -20,6 +20,7 @@ a no-op and the field is read but ignored.
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
@@ -28,6 +29,14 @@ from odoo.tools import html2plaintext
 from ..exceptions import HtfDncBlockedError, HtfWindowExpiredError
 
 _logger = logging.getLogger(__name__)
+
+# Hard dedup window for the outbound override. The Discuss voice-recording
+# composer in Odoo 19 has been observed firing message_post 8+ times for a
+# single user action (recording + concurrent typed text + send). Without
+# this guard, each call triggers a real Hatif WhatsApp send → customer
+# receives the same message 8 times. We block any duplicate body from the
+# same author to the same channel within this many seconds.
+_OUTBOUND_DEDUP_SECONDS = 8
 
 
 class DiscussChannel(models.Model):
@@ -217,6 +226,28 @@ class DiscussChannel(models.Model):
         plain = html2plaintext(message.body or '').strip()
         if not plain:
             return False
+        # 6. Anti-burst dedup — defends against the Discuss voice-recording
+        # UI firing message_post multiple times for one user action.
+        # If the same author posted the same body to this channel within
+        # the dedup window, skip — Hatif has already received the first
+        # send, the duplicates are noise.
+        cutoff = fields.Datetime.now() - timedelta(seconds=_OUTBOUND_DEDUP_SECONDS)
+        recent = self.env['mail.message'].sudo().search([
+            ('model', '=', 'discuss.channel'),
+            ('res_id', '=', self.id),
+            ('author_id', '=', message.author_id.id),
+            ('id', '!=', message.id),
+            ('create_date', '>=', cutoff),
+        ], limit=20, order='id desc')
+        for prev in recent:
+            if html2plaintext(prev.body or '').strip() == plain:
+                _logger.info(
+                    "[htf-discuss] outbound dedup-skip — same body in "
+                    "channel=%s author=%s within %ds (prev msg=%s)",
+                    self.id, message.author_id.id,
+                    _OUTBOUND_DEDUP_SECONDS, prev.id,
+                )
+                return False
         return True
 
     def _htf_send_outbound_via_hatif(self, message):
@@ -240,7 +271,7 @@ class DiscussChannel(models.Model):
         if not plain_body:
             raise UserError(_('Empty message body — nothing to send.'))
         try:
-            whatsapp.send_text(
+            htf_msg = whatsapp.send_text(
                 self.env, to_number=phone, text=plain_body, partner=partner,
             )
         except HtfDncBlockedError:
@@ -252,3 +283,21 @@ class DiscussChannel(models.Model):
                 'The 24-hour WhatsApp window is closed for %s. '
                 'Use a template via the partner form Send WhatsApp button instead.'
             ) % partner.display_name) from None
+        # Tag the Discuss-composer mail.message with the SAME message_id
+        # sentinel a server-side mirror write would use. Reason: when
+        # Hatif's outbound STATUS webhook later fires
+        # mirror_outbound_wa_from_hatif, its _already_mirrored() check
+        # looks for `<htf-msg-N@htf_call_center>` in the channel — finding
+        # this mail.message it will skip, preventing a duplicate bubble
+        # attributed to the webhook's anonymous `env.user` (which renders
+        # as "Public user").
+        if htf_msg and getattr(htf_msg, 'id', None):
+            try:
+                message.sudo().write({
+                    'message_id': f'<htf-msg-{htf_msg.id}@htf_call_center>',
+                })
+            except Exception:  # noqa: BLE001 — non-critical
+                _logger.exception(
+                    "[htf-discuss] could not tag mail.message=%s with htf-msg sentinel",
+                    message.id,
+                )
