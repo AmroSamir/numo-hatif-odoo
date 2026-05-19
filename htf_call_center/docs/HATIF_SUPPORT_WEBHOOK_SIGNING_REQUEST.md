@@ -92,3 +92,53 @@ Thank you — happy to share full diagnostic logs / packet captures if
 useful.
 
 — Numo / amr.sam.af@gmail.com
+
+---
+
+## Update 2026-05-19 — Post-call webhook analytics questions
+
+We deployed the Post-call Webhook receiver and now receive call
+events live from both channels. Two additional questions came up:
+
+### Q5 — When do analytics arrive?
+
+On live calls we see the post-call webhook fires within ~1 second
+of hangup. At that moment **transcription, summary, sentiment, and
+evaluationCriteriaResult are all `null`** in the payload.
+
+Yet your portal UI shows full transcripts + Arabic summaries for the
+same calls (visible 30s-2min later). For short calls the portal
+explicitly says "هذه المكالمة قصيرة جدًا لتحليلها" / "this call is
+too short to analyse" — so we know the analytics pipeline DOES run.
+
+Questions:
+- (a) Do you re-fire the post-call webhook once analytics complete?
+- (b) If not, is there a separate "call enriched" webhook?
+- (c) If neither, is there a `GET /v1/calls/{callId}` REST endpoint we
+  can poll? We searched the apidog export and didn't find one.
+- (d) Approximate analytics delay (median + p99)?
+
+### Q6 — Undocumented status enum value `8`
+
+The apidog spec documents call status as enum 0-7. We've observed
+Hatif sending `status=8` in webhooks — always exactly 1 second
+before a `status=2` (Missed) event on the same callId. Example:
+
+```
+06:34:28  callId=3a21511d-...  status=8
+06:34:29  callId=3a21511d-...  status=2  (Missed)
+```
+
+Hypothesis: status=8 is a "ringing / connecting" pre-final marker.
+Could you confirm + add it to the docs? Or share the full status
+enum table including any other values we haven't seen yet?
+
+### Q7 — Per-channel transcription / summary toggle?
+
+For some calls (e.g. callId 3a215195-… on 2026-05-19 08:44 UTC), the
+post-call webhook DOES include transcription. For others (callId
+3a215173-… same morning, 32s completed inbound), it doesn't —
+despite your portal eventually showing a summary for both.
+
+Is there a per-channel "include analytics in webhook" toggle we need
+to enable on أكاديمية نمو and الدعم الفني channels?

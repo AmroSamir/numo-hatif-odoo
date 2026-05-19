@@ -30,7 +30,7 @@ _logger = logging.getLogger(__name__)
 
 # Hatif → Odoo selection mappings ------------------------------------- #
 
-# status int → label (apidog enum)
+# status int → label (apidog enum 0-7 + observed undocumented values)
 HATIF_STATUS_MAP = {
     0: 'active',
     1: 'completed',
@@ -40,6 +40,12 @@ HATIF_STATUS_MAP = {
     5: 'no_answer',
     6: 'cancelled',
     7: 'failed',
+    # Undocumented — observed live on erp.amro.pro 2026-05-19. Hatif
+    # sends status=8 one second BEFORE a status=2 (Missed) on the
+    # same callId. Hypothesis: it's a pre-final 'ringing' or
+    # 'connecting' marker. We map it to a distinct state so it stays
+    # visible (vs. being silently skipped).
+    8: 'ringing',
 }
 
 # type int → direction (apidog enum)
@@ -100,6 +106,7 @@ class HtfCall(models.Model):
     status = fields.Selection(
         selection=[
             ('active', 'Active'),
+            ('ringing', 'Ringing'),
             ('completed', 'Completed'),
             ('missed', 'Missed'),
             ('rejected_by_caller', 'Rejected by Caller'),

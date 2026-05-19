@@ -50,9 +50,22 @@ def process(env, payload: dict) -> str:
     direction = HATIF_DIRECTION_MAP.get(payload.get('type'))
     status = HATIF_STATUS_MAP.get(payload.get('status'))
     if not direction or not status:
+        # We've seen Hatif ship status values outside their documented
+        # 0-7 enum (observed: 8). Log the offending values + a short
+        # payload preview so the support email writes itself.
+        import json as _json
+        preview = _json.dumps({
+            k: payload.get(k) for k in
+            ('callId', 'workspaceId', 'channelId', 'type', 'status',
+             'creationTime', 'callLength')
+            if k in payload
+        }, ensure_ascii=False)
         _logger.warning(
-            "[htf-call] unknown direction=%r or status=%r — skipping",
-            payload.get('type'), payload.get('status'),
+            "[htf-call] skip: unmapped direction=%r status=%r — "
+            "Hatif sent an enum value outside the documented set. "
+            "Add it to HATIF_DIRECTION_MAP / HATIF_STATUS_MAP if it "
+            "carries useful data. Preview: %s",
+            payload.get('type'), payload.get('status'), preview,
         )
         return f'skip: direction={direction!r} status={status!r}'
 
