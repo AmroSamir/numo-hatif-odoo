@@ -71,7 +71,7 @@ msgstr "تم الرد بواسطة المجيب الآلي / IVR"
 #. odoo-python
 #: code:addons/htf_call_center/services/discuss_mirror.py:0
 msgid "Missed call"
-msgstr "اتصال فائت"
+msgstr "مكالمة واردة (لم يتم الرد)"
 
 #. module: htf_call_center
 #. odoo-python

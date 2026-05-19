@@ -426,18 +426,25 @@ def _clean_summary(raw: str) -> str:
     return s
 
 
+# Hatif teal phone icon for call bubbles. Inlined as Font Awesome
+# markup rather than the 📞 emoji so the bubble inherits the brand
+# colour (#02c7b5) and rides on the same icon font Odoo's chrome
+# already loads (no extra HTTP fetch).
+_CALL_ICON_HTML = '<i class="fa fa-phone" style="color:#02c7b5"></i>'
+
+
 def _call_icon_and_verb(env, status: str, pickup_kind: str) -> tuple[str, str]:
     if status == 'missed' and pickup_kind == 'none':
-        return '📞', env._('Missed call')
+        return _CALL_ICON_HTML, env._('Missed call')
     if status == 'missed':
-        return '📞', env._('Call (no agent pickup)')
+        return _CALL_ICON_HTML, env._('Call (no agent pickup)')
     if status in ('answered', 'completed'):
-        return '📞', env._('Call ended')
+        return _CALL_ICON_HTML, env._('Call ended')
     if status == 'ringing':
-        return '📞', env._('Call ringing')
+        return _CALL_ICON_HTML, env._('Call ringing')
     if status == 'failed':
-        return '📞', env._('Call failed')
-    return '📞', env._('Call %s', status or env._('unknown'))
+        return _CALL_ICON_HTML, env._('Call failed')
+    return _CALL_ICON_HTML, env._('Call %s', status or env._('unknown'))
 
 
 def _maybe_download_recording(call_row) -> list:
