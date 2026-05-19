@@ -44,6 +44,44 @@ _logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------- #
+# Language pinning                                                 #
+# ---------------------------------------------------------------- #
+
+def _bubble_lang_code(env) -> str:
+    """Pick the language Discuss mirror bubbles render in.
+
+    Bubbles store HTML in ``mail.message.body`` at write time — they're
+    NOT re-translated per-viewer. So we must pin ONE language at render
+    time. For Numo we want Arabic; we detect any active ``ar*`` lang on
+    the DB and fall back to ``en_US`` if none is installed.
+
+    Centralising the lookup also means the migration that re-renders
+    historical bubbles uses the same logic as real-time webhook handlers.
+    """
+    try:
+        ar = env['res.lang'].sudo().with_context(active_test=False).search([
+            ('code', '=like', 'ar%'),
+            ('active', '=', True),
+        ], limit=1)
+        return ar.code if ar else 'en_US'
+    except Exception:  # noqa: BLE001
+        return 'en_US'
+
+
+def _with_bubble_lang(env):
+    """Return an env whose ``lang`` context is pinned for bubble rendering.
+
+    Free-function renderers below use ``record.env._('…')`` to translate
+    strings. ``env._`` reads ``env.lang`` directly, so the recordset MUST
+    be browsed inside the lang-pinned env for translations to apply.
+    Without this, ``_()`` falls back to English source strings because it
+    can't introspect a ``self`` recordset from a free function's stack
+    frame.
+    """
+    return env(context=dict(env.context, lang=_bubble_lang_code(env)))
+
+
+# ---------------------------------------------------------------- #
 # Flag gating                                                      #
 # ---------------------------------------------------------------- #
 
@@ -146,6 +184,9 @@ def mirror_inbound_wa(env, partner, htf_message, payload: dict) -> None:
     if not subtype:
         return
     try:
+        # Pin lang so _render_wa_body's `record.env._()` translates.
+        render_env = _with_bubble_lang(env)
+        htf_message = htf_message.with_env(render_env)
         channel = env['discuss.channel'].sudo()._ensure_htf_discuss_channel(partner)
         if not channel:
             return
@@ -185,6 +226,9 @@ def mirror_outbound_wa_from_hatif(env, partner, htf_message, payload: dict) -> N
     if not subtype:
         return
     try:
+        # Pin lang so _render_wa_body's `record.env._()` translates.
+        render_env = _with_bubble_lang(env)
+        htf_message = htf_message.with_env(render_env)
         channel = env['discuss.channel'].sudo()._ensure_htf_discuss_channel(partner)
         if not channel:
             return
@@ -253,6 +297,9 @@ def mirror_call(env, partner, call_row, payload: dict) -> None:
     if not subtype:
         return
     try:
+        # Pin lang so _render_call_body's `record.env._()` translates.
+        render_env = _with_bubble_lang(env)
+        call_row = call_row.with_env(render_env)
         channel = env['discuss.channel'].sudo()._ensure_htf_discuss_channel(partner)
         if not channel:
             return
@@ -313,34 +360,39 @@ def _render_call_body(call_row) -> Markup:
     """Compose the HTML body of the call bubble.
 
     Returned as `markupsafe.Markup` so Odoo's mail sanitizer recognises
-    the markup as pre-sanitised. Strings use `_()` so the user's locale
-    drives the language — English source + `i18n/ar.po` for Arabic.
+    the markup as pre-sanitised. Strings use ``call_row.env._(...)`` —
+    NOT the module-level ``_()`` — because the bare ``_()`` from a free
+    function can't introspect a recordset out of the stack frame and
+    silently falls back to the English source string. Callers must pass
+    a ``call_row`` browsed inside a lang-pinned env (see
+    ``_with_bubble_lang``).
 
     Layout (renders next to the voice-note bubble in Discuss):
       📞 <verb>  ·  <duration>  ·  started <time>
       Answered by <agent>  (if pickup_kind=human)
       Summary: <ai summary first 200 chars>  (if present)
     """
+    env = call_row.env
     status = (call_row.status or '').lower()
     pickup_kind = (call_row.pickup_kind or '').lower()
     duration = call_row.duration_display or ''
     started = call_row.created_at and call_row.created_at.strftime('%H:%M') or ''
-    icon, verb = _call_icon_and_verb(status, pickup_kind)
+    icon, verb = _call_icon_and_verb(env, status, pickup_kind)
     parts = [f'<strong>{icon} {escape(verb)}</strong>']
     if duration:
         parts.append(f' · {escape(duration)}')
     if started:
-        parts.append(f' · {escape(str(_("started")))} {escape(started)}')
+        parts.append(f' · {escape(env._("started"))} {escape(started)}')
     head = ''.join(parts)
     extra = []
     if pickup_kind == 'human' and call_row.handler_user_id and call_row.handler_user_id.name:
         extra.append(
-            f'<small>{escape(str(_("Answered by")))} '
+            f'<small>{escape(env._("Answered by"))} '
             f'{escape(call_row.handler_user_id.name)}</small>'
         )
     elif pickup_kind == 'system':
         extra.append(
-            f'<small><em>{escape(str(_("Picked up by auto-responder / IVR")))}</em></small>'
+            f'<small><em>{escape(env._("Picked up by auto-responder / IVR"))}</em></small>'
         )
     if call_row.summary:
         summary = _clean_summary(call_row.summary)
@@ -354,7 +406,7 @@ def _render_call_body(call_row) -> Markup:
             extra.append(f'<div>{escape(snippet)}</div>')
         else:
             extra.append(
-                f'<div><em>{escape(str(_("Summary")))}:</em> {escape(snippet)}</div>'
+                f'<div><em>{escape(env._("Summary"))}:</em> {escape(snippet)}</div>'
             )
     html = head + ('<br/>' + '<br/>'.join(extra) if extra else '')
     return Markup(html)
@@ -374,18 +426,18 @@ def _clean_summary(raw: str) -> str:
     return s
 
 
-def _call_icon_and_verb(status: str, pickup_kind: str) -> tuple[str, str]:
+def _call_icon_and_verb(env, status: str, pickup_kind: str) -> tuple[str, str]:
     if status == 'missed' and pickup_kind == 'none':
-        return '📞', str(_('Missed call'))
+        return '📞', env._('Missed call')
     if status == 'missed':
-        return '📞', str(_('Call (no agent pickup)'))
+        return '📞', env._('Call (no agent pickup)')
     if status in ('answered', 'completed'):
-        return '📞', str(_('Call ended'))
+        return '📞', env._('Call ended')
     if status == 'ringing':
-        return '📞', str(_('Call ringing'))
+        return '📞', env._('Call ringing')
     if status == 'failed':
-        return '📞', str(_('Call failed'))
-    return '📞', str(_('Call %s')) % (status or _('unknown'))
+        return '📞', env._('Call failed')
+    return '📞', env._('Call %s', status or env._('unknown'))
 
 
 def _maybe_download_recording(call_row) -> list:
@@ -428,23 +480,22 @@ def _maybe_download_recording(call_row) -> list:
 def _render_wa_body(htf_message, direction: str) -> Markup:
     """Render a WA body into the Discuss bubble.
 
-    Returned as `markupsafe.Markup` so HTML survives Odoo's
-    message_post sanitiser. Plain-text body (escaped) for text
-    messages. Media types get a labelled placeholder — English
-    source string with `_()` so `i18n/ar.po` controls the Arabic
-    translation per-user locale.
+    Uses ``htf_message.env._(...)`` (NOT module-level ``_()``) so the
+    pinned-lang env passed in by the caller actually drives translation.
+    See ``_render_call_body`` for the why.
     """
+    env = htf_message.env
     msg_type = htf_message.message_type or 'text'
     body = htf_message.body or ''
     if msg_type == 'text':
         return Markup(escape(body).replace('\n', '<br/>'))
     label = {
-        'image': _('📷 Image'),
-        'video': _('🎥 Video'),
-        'audio': _('🎵 Audio'),
-        'document': _('📎 Document'),
-        'location': _('📍 Location'),
-    }.get(msg_type, _('Attachment'))
+        'image': env._('📷 Image'),
+        'video': env._('🎥 Video'),
+        'audio': env._('🎵 Audio'),
+        'document': env._('📎 Document'),
+        'location': env._('📍 Location'),
+    }.get(msg_type, env._('Attachment'))
     caption = escape(body) if body else ''
-    html = f'<em>{escape(str(label))}</em>' + (f'<br/>{caption}' if caption else '')
+    html = f'<em>{escape(label)}</em>' + (f'<br/>{caption}' if caption else '')
     return Markup(html)

@@ -17,7 +17,7 @@ msgstr ""
 "Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5;\n"
 
 # ============================================================
-# OWL / JavaScript-side strings
+# OWL / JavaScript-side strings (htf_phone_field widget)
 # ============================================================
 
 #. module: htf_call_center
@@ -45,94 +45,10 @@ msgid "Send WhatsApp message"
 msgstr "إرسال رسالة واتساب"
 
 # ============================================================
-# Server-side Python + XML view strings
+# Python _() calls in services/discuss_mirror.py
+# (Call-bubble + WhatsApp-attachment labels for the Discuss mirror)
 # ============================================================
 
-#. module: htf_call_center
-#. odoo-python
-#: code:addons/htf_call_center/views/wizard_views.xml:0
-msgid "Send WhatsApp"
-msgstr "إرسال واتساب"
-
-#. module: htf_call_center
-#. odoo-python
-#: code:addons/htf_call_center/views/wizard_views.xml:0
-msgid "To"
-msgstr "إلى"
-
-#. module: htf_call_center
-#. odoo-python
-#: code:addons/htf_call_center/views/wizard_views.xml:0
-msgid "Mode"
-msgstr "الوضع"
-
-#. module: htf_call_center
-#. odoo-python
-#: code:addons/htf_call_center/views/wizard_views.xml:0
-msgid "Free-form text"
-msgstr "نص حر"
-
-#. module: htf_call_center
-#. odoo-python
-#: code:addons/htf_call_center/views/wizard_views.xml:0
-msgid "Template"
-msgstr "قالب رسالة"
-
-#. module: htf_call_center
-#. odoo-python
-#: code:addons/htf_call_center/views/wizard_views.xml:0
-msgid "Type your message…"
-msgstr "اكتب رسالتك..."
-
-#. module: htf_call_center
-#. odoo-python
-#: code:addons/htf_call_center/views/wizard_views.xml:0
-msgid "Send"
-msgstr "إرسال"
-
-#. module: htf_call_center
-#. odoo-python
-#: code:addons/htf_call_center/views/wizard_views.xml:0
-msgid "Cancel"
-msgstr "إلغاء"
-
-#. module: htf_call_center
-#. odoo-python
-#: code:addons/htf_call_center/wizards/send_whatsapp.py:0
-msgid "Free-form text (24h window required)"
-msgstr "نص حر (يتطلب نافذة 24 ساعة مفتوحة)"
-
-#. module: htf_call_center
-#. odoo-python
-#: code:addons/htf_call_center/wizards/send_whatsapp.py:0
-msgid "Template (any time)"
-msgstr "قالب معتمد (يمكن إرساله في أي وقت)"
-
-#. module: htf_call_center
-#. odoo-python
-#: code:addons/htf_call_center/views/wizard_views.xml:0
-msgid "exact Hatif-approved template name"
-msgstr "اسم القالب المعتمد في Hatif بالضبط"
-
-#. module: htf_call_center
-#. odoo-python
-#: code:addons/htf_call_center/wizards/send_whatsapp.py:0
-msgid "Customer is on DNC list. Send blocked."
-msgstr "العميل ضمن قائمة الحظر (DNC). الإرسال محظور."
-
-#. module: htf_call_center
-#. odoo-python
-#: code:addons/htf_call_center/wizards/send_whatsapp.py:0
-msgid ""
-"Template message required\n"
-"\n"
-"To start or resume a conversation, you must send an approved Meta template message. Once the customer replies, you can message freely for 24 hours."
-msgstr ""
-"يلزم إرسال قالب رسالة\n"
-"\n"
-"لبدء المحادثة أو استئنافها، يجب إرسال قالب رسالة معتمد من Meta. بعد رد العميل، ستتمكن من الكتابة بحرية لمدة 24 ساعة."
-
-# Discuss chat-bubble labels
 #. module: htf_call_center
 #. odoo-python
 #: code:addons/htf_call_center/services/discuss_mirror.py:0
@@ -150,12 +66,6 @@ msgstr "رد عليه"
 #: code:addons/htf_call_center/services/discuss_mirror.py:0
 msgid "Picked up by auto-responder / IVR"
 msgstr "تم الرد بواسطة المجيب الآلي / IVR"
-
-#. module: htf_call_center
-#. odoo-python
-#: code:addons/htf_call_center/services/discuss_mirror.py:0
-msgid "Summary"
-msgstr "الملخص"
 
 #. module: htf_call_center
 #. odoo-python
@@ -235,7 +145,154 @@ msgstr "📍 موقع"
 msgid "Attachment"
 msgstr "مرفق"
 
-# Outbound override errors
+# ============================================================
+# Python _() calls in services/discuss_mirror.py + services/chatter.py
+# (shared between Discuss mirror and chatter renderer)
+# ============================================================
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/discuss_mirror.py:0
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Summary"
+msgstr "الملخص"
+
+# ============================================================
+# Python _() calls in services/chatter.py
+# (Chatter mirror — original WA + call rendering on res.partner)
+# ============================================================
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Inbound"
+msgstr "وارد"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Outbound"
+msgstr "صادر"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Agent"
+msgstr "الموظف"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Image"
+msgstr "صورة"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Video"
+msgstr "فيديو"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Voice note"
+msgstr "ملاحظة صوتية"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Document"
+msgstr "مستند"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Sticker"
+msgstr "ملصق"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Contact card:"
+msgstr "بطاقة جهة اتصال:"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "WhatsApp template"
+msgstr "قالب واتساب"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Interactive message"
+msgstr "رسالة تفاعلية"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Read"
+msgstr "تمت القراءة"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Delivered"
+msgstr "تم التسليم"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Sent"
+msgstr "أُرسلت"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Failed"
+msgstr "فشل"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Failed — %s"
+msgstr "فشل — %s"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Pending"
+msgstr "قيد الانتظار"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Missed by agent"
+msgstr "فات الموظف"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "System answered"
+msgstr "رد النظام"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Recording"
+msgstr "التسجيل"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/chatter.py:0
+msgid "Transcript preview"
+msgstr "معاينة النص"
+
+# ============================================================
+# Python _() calls in models/discuss_channel.py
+# (Outbound override UserError messages)
+# ============================================================
+
 #. module: htf_call_center
 #. odoo-python
 #: code:addons/htf_call_center/models/discuss_channel.py:0
@@ -265,3 +322,296 @@ msgstr "فشل إرسال واتساب عبر Hatif — راجع سجلات ال
 #: code:addons/htf_call_center/models/discuss_channel.py:0
 msgid "This partner has opted out (DNC). WhatsApp send blocked."
 msgstr "هذه جهة الاتصال انسحبت (DNC). إرسال واتساب محظور."
+
+# ============================================================
+# Python _() calls in wizards/send_whatsapp.py
+# (Pre-flight error wording in the Send WhatsApp wizard)
+# ============================================================
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/wizards/send_whatsapp.py:0
+msgid "— not resolved —"
+msgstr "— لم يتم التحديد —"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/wizards/send_whatsapp.py:0
+msgid "Customer is on DNC list. Send blocked."
+msgstr "العميل ضمن قائمة الحظر (DNC). الإرسال محظور."
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/wizards/send_whatsapp.py:0
+msgid ""
+"Template message required\n"
+"\n"
+"To start or resume a conversation, you must send an approved Meta template message. Once the customer replies, you can message freely for 24 hours."
+msgstr ""
+"يلزم إرسال قالب رسالة\n"
+"\n"
+"لبدء المحادثة أو استئنافها، يجب إرسال قالب رسالة معتمد من Meta. بعد رد العميل، ستتمكن من الكتابة بحرية لمدة 24 ساعة."
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/wizards/send_whatsapp.py:0
+msgid "DNC blocked"
+msgstr "محظور لقائمة DNC"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/wizards/send_whatsapp.py:0
+msgid "Window expired"
+msgstr "انتهت نافذة 24 ساعة"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/wizards/send_whatsapp.py:0
+msgid "Channel not found"
+msgstr "لم يتم العثور على القناة"
+
+# ============================================================
+# act_window action names (top-bar wizard titles)
+# ============================================================
+
+# (the "Send WhatsApp" view arch + act_window entry lives further down,
+#  combined into one msgid block to satisfy PO uniqueness)
+
+# ============================================================
+# Send WhatsApp wizard — field labels
+# (auto-derived from field name when no string= is set, OR the explicit
+#  string= passed to the field constructor)
+# ============================================================
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__partner_id
+msgid "Partner"
+msgstr "جهة الاتصال"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__to_number
+msgid "To Number"
+msgstr "إلى الرقم"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__channel_id
+msgid "Channel"
+msgstr "القناة"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__resolved_channel_display
+msgid "Resolved Channel"
+msgstr "القناة المحددة"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__dnc_blocked
+msgid "Dnc Blocked"
+msgstr "محظور (DNC)"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__window_open
+msgid "Window Open"
+msgstr "نافذة 24 ساعة مفتوحة"
+
+# `mode` field auto-label entry is combined with the view arch_db entry
+# for "Mode" below to satisfy PO msgid uniqueness.
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__text
+msgid "Message"
+msgstr "الرسالة"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__template_name
+msgid "Template Name"
+msgstr "اسم القالب"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__template_language
+msgid "Template Language"
+msgstr "لغة القالب"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__template_category
+msgid "Template Category"
+msgstr "تصنيف القالب"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__template_parameters_json
+msgid "Parameters (JSON)"
+msgstr "المعاملات (JSON)"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__template_body_params
+msgid "Body Variables"
+msgstr "متغيرات نص الرسالة"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__preflight_error
+msgid "Preflight Error"
+msgstr "خطأ في التحقق المسبق"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__lead_id
+msgid "Lead"
+msgstr "عميل محتمل"
+
+# ============================================================
+# Send WhatsApp wizard — selection labels
+# (Radio button values for the `mode` and `template_category` fields)
+# ============================================================
+
+#. module: htf_call_center
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_send_whatsapp_wizard__mode__text
+msgid "Free-form text (24h window required)"
+msgstr "نص حر (يتطلب نافذة 24 ساعة مفتوحة)"
+
+#. module: htf_call_center
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_send_whatsapp_wizard__mode__template
+msgid "Template (any time)"
+msgstr "قالب معتمد (يمكن إرساله في أي وقت)"
+
+#. module: htf_call_center
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_send_whatsapp_wizard__template_category__marketing
+msgid "Marketing"
+msgstr "تسويق"
+
+#. module: htf_call_center
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_send_whatsapp_wizard__template_category__utility
+msgid "Utility"
+msgstr "خدمي"
+
+#. module: htf_call_center
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_send_whatsapp_wizard__template_category__authentication
+msgid "Authentication"
+msgstr "مصادقة"
+
+#. module: htf_call_center
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_send_whatsapp_wizard__template_category__service
+msgid "Service"
+msgstr "خدمة"
+
+# ============================================================
+# Send WhatsApp wizard — view arch_db strings
+# (Form title, group labels, button labels, placeholders)
+# ============================================================
+
+#. module: htf_call_center
+#: model:ir.actions.act_window,name:htf_call_center.action_htf_send_whatsapp_wizard
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_send_whatsapp_wizard_form
+msgid "Send WhatsApp"
+msgstr "إرسال واتساب"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_send_whatsapp_wizard_form
+msgid "To"
+msgstr "إلى"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__mode
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_send_whatsapp_wizard_form
+msgid "Mode"
+msgstr "الوضع"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_send_whatsapp_wizard_form
+msgid "Free-form text"
+msgstr "نص حر"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_send_whatsapp_wizard_form
+msgid "Template"
+msgstr "قالب رسالة"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_send_whatsapp_wizard_form
+msgid "Type your message…"
+msgstr "اكتب رسالتك…"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_send_whatsapp_wizard_form
+msgid "exact Hatif-approved template name"
+msgstr "اسم القالب المعتمد في Hatif بالضبط"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_send_whatsapp_wizard_form
+msgid "Send"
+msgstr "إرسال"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_send_whatsapp_wizard_form
+msgid "Cancel"
+msgstr "إلغاء"
+
+# ============================================================
+# Bind Channels wizard — view arch_db strings + action name
+# ============================================================
+
+#. module: htf_call_center
+#: model:ir.actions.act_window,name:htf_call_center.action_htf_bind_channels_wizard
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_bind_channels_wizard_form
+msgid "Bind Channels to Teams"
+msgstr "ربط القنوات بالفرق"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_bind_channels_wizard_form
+msgid "Save"
+msgstr "حفظ"
+
+# ============================================================
+# Map Users wizard — view arch_db strings + action name
+# ============================================================
+
+#. module: htf_call_center
+#: model:ir.actions.act_window,name:htf_call_center.action_htf_map_users_wizard
+msgid "Map Hatif Users"
+msgstr "ربط مستخدمي Hatif"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_map_users_wizard_form
+msgid "Map Hatif Users to Odoo Users"
+msgstr "ربط مستخدمي Hatif بمستخدمي Odoo"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_map_users_wizard_form
+msgid "Sync from Hatif"
+msgstr "مزامنة من Hatif"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_map_users_wizard_form
+msgid "🔄 Re-suggest unmapped"
+msgstr "🔄 إعادة اقتراح غير المربوطة"
+
+# ============================================================
+# Import vCards wizard — view arch_db strings + action name
+# ============================================================
+
+#. module: htf_call_center
+#: model:ir.actions.act_window,name:htf_call_center.action_htf_import_vcards_wizard
+msgid "Import vCards"
+msgstr "استيراد بطاقات vCard"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_import_vcards_wizard_form
+msgid "Import vCards into Hatif"
+msgstr "استيراد بطاقات vCard إلى Hatif"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_import_vcards_wizard_form
+msgid "Import"
+msgstr "استيراد"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_import_vcards_wizard_form
+msgid "Close"
+msgstr "إغلاق"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_import_vcards_wizard_form
+msgid "Result"
+msgstr "النتيجة"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_import_vcards_wizard_form
+msgid "…or paste vCards directly:"
+msgstr "…أو الصق بطاقات vCard مباشرة:"
