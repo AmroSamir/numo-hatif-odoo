@@ -106,11 +106,14 @@ env.cr.rollback()
 def test_send_text():
     print('\n[2] send_text — dry-run, DNC, window pre-checks')
     out = shell("""
+from datetime import datetime, timedelta
 from odoo.addons.htf_call_center.services import whatsapp
 from odoo.addons.htf_call_center.exceptions import HtfDncBlockedError, HtfWindowExpiredError
 
+# Dynamic fixture: window opened 1 hour ago so it's always < 24h
+_open_ts = (datetime.utcnow() - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
 p_open = env['res.partner'].create({'name': 'open', 'phone': '+966500000010',
-    'x_htf_last_inbound_at': '2026-05-18 03:00:00'})
+    'x_htf_last_inbound_at': _open_ts})
 m = whatsapp.send_text(env, to_number='+966500000010', text='hi', partner=p_open)
 print(f'TEXT_DRY_STATE:{m.state}|TYPE:{m.message_type}|EVTID_PREFIX:{m.conversation_event_id[:6]}')
 
@@ -196,9 +199,11 @@ env.cr.rollback()
 def test_wizard():
     print('\n[4] Send WhatsApp wizard (default_get + action_send)')
     out = shell("""
+from datetime import datetime, timedelta
 W = env['htf.send.whatsapp.wizard']
+_open_ts = (datetime.utcnow() - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
 p = env['res.partner'].create({'name': 'wizP', 'phone': '+966500000030',
-    'x_htf_last_inbound_at': '2026-05-18 03:00:00'})
+    'x_htf_last_inbound_at': _open_ts})
 
 # default_get pulls from active_model/active_id
 wiz = W.with_context(active_model='res.partner', active_id=p.id).create({})

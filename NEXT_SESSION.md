@@ -24,7 +24,9 @@ inbound + outbound flows are verified across calls + WhatsApp.
 
 GitHub: https://github.com/AmroSamir/numo-hatif-odoo
 Latest commit: `2bfe333` (or whatever's on `main` when you sit down).
-Test scoreboard: **275/275** across 6 suites locally.
+Test scoreboard: **274/274** across 6 suites locally
+(dropped one stale P1 assertion that required a `Bind Channels Wizard`
+top-level submenu — that menu lives as a header button now).
 
 ---
 
