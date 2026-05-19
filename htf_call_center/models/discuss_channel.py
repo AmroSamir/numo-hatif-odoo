@@ -71,6 +71,25 @@ class DiscussChannel(models.Model):
     )
 
     # ------------------------------------------------------------------ #
+    # P7.5 — Push x_htf fields to the OWL store                          #
+    # ------------------------------------------------------------------ #
+    # The OWL ChatWindow patch reads `thread.x_htf_partner_id` to decide
+    # whether to hide the native voice-call buttons and render the
+    # "Call via Hatif" anchor. Without this _to_store_defaults override
+    # the fields stay server-side and the patch sees `undefined`.
+    #
+    # Gated by the `discuss_ui_override` sub-flag — turning it off
+    # makes the OWL patch see undefined on every channel, so the
+    # native UI returns even though the schema + mirror are still
+    # active. This is the L2 revert path for the OWL surface alone.
+
+    def _to_store_defaults(self, target):
+        base = super()._to_store_defaults(target)
+        if self.env['htf.config'].discuss_mirror_active('ui'):
+            return base + ['x_htf_partner_id', 'x_htf_last_conversation_id']
+        return base
+
+    # ------------------------------------------------------------------ #
     # Channel auto-provisioning                                          #
     # ------------------------------------------------------------------ #
 
