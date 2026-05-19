@@ -87,6 +87,27 @@ def _call_message_id(call_row) -> str:
     return f'<htf-call-{call_row.id}@htf_call_center>'
 
 
+def _already_mirrored(env, channel_id: int, msg_id_sentinel: str) -> bool:
+    """Idempotency check — return True if a mail.message with this
+    message_id already exists in the channel. Allows safe re-fires of
+    the same Hatif webhook (e.g., Hatif's 5-retry policy on 5xx) without
+    creating duplicate Discuss bubbles.
+
+    Cheap: mail.message has an index on (model, res_id) AND message_id
+    is a small Char with btree index in Odoo 19.
+    """
+    return bool(
+        env['mail.message'].sudo().search_count(
+            [
+                ('model', '=', 'discuss.channel'),
+                ('res_id', '=', channel_id),
+                ('message_id', '=', msg_id_sentinel),
+            ],
+            limit=1,
+        )
+    )
+
+
 # ---------------------------------------------------------------- #
 # Conversation/channel id stamping                                 #
 # ---------------------------------------------------------------- #
@@ -129,6 +150,9 @@ def mirror_inbound_wa(env, partner, htf_message, payload: dict) -> None:
         if not channel:
             return
         _stamp_conversation_metadata(channel, partner, payload, htf_message.channel_id.id)
+        sentinel = _wa_message_id(htf_message)
+        if _already_mirrored(env, channel.id, sentinel):
+            return  # idempotent — webhook re-fire
         body = _render_wa_body(htf_message, direction='inbound')
         channel.with_context(
             mail_create_nosubscribe=True,
@@ -138,7 +162,7 @@ def mirror_inbound_wa(env, partner, htf_message, payload: dict) -> None:
             author_id=partner.id,
             subtype_id=subtype,
             message_type='comment',
-            message_id=_wa_message_id(htf_message),
+            message_id=sentinel,
         )
     except Exception:  # noqa: BLE001 — never break the webhook
         _logger.exception(
@@ -165,6 +189,9 @@ def mirror_outbound_wa_from_hatif(env, partner, htf_message, payload: dict) -> N
         if not channel:
             return
         _stamp_conversation_metadata(channel, partner, payload, htf_message.channel_id.id)
+        sentinel = _wa_message_id(htf_message)
+        if _already_mirrored(env, channel.id, sentinel):
+            return  # idempotent
         body = _render_wa_body(htf_message, direction='outbound')
         # Author: the agent who sent it via Hatif (if mapped), else the
         # current Odoo user's partner.
@@ -181,7 +208,7 @@ def mirror_outbound_wa_from_hatif(env, partner, htf_message, payload: dict) -> N
             author_id=author.id,
             subtype_id=subtype,
             message_type='comment',
-            message_id=_wa_message_id(htf_message),
+            message_id=sentinel,
         )
     except Exception:  # noqa: BLE001
         _logger.exception(
@@ -232,6 +259,9 @@ def mirror_call(env, partner, call_row, payload: dict) -> None:
         if not channel:
             return
         _stamp_conversation_metadata(channel, partner, payload, call_row.channel_id.id)
+        sentinel = _call_message_id(call_row)
+        if _already_mirrored(env, channel.id, sentinel):
+            return  # idempotent
         body = _render_call_body(call_row)
         author = _resolve_call_author(env, call_row, partner)
         attachments = _maybe_download_recording(call_row)
@@ -244,7 +274,7 @@ def mirror_call(env, partner, call_row, payload: dict) -> None:
             subtype_id=subtype,
             message_type='comment',
             attachments=attachments,
-            message_id=_call_message_id(call_row),
+            message_id=sentinel,
         )
     except Exception:  # noqa: BLE001
         _logger.exception(
