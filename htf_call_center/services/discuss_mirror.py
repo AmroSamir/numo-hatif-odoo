@@ -73,6 +73,21 @@ def _mirror_subtype_id(env):
 
 
 # ---------------------------------------------------------------- #
+# Stable RFC2822-style message_id for idempotency                  #
+# ---------------------------------------------------------------- #
+# Each mirror write is tagged with a deterministic message_id so the
+# backfill script can detect "already mirrored this row" and skip,
+# making backfill idempotent.
+
+def _wa_message_id(htf_message) -> str:
+    return f'<htf-msg-{htf_message.id}@htf_call_center>'
+
+
+def _call_message_id(call_row) -> str:
+    return f'<htf-call-{call_row.id}@htf_call_center>'
+
+
+# ---------------------------------------------------------------- #
 # Conversation/channel id stamping                                 #
 # ---------------------------------------------------------------- #
 
@@ -123,6 +138,7 @@ def mirror_inbound_wa(env, partner, htf_message, payload: dict) -> None:
             author_id=partner.id,
             subtype_id=subtype,
             message_type='comment',
+            message_id=_wa_message_id(htf_message),
         )
     except Exception:  # noqa: BLE001 — never break the webhook
         _logger.exception(
@@ -165,6 +181,7 @@ def mirror_outbound_wa_from_hatif(env, partner, htf_message, payload: dict) -> N
             author_id=author.id,
             subtype_id=subtype,
             message_type='comment',
+            message_id=_wa_message_id(htf_message),
         )
     except Exception:  # noqa: BLE001
         _logger.exception(
@@ -227,6 +244,7 @@ def mirror_call(env, partner, call_row, payload: dict) -> None:
             subtype_id=subtype,
             message_type='comment',
             attachments=attachments,
+            message_id=_call_message_id(call_row),
         )
     except Exception:  # noqa: BLE001
         _logger.exception(
