@@ -58,8 +58,8 @@ class HtfSendWhatsappWizard(models.TransientModel):
     # Mode + content -------------------------------------------------- #
     mode = fields.Selection(
         selection=[
-            ('text', 'Free-form text (24h window required)'),
-            ('template', 'Template (any time)'),
+            ('text', 'نص حر (يتطلب نافذة 24 ساعة مفتوحة)'),
+            ('template', 'قالب معتمد (يمكن إرساله في أي وقت)'),
         ],
         default='text',
         required=True,
@@ -158,9 +158,25 @@ class HtfSendWhatsappWizard(models.TransientModel):
                 if channel else _('— not resolved —')
             )
             if w.dnc_blocked:
-                error = _('Customer is on DNC list. Send blocked.')
+                error = _(
+                    'العميل ضمن قائمة الحظر (DNC). الإرسال محظور.\n\n'
+                    'Customer is on DNC list. Send blocked.'
+                )
             elif w.mode == 'text' and w.partner_id and not w.window_open:
-                error = _('24h window is closed — switch to Template mode.')
+                # Locked wording mirrors Hatif's portal notice for the
+                # closed 24h window. Bilingual in one string so EN-locale
+                # and AR-locale workspaces both see a meaningful message
+                # without depending on a .po round-trip.
+                error = _(
+                    'يلزم إرسال قالب رسالة\n\n'
+                    'لبدء المحادثة أو استئنافها، يجب إرسال قالب رسالة '
+                    'معتمد من Meta. بعد رد العميل، ستتمكن من الكتابة '
+                    'بحرية لمدة 24 ساعة.\n\n'
+                    'Template message required\n\n'
+                    'To start or resume a conversation, you must send '
+                    'an approved Meta template message. Once the customer '
+                    'replies, you can message freely for 24 hours.'
+                )
             w.preflight_error = error
 
     # ---------------------------------------------------------------- #
