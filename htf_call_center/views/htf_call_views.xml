@@ -17,7 +17,8 @@
                 <field name="partner_id"/>
                 <field name="channel_id"/>
                 <field name="handler_user_id"/>
-                <field name="duration_seconds"/>
+                <field name="duration_display" string="Duration"/>
+                <field name="duration_seconds" optional="hide" string="Duration (s)"/>
                 <field name="sentiment" optional="show"/>
                 <field name="recording_url" optional="hide"/>
                 <field name="htf_call_id" optional="hide"/>
@@ -50,10 +51,21 @@
                             <field name="created_at" readonly="1"/>
                             <field name="pickup_time" readonly="1"/>
                             <field name="hangup_time" readonly="1"/>
+                            <!--
+                                duration_seconds is a plain int (number of
+                                seconds). DO NOT use widget='float_time' —
+                                that treats the value as hours-and-fraction
+                                (so 32s renders as '32:00' = 32 hours). The
+                                duration_display computed Char gives the
+                                human-readable '5:32' / '1:05:32' form.
+                            -->
+                            <field name="duration_display" readonly="1"
+                                   string="Duration"/>
                             <field name="duration_seconds" readonly="1"
-                                   widget="float_time"/>
+                                   string="Duration (s)" optional="hide"/>
                             <field name="call_length_raw" readonly="1"
-                                   invisible="not call_length_raw"/>
+                                   invisible="not call_length_raw"
+                                   optional="hide"/>
                         </group>
                     </group>
                     <group>

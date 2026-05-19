@@ -140,6 +140,13 @@ class HtfCall(models.Model):
         help='Computed from pickup_time → hangup_time. Falls back to '
              'parsing call_length_raw (HH:MM:SS) when timestamps missing.',
     )
+    duration_display = fields.Char(
+        compute='_compute_duration_display',
+        store=False,
+        help='Human-readable duration: "0:32" / "5:32" / "1:05:32". '
+             'Use this in views — NEVER use widget="float_time" on '
+             'duration_seconds (it interprets the integer as hours).',
+    )
     call_length_raw = fields.Char(
         string='Call Length (raw)',
         help='Hatif callLength HH:MM:SS string preserved for debug.',
@@ -249,6 +256,17 @@ class HtfCall(models.Model):
             who = rec.partner_id.name or _('Unknown')
             via = rec.channel_id.display_name or rec.channel_id.name or '—'
             rec.name = f"[{direction} {status}] {who} via {via}"
+
+    @api.depends('duration_seconds')
+    def _compute_duration_display(self):
+        for rec in self:
+            secs = max(int(rec.duration_seconds or 0), 0)
+            m, s = divmod(secs, 60)
+            h, m = divmod(m, 60)
+            if h:
+                rec.duration_display = f'{h}:{m:02d}:{s:02d}'
+            else:
+                rec.duration_display = f'{m}:{s:02d}'
 
     @api.depends('pickup_time', 'hangup_time', 'call_length_raw')
     def _compute_duration(self):
