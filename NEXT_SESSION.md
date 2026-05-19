@@ -1,7 +1,40 @@
 # NEXT SESSION — start here
 
-Last updated: **2026-05-19** (very late) — after P4 backend shipped
-overnight while you slept.
+Last updated: **2026-05-19** — after live UAT confirmed P4 backend
++ Hatif analytics flowing (full Arabic summary + sentiment for
+calls ≥ 30s) + fuzzy Arabic-name user mapping working.
+
+---
+
+## 🗒️ Amr's "do these later" queue (priority order)
+
+1. **P8 — Outbound Sales Acceleration** ← currently being evaluated
+   - Daily call queue per agent, click-to-call, pre-call brief panel,
+     post-call wrap-up wizard auto-opens on htf.call.received,
+     agent scorecard dashboard
+   - ~12-16h, lives in `numo_crm_htf` bridge module
+   - Highest ROI given 99% outbound reality
+2. **P9 — Speech Analytics via n8n** (Amr likes this)
+   - Now that transcripts + summaries are landing for calls ≥30s,
+     ship the n8n bridge: post each completed htf.call to an n8n
+     webhook → n8n calls LLM (Claude/GPT/whatever Numo picks) →
+     n8n PUSHES back stage progression + agent score via JSON-RPC
+   - Q-19 ANSWERED, Q-30 ANSWERED with n8n routing path
+   - ~8h, lives in `numo_crm_htf` bridge
+3. **P5 — Conversations Sync** (Amr likes this)
+   - Polling backfill insurance against missed webhooks; cron-polls
+     Hatif `/conversations` and reconciles into htf.message + htf.call
+   - Lower priority since live UAT shows webhooks are flowing reliably
+     so far; promote if/when we see lost events
+   - ~6h, lives in htf_call_center wrapper
+4. **Send Hatif support email**
+   - Draft at `htf_call_center/docs/HATIF_SUPPORT_WEBHOOK_SIGNING_REQUEST.md`
+   - Asks about (a) webhook signing, (b) source IP allowlist,
+     (c) post-call webhook re-fire timing, (d) status=8 enum,
+     (e) per-channel analytics toggle
+5. **T4.5 transcript click-to-seek widget**
+   - OWL polish — clicking a word in the transcript seeks the
+     embedded audio player. ~3h. Browser-verify required.
 
 ---
 
