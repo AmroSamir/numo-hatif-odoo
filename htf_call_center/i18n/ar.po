@@ -161,19 +161,19 @@ msgstr "الملخص"
 #. odoo-python
 #: code:addons/htf_call_center/services/discuss_mirror.py:0
 msgid "Missed call"
-msgstr "مكالمة فائتة"
+msgstr "اتصال فائت"
 
 #. module: htf_call_center
 #. odoo-python
 #: code:addons/htf_call_center/services/discuss_mirror.py:0
 msgid "Call (no agent pickup)"
-msgstr "مكالمة (لم يرد الموظف)"
+msgstr "مكالمة واردة (لم يتم الرد)"
 
 #. module: htf_call_center
 #. odoo-python
 #: code:addons/htf_call_center/services/discuss_mirror.py:0
 msgid "Call ended"
-msgstr "انتهت المكالمة"
+msgstr "انتهى الاتصال"
 
 #. module: htf_call_center
 #. odoo-python
@@ -185,13 +185,13 @@ msgstr "جارٍ الاتصال"
 #. odoo-python
 #: code:addons/htf_call_center/services/discuss_mirror.py:0
 msgid "Call failed"
-msgstr "فشلت المكالمة"
+msgstr "فشل الاتصال"
 
 #. module: htf_call_center
 #. odoo-python
 #: code:addons/htf_call_center/services/discuss_mirror.py:0
 msgid "Call %s"
-msgstr "مكالمة %s"
+msgstr "اتصال %s"
 
 #. module: htf_call_center
 #. odoo-python
