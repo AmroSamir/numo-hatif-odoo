@@ -35,6 +35,9 @@ from __future__ import annotations
 import logging
 from html import escape
 
+import requests
+from markupsafe import Markup
+
 from odoo import _
 
 _logger = logging.getLogger(__name__)
@@ -170,21 +173,184 @@ def mirror_outbound_wa_from_hatif(env, partner, htf_message, payload: dict) -> N
         )
 
 
-def _render_wa_body(htf_message, direction: str) -> str:
+# ---------------------------------------------------------------- #
+# Call mirror                                                      #
+# ---------------------------------------------------------------- #
+
+# Hard cap on recording-download size. Hatif's MP3s are typically
+# 30-700 KB; setting 5 MB is well above any realistic call. Stops a
+# pathological response from filling the webhook handler's memory.
+_RECORDING_DOWNLOAD_MAX_BYTES = 5 * 1024 * 1024
+_RECORDING_DOWNLOAD_TIMEOUT_S = 10
+
+
+def mirror_call(env, partner, call_row, payload: dict) -> None:
+    """Post a single mail.message in the partner's Hatif channel for a call.
+
+    Bubble contents (decision #3 ONE message):
+      - HTML body with status icon, duration, who answered, AI summary.
+      - When recording_url is present, the MP3 bytes are downloaded
+        inline (10s timeout, 5 MB cap) and attached with the Discuss
+        voice flag so the attachment renders as a native voice-note
+        bubble alongside the body text.
+
+    Author mapping:
+      - Inbound call  -> author_id = partner.id (left side, anchored
+                         to the customer who initiated)
+      - Outbound call -> author_id = handler.partner_id if known,
+                         else env.user.partner_id (right side, anchored
+                         to the agent who initiated)
+
+    Called from services/calls.py after the htf.call row is persisted
+    and the chatter is updated. Best-effort — exceptions are swallowed
+    so a Discuss failure NEVER breaks the call webhook.
+    """
+    if not partner or not _active(env, 'calls'):
+        return
+    subtype = _mirror_subtype_id(env)
+    if not subtype:
+        return
+    try:
+        channel = env['discuss.channel'].sudo()._ensure_htf_discuss_channel(partner)
+        if not channel:
+            return
+        _stamp_conversation_metadata(channel, partner, payload, call_row.channel_id.id)
+        body = _render_call_body(call_row)
+        author = _resolve_call_author(env, call_row, partner)
+        attachments = _maybe_download_recording(call_row)
+        channel.with_context(
+            mail_create_nosubscribe=True,
+            htf_mirror_write=True,
+        ).message_post(
+            body=body,
+            author_id=author.id if author else False,
+            subtype_id=subtype,
+            message_type='comment',
+            attachments=attachments,
+        )
+    except Exception:  # noqa: BLE001
+        _logger.exception(
+            "[htf-discuss] mirror_call failed for partner=%s htf.call=%s",
+            partner.id, call_row.id,
+        )
+
+
+def _resolve_call_author(env, call_row, partner):
+    direction = (call_row.direction or '').lower()
+    if direction == 'outbound':
+        if call_row.handler_user_id and call_row.handler_user_id.partner_id:
+            return call_row.handler_user_id.partner_id
+        return env.user.partner_id
+    # inbound (or unknown direction) — anchor to the customer
+    return partner
+
+
+def _render_call_body(call_row) -> Markup:
+    """Compose the HTML body of the call bubble.
+
+    Returned as `markupsafe.Markup` so Odoo's mail sanitizer recognises
+    the markup as pre-sanitised. Without this, Odoo escapes every `<`
+    in the body because `message_post(body=...)` expects HTML and falls
+    back to text-escape mode for plain str.
+
+    Layout (renders next to the voice-note bubble in Discuss):
+      📞 <verb>  ·  <duration>  ·  Started <time>
+      Answered by <agent>  (if pickup_kind=human)
+      Summary: <ai summary first 200 chars>  (if present)
+    """
+    status = (call_row.status or '').lower()
+    pickup_kind = (call_row.pickup_kind or '').lower()
+    duration = call_row.duration_display or ''
+    started = call_row.created_at and call_row.created_at.strftime('%H:%M') or ''
+    icon, verb = _call_icon_and_verb(status, pickup_kind)
+    parts = [f'<strong>{icon} {escape(verb)}</strong>']
+    if duration:
+        parts.append(f' · {escape(duration)}')
+    if started:
+        parts.append(f' · {escape(str(_("started")))} {escape(started)}')
+    head = ''.join(parts)
+    extra = []
+    if pickup_kind == 'human' and call_row.handler_user_id and call_row.handler_user_id.name:
+        extra.append(
+            f'<small>{escape(str(_("Answered by")))} '
+            f'{escape(call_row.handler_user_id.name)}</small>'
+        )
+    elif pickup_kind == 'system':
+        extra.append(
+            f'<small><em>{escape(str(_("Picked up by auto-responder / IVR")))}</em></small>'
+        )
+    if call_row.summary:
+        snippet = call_row.summary[:200] + ('…' if len(call_row.summary) > 200 else '')
+        extra.append(
+            f'<div><em>{escape(str(_("Summary")))}:</em> {escape(snippet)}</div>'
+        )
+    html = head + ('<br/>' + '<br/>'.join(extra) if extra else '')
+    return Markup(html)
+
+
+def _call_icon_and_verb(status: str, pickup_kind: str) -> tuple[str, str]:
+    if status == 'missed' and pickup_kind == 'none':
+        return '📞', _('Missed call')
+    if status == 'missed':
+        return '📞', _('Call (no agent pickup)')
+    if status in ('answered', 'completed'):
+        return '📞', _('Call ended')
+    if status == 'ringing':
+        return '📞', _('Call ringing')
+    if status == 'failed':
+        return '📞', _('Call failed')
+    return '📞', _('Call %s') % (status or 'unknown')
+
+
+def _maybe_download_recording(call_row) -> list:
+    """Return attachments-tuple-list for message_post, or empty list.
+
+    Returns [(filename, bytes, {'voice': True, 'mimetype': 'audio/mpeg'})]
+    when the MP3 downloads within budget. On any failure, returns []
+    and logs — the message still posts without the voice bubble.
+
+    Hatif's recording_url is short-lived (apidog notes 401 after a few
+    minutes), so the download MUST happen synchronously inside the
+    webhook handler. 10-second timeout is the budget.
+    """
+    url = call_row.recording_url or ''
+    if not url:
+        return []
+    try:
+        resp = requests.get(url, timeout=_RECORDING_DOWNLOAD_TIMEOUT_S, stream=True)
+        resp.raise_for_status()
+        data = b''
+        for chunk in resp.iter_content(chunk_size=8192):
+            data += chunk
+            if len(data) > _RECORDING_DOWNLOAD_MAX_BYTES:
+                _logger.warning(
+                    "[htf-discuss] recording exceeds %d bytes — abandoning attachment "
+                    "for htf.call=%s",
+                    _RECORDING_DOWNLOAD_MAX_BYTES, call_row.id,
+                )
+                return []
+    except Exception:  # noqa: BLE001
+        _logger.exception(
+            "[htf-discuss] recording download failed for htf.call=%s (url=%s)",
+            call_row.id, url,
+        )
+        return []
+    filename = f'call-{call_row.htf_call_id or call_row.id}.mp3'
+    return [(filename, data, {'voice': True, 'mimetype': 'audio/mpeg'})]
+
+
+def _render_wa_body(htf_message, direction: str) -> Markup:
     """Render a WA body into the Discuss bubble.
 
-    Plain-text body (escaped) for text messages. For media types
-    (image / video / audio / document / location) include a small
-    HTML label so the bubble shows context — media itself gets
-    attached separately via the attachment_ids mechanism in a later
-    iteration (P7.3 already does this for call recordings).
+    Returned as `markupsafe.Markup` so HTML survives Odoo's
+    message_post sanitiser. Plain-text body (escaped) for text
+    messages. Media types get a labelled placeholder — media itself
+    is NOT downloaded because Hatif's mediaUrl is short-lived.
     """
     msg_type = htf_message.message_type or 'text'
     body = htf_message.body or ''
     if msg_type == 'text':
-        return escape(body).replace('\n', '<br/>')
-    # Media — show the type + caption. URL is intentionally NOT embedded
-    # because Hatif's mediaUrl is short-lived and 401s after a few minutes.
+        return Markup(escape(body).replace('\n', '<br/>'))
     label = {
         'image': _('📷 Image'),
         'video': _('🎥 Video'),
@@ -193,4 +359,5 @@ def _render_wa_body(htf_message, direction: str) -> str:
         'location': _('📍 Location'),
     }.get(msg_type, _('Attachment'))
     caption = escape(body) if body else ''
-    return f'<i>{label}</i>' + (f'<br/>{caption}' if caption else '')
+    html = f'<em>{escape(str(label))}</em>' + (f'<br/>{caption}' if caption else '')
+    return Markup(html)

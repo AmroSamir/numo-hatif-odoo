@@ -29,7 +29,7 @@ from datetime import datetime
 
 from ..signals import htf_signals
 from ..utils.phone import normalize_e164
-from . import chatter
+from . import chatter, discuss_mirror
 from ..models.htf_call import (
     HATIF_DIRECTION_MAP,
     HATIF_SENTIMENT_MAP,
@@ -147,6 +147,11 @@ def process(env, payload: dict) -> str:
                 "[htf-call] chatter post_call failed for partner=%s call=%s",
                 partner.id, row.id,
             )
+        # P7 — Mirror call into the partner's Discuss channel with native
+        # voice-note rendering. No-op when discuss_mirror_calls flag is
+        # off. discuss_mirror.mirror_call swallows its own exceptions so
+        # the webhook never breaks here.
+        discuss_mirror.mirror_call(env, partner, row, payload)
 
     # Fire the appropriate signal.
     signal_name = row.signal_bucket()
