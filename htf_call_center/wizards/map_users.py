@@ -3,19 +3,110 @@
 Steps:
   1. Click "Sync from Hatif" → service pulls workspace users into
      htf.user.link rows.
-  2. Auto-match suggestions populate as wizard lines (case-insensitive
-     email match against res.users.login).
-  3. Admin reviews + overrides per row.
+  2. Auto-match suggestions populate as wizard lines. Two-stage:
+       (a) Email — login, partner.email, partner.email_normalized
+           (case-insensitive)
+       (b) Fuzzy name — Arabic-normalized token containment when
+           email match fails. e.g. Hatif 'شموس عبدالكريم' matches
+           Odoo 'شموس عبدالكريم السليمان'.
+  3. Admin reviews + overrides per row. Click 'Re-suggest unmapped'
+     to retry just the empty rows (preserves manual overrides).
   4. Apply → writes user_id on each link AND res.users.x_htf_user_id /
      x_htf_user_email / x_htf_role on the matching Odoo user.
 
-Idempotent — re-running clears suggestions and refreshes from the
-latest htf.user.link state.
+Idempotent — re-running keeps already-mapped rows and only fills empties.
 """
 
 from __future__ import annotations
 
+import re
+import unicodedata
+
 from odoo import _, api, fields, models
+
+
+# ---------------------------------------------------------------- #
+# Fuzzy-name match helpers                                         #
+# ---------------------------------------------------------------- #
+
+_ARABIC_ALEF_NORM = str.maketrans({
+    'أ': 'ا', 'إ': 'ا', 'آ': 'ا',  # alef variants
+    'ى': 'ي',                       # alef maksura → ya
+    'ة': 'ه',                       # ta marbuta → ha
+})
+
+
+def _normalize_name(text: str) -> str:
+    """Lowercase + strip diacritics + normalize Arabic letter shapes.
+
+    Lets 'شموس عبدالكريم' match 'شموس عبدالكريم السليمان' (Hatif name
+    is a prefix of the Odoo name) and also handles minor spelling
+    variants in Saudi names (alef hamza, ta marbuta, etc.).
+    """
+    if not text:
+        return ''
+    # Unicode decompose + drop combining marks (Arabic diacritics).
+    norm = unicodedata.normalize('NFKD', text)
+    norm = ''.join(c for c in norm if unicodedata.category(c) != 'Mn')
+    norm = norm.translate(_ARABIC_ALEF_NORM)
+    norm = norm.lower().strip()
+    # Collapse whitespace + strip punctuation that isn't a word char.
+    norm = re.sub(r'[^\w\s]', ' ', norm, flags=re.UNICODE)
+    norm = re.sub(r'\s+', ' ', norm)
+    return norm
+
+
+def _tokenize_name(text: str) -> list[str]:
+    n = _normalize_name(text)
+    return [t for t in n.split(' ') if t]
+
+
+def _suggest_user(env, link):
+    """Return res.users best-match for a htf.user.link, or empty rs.
+
+    Order: email-on-login → email-on-partner-email → fuzzy name match.
+    """
+    ResUsers = env['res.users']
+    email = (link.email or '').strip()
+
+    if email:
+        # Email-on-login.
+        u = ResUsers.search([('login', '=ilike', email)], limit=1)
+        if u:
+            return u
+        # Email-on-partner.email — most enterprise installs put the
+        # real email here while login is a short username.
+        u = ResUsers.search([('partner_id.email', '=ilike', email)], limit=1)
+        if u:
+            return u
+
+    # Fuzzy name match. Tokenise the Hatif display name + try to find
+    # an active Odoo user whose name contains ALL the Hatif tokens.
+    raw = (link.display_name or '').strip()
+    tokens = _tokenize_name(raw)
+    if not tokens:
+        return ResUsers.browse()
+
+    # Pull a reasonable pool of candidate users + filter in Python so
+    # we get diacritic-normalised matching the ORM domain can't do.
+    candidates = ResUsers.search(
+        [('active', '=', True), ('share', '=', False)], limit=300,
+    )
+    best = ResUsers.browse()
+    best_token_count = 0
+    for u in candidates:
+        u_tokens = _tokenize_name(u.name or '')
+        if not u_tokens:
+            continue
+        matched = sum(1 for t in tokens if t in u_tokens)
+        if matched == len(tokens):
+            # Full coverage of Hatif tokens — likely correct.
+            return u
+        if matched >= 2 and matched > best_token_count:
+            # Partial 2+ token match — keep as best fallback.
+            best = u
+            best_token_count = matched
+    return best
 
 
 class HtfMapUsersWizard(models.TransientModel):
@@ -28,7 +119,6 @@ class HtfMapUsersWizard(models.TransientModel):
     def default_get(self, fields_list):
         vals = super().default_get(fields_list)
         Link = self.env['htf.user.link']
-        ResUsers = self.env['res.users']
         # Order by STORED fields only — `display_name` is computed and
         # raises "Cannot convert to SQL" if used here.
         unmapped = Link.search([
@@ -37,9 +127,9 @@ class HtfMapUsersWizard(models.TransientModel):
 
         lines = []
         for link in unmapped:
-            suggested = link.user_id
-            if not suggested and link.email:
-                suggested = ResUsers.search([('login', '=ilike', link.email)], limit=1)
+            suggested = link.user_id  # preserve existing mapping
+            if not suggested:
+                suggested = _suggest_user(link.env, link)
             lines.append((0, 0, {
                 'link_id': link.id,
                 'user_id': suggested.id if suggested else False,
@@ -55,6 +145,34 @@ class HtfMapUsersWizard(models.TransientModel):
             'view_mode': 'form',
             'target': 'new',
             'context': self.env.context,
+        }
+
+    def action_resuggest(self):
+        """Re-run the auto-matcher on rows where user_id is still empty.
+
+        Preserves any rows the admin already filled in manually. Useful
+        after creating new Odoo users — click and pre-fill the gaps.
+        """
+        self.ensure_one()
+        filled = 0
+        for line in self.line_ids:
+            if line.user_id:
+                continue
+            suggested = _suggest_user(self.env, line.link_id)
+            if suggested:
+                line.user_id = suggested.id
+                filled += 1
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'type': 'success',
+                'title': _('Re-suggest done'),
+                'message': _('%s row(s) auto-filled. Empty rows have '
+                             'no match — pick manually or create '
+                             'a matching Odoo user first.') % filled,
+                'sticky': False,
+            },
         }
 
     def action_apply(self):

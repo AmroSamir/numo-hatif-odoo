@@ -80,6 +80,10 @@
                     <footer>
                         <button name="action_apply" type="object"
                                 string="Save" class="btn-primary"/>
+                        <button name="action_resuggest" type="object"
+                                string="🔄 Re-suggest unmapped"
+                                class="btn-secondary"
+                                title="Re-run auto-matching for rows with no Odoo user. Already-filled rows are preserved."/>
                         <button special="cancel" string="Cancel" class="btn-secondary"/>
                     </footer>
                 </form>
