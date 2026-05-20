@@ -209,9 +209,24 @@ class DiscussChannel(models.Model):
         """Return the set of ``res.partner`` ids that should be members
         of the Hatif Discuss channel for ``partner``.
 
+        Two-gate access (v19.0.1.27.0):
+          1. CHANNEL gate — the agent must be in the Map Users wizard
+             with ``htf.channel.user_ids`` membership on at least one
+             active Hatif channel whose ``team_id`` matches the lead's
+             team. This is the explicit admin-controlled "who is
+             allowed to work this channel" list.
+          2. LEAD gate — the agent must be the salesperson
+             (``crm.lead.user_id``) on a CRM lead whose
+             ``partner_id`` is the customer. This narrows visibility
+             to "my contacted leads" within the channels I'm gated
+             for.
+
+        BOTH must pass. The customer's partner is always allowed
+        (needed so inbound bubbles attribute correctly).
+        ``Hatif: Administrator`` users bypass both gates by design.
         Single source of truth shared by the auto-provisioning code,
-        the CRM-lead write hook, and the standalone prune tool — so
-        all three converge on the same access list.
+        the CRM-lead write hook, the channel-allowed-agents hook, the
+        Map Users wizard, and the prune tool.
         """
         allowed = set()
         if partner:
@@ -224,13 +239,30 @@ class DiscussChannel(models.Model):
             for u in admin_group.user_ids:
                 if u.partner_id:
                     allowed.add(u.partner_id.id)
-        if partner:
-            leads = self.env['crm.lead'].sudo().search([
-                ('partner_id', '=', partner.id),
-            ])
-            for lead in leads:
-                if lead.user_id and lead.user_id.partner_id:
-                    allowed.add(lead.user_id.partner_id.id)
+        if not partner:
+            return allowed
+
+        HtfChannel = self.env['htf.channel'].sudo()
+        leads = self.env['crm.lead'].sudo().search([
+            ('partner_id', '=', partner.id),
+        ])
+        for lead in leads:
+            user = lead.user_id
+            if not user or not user.partner_id:
+                continue
+            # Channel-gate: agent must be on an active htf.channel
+            # whose team matches the lead's team. When the lead has
+            # no team, fall back to "any active channel" so we don't
+            # accidentally lock out the agent because of a missing
+            # team assignment.
+            channel_domain = [
+                ('user_ids', 'in', user.id),
+                ('state', '=', 'active'),
+            ]
+            if lead.team_id:
+                channel_domain.append(('team_id', '=', lead.team_id.id))
+            if HtfChannel.search_count(channel_domain):
+                allowed.add(user.partner_id.id)
         return allowed
 
     def _htf_sync_channel_members(self):

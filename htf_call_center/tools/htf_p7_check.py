@@ -400,6 +400,99 @@ env.cr.rollback()
           'True' in L.get('MESSAGE_ID_PRESENT', 'False'))
 
 
+# ---------- [8] 2-gate access (v19.0.1.27.0) ---------- #
+def t_two_gate_access():
+    section('8] 2-gate access (channel.user_ids ∩ lead.user_id)')
+    out = shell(r"""
+# Build a clean fixture: one team, one htf.channel for that team,
+# one customer with a lead on the team, one agent. Then permute
+# the two gates and check membership + group.
+team = env['crm.team'].create({'name': 'P7chk 2gate team'})
+ch_h = env['htf.channel'].create({
+    'name': 'P7chk 2gate channel', 'htf_channel_id': 'p7chk-2gate-c1',
+    'channel_type': 'whatsapp', 'team_id': team.id, 'state': 'active',
+})
+cust = env['res.partner'].create({'name': 'P7chk 2gate customer', 'phone': '+9665000P72g1'})
+agent = env['res.users'].create({
+    'login': 'p7chk2g_agent@local', 'name': 'P7chk 2g Agent',
+    'group_ids': [(4, env.ref('base.group_user').id)],
+})
+
+group_user = env.ref('htf_call_center.group_user')
+
+# Build the discuss channel for this customer.
+disc = env['discuss.channel'].sudo()._ensure_htf_discuss_channel(cust)
+
+def members_for(disc_channel):
+    return {m.partner_id.id for m in disc_channel.channel_member_ids}
+
+def has_group(u):
+    return group_user in u.group_ids
+
+# State 0: no lead, no channel-gate → agent absent, no group.
+print(f'S0_GROUP:{has_group(agent)}')
+print(f'S0_IN_DISC:{agent.partner_id.id in members_for(disc)}')
+
+# State 1: channel-gate only (agent on htf.channel.user_ids, no lead).
+ch_h.write({'user_ids': [(4, agent.id)]})
+agent.invalidate_recordset()
+print(f'S1_GROUP:{has_group(agent)}')  # expect True — has channel mapping
+print(f'S1_IN_DISC:{agent.partner_id.id in members_for(disc)}')  # expect False — no lead
+
+# State 2: both gates — channel-gate + lead-gate (assigned salesperson on lead).
+lead = env['crm.lead'].sudo().create({
+    'name': 'P7chk 2gate lead', 'partner_id': cust.id,
+    'team_id': team.id, 'user_id': agent.id,
+})
+# Lead write hook resyncs membership.
+disc.invalidate_recordset()
+print(f'S2_IN_DISC:{agent.partner_id.id in members_for(disc)}')  # expect True
+
+# State 3: drop channel-gate → agent should drop from discuss channel.
+ch_h.write({'user_ids': [(3, agent.id)]})
+disc.invalidate_recordset()
+agent.invalidate_recordset()
+print(f'S3_GROUP:{has_group(agent)}')  # expect False — no channel mapping
+print(f'S3_IN_DISC:{agent.partner_id.id in members_for(disc)}')  # expect False
+
+# State 4: back to both gates → agent reappears.
+ch_h.write({'user_ids': [(4, agent.id)]})
+disc.invalidate_recordset()
+agent.invalidate_recordset()
+print(f'S4_GROUP:{has_group(agent)}')  # expect True
+print(f'S4_IN_DISC:{agent.partner_id.id in members_for(disc)}')  # expect True
+
+# State 5: agent in group_user can open Send WhatsApp wizard
+# (the originally-failing path from the InPrivate browser test).
+try:
+    env['htf.send.whatsapp.wizard'].with_user(agent).check_access('create')
+    print('S5_WIZ_ACCESS:OK')
+except Exception as exc:
+    print(f'S5_WIZ_ACCESS:FAIL {type(exc).__name__}')
+
+env.cr.rollback()
+""")
+    L = {l.split(':', 1)[0]: l for l in out.splitlines() if ':' in l}
+    check('S0: no channel, no lead → not in discuss',
+          'S0_IN_DISC:False' in L.get('S0_IN_DISC', ''), L.get('S0_IN_DISC', ''))
+    check('S1: channel mapping grants Hatif: User group',
+          'S1_GROUP:True' in L.get('S1_GROUP', ''), L.get('S1_GROUP', ''))
+    check('S1: channel alone does NOT put agent in customer discuss',
+          'S1_IN_DISC:False' in L.get('S1_IN_DISC', ''), L.get('S1_IN_DISC', ''))
+    check('S2: channel + lead salesperson → agent in discuss',
+          'S2_IN_DISC:True' in L.get('S2_IN_DISC', ''), L.get('S2_IN_DISC', ''))
+    check('S3: dropping channel revokes Hatif: User group',
+          'S3_GROUP:False' in L.get('S3_GROUP', ''), L.get('S3_GROUP', ''))
+    check('S3: dropping channel drops agent from discuss',
+          'S3_IN_DISC:False' in L.get('S3_IN_DISC', ''), L.get('S3_IN_DISC', ''))
+    check('S4: re-adding channel re-grants group',
+          'S4_GROUP:True' in L.get('S4_GROUP', ''), L.get('S4_GROUP', ''))
+    check('S4: re-adding channel re-adds agent to discuss',
+          'S4_IN_DISC:True' in L.get('S4_IN_DISC', ''), L.get('S4_IN_DISC', ''))
+    check('S5: agent with channel can open Send WhatsApp wizard',
+          'S5_WIZ_ACCESS:OK' in L.get('S5_WIZ_ACCESS', ''), L.get('S5_WIZ_ACCESS', ''))
+
+
 def main() -> int:
     print('=== P7 — Discuss as Hatif conversation surface ===')
     t_channel()
@@ -409,6 +502,7 @@ def main() -> int:
     t_outbound_override()
     t_owl_store_defaults()
     t_idempotency()
+    t_two_gate_access()
     print()
     print(f'=== RESULT: {PASS}/{PASS + FAIL} passed ===')
     if FAIL:

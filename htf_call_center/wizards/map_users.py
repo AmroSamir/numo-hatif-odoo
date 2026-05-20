@@ -196,6 +196,7 @@ class HtfMapUsersWizard(models.TransientModel):
         self.ensure_one()
         Channel = self.env['htf.channel'].sudo()
         channels_changed = 0
+        touched_users = self.env['res.users']
         for line in self.line_ids:
             link = line.link_id
             user = line.user_id
@@ -223,6 +224,15 @@ class HtfMapUsersWizard(models.TransientModel):
                 for ch in (current - desired):
                     ch.write({'user_ids': [(3, user.id)]})
                     channels_changed += 1
+                touched_users |= user
+        # The channel write() hook already syncs group + discuss
+        # membership for the diffed users, but also touch every user
+        # we saw on a line so a no-op apply (admin opened the wizard,
+        # picked nothing, hit Save) still converges the group state
+        # in case it drifted (e.g. wizard ran from an older install
+        # before group autosync existed).
+        if touched_users:
+            touched_users._htf_sync_group_membership()
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',

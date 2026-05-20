@@ -119,6 +119,115 @@ class HtfChannel(models.Model):
                 continue
             rec.display_name = rec.name
 
+    # ------------------------------------------------------------------ #
+    # 2-gate access — react to user_ids / team_id changes                #
+    # ------------------------------------------------------------------ #
+    # Channel membership for the per-partner Hatif Discuss channels is
+    # derived from htf.channel.user_ids (the channel-gate) ∩
+    # crm.lead.user_id (the lead-gate). So any change to user_ids must:
+    #   1. Resync Hatif: User group for users added/removed (so they can
+    #      open the Send WhatsApp wizard).
+    #   2. Recompute membership on every Hatif Discuss channel whose
+    #      customer has a lead on this channel's team (the agents
+    #      that just gained/lost channel access need to be added/
+    #      removed from the right discuss.channels).
+    # team_id changes also affect the membership map for the same reason.
+
+    def write(self, vals):
+        affects_access = any(k in vals for k in ('user_ids', 'team_id', 'state'))
+        old_user_ids = (
+            {ch.id: set(ch.user_ids.ids) for ch in self}
+            if affects_access else {}
+        )
+        old_team_ids = (
+            {ch.id: ch.team_id.id for ch in self}
+            if affects_access else {}
+        )
+        res = super().write(vals)
+        if affects_access:
+            self._htf_propagate_access_change(old_user_ids, old_team_ids)
+        return res
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        # New channels with user_ids prefilled need group + membership
+        # sync too. team_id may also be unset on create — fine, gate
+        # is permissive when team is absent.
+        records._htf_propagate_access_change(
+            old_user_ids={ch.id: set() for ch in records},
+            old_team_ids={ch.id: False for ch in records},
+        )
+        return records
+
+    def _htf_propagate_access_change(self, old_user_ids, old_team_ids):
+        """Resync Hatif: User group + Discuss channel membership for
+        users whose channel-access just changed.
+
+        Called from write/create whenever ``user_ids`` / ``team_id`` /
+        ``state`` change. Wrapped so callers don't have to know the
+        bookkeeping. Best-effort — exceptions are logged not raised
+        (don't break a channel save because of a downstream sync hiccup).
+        """
+        affected_uids = set()
+        affected_teams = set()
+        for ch in self:
+            new_uids = set(ch.user_ids.ids)
+            old_uids = old_user_ids.get(ch.id, set())
+            affected_uids |= (new_uids ^ old_uids)
+            # If team_id changed, both teams' membership maps could
+            # shift for this channel's allowed agents.
+            new_team = ch.team_id.id if ch.team_id else False
+            old_team = old_team_ids.get(ch.id, False)
+            if new_team != old_team:
+                affected_uids |= new_uids
+                if old_team:
+                    affected_teams.add(old_team)
+                if new_team:
+                    affected_teams.add(new_team)
+            else:
+                if ch.team_id:
+                    affected_teams.add(ch.team_id.id)
+
+        if affected_uids:
+            try:
+                self.env['res.users'].browse(list(affected_uids))._htf_sync_group_membership()
+            except Exception:  # noqa: BLE001
+                _logger.exception(
+                    "[htf-access] group resync failed for users=%s after "
+                    "channel allow-list change",
+                    sorted(affected_uids),
+                )
+
+        # Resync Discuss channel membership for every customer who has
+        # a lead on an affected team. Scope by team to keep the work
+        # bounded — a channel access change can't affect customers on
+        # other teams.
+        if not affected_teams:
+            return
+        DiscussChannel = self.env['discuss.channel'].sudo()
+        Lead = self.env['crm.lead'].sudo()
+        leads = Lead.search([
+            ('team_id', 'in', list(affected_teams)),
+            ('partner_id', '!=', False),
+        ])
+        partner_ids = {l.partner_id.id for l in leads}
+        if not partner_ids:
+            return
+        discuss_channels = DiscussChannel.search([
+            ('x_htf_partner_id', 'in', list(partner_ids)),
+            ('active', '=', True),
+        ])
+        for ch in discuss_channels:
+            try:
+                ch._htf_sync_channel_members()
+            except Exception:  # noqa: BLE001
+                _logger.exception(
+                    "[htf-access] discuss channel resync failed for "
+                    "channel id=%s partner id=%s",
+                    ch.id, ch.x_htf_partner_id.id,
+                )
+
     @api.constrains('default_for_outbound_wa', 'team_id', 'state')
     def _check_one_default_wa_per_team(self):
         # Each team has at most one default-WA channel (among active ones).

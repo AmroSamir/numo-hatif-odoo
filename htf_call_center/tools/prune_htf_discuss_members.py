@@ -43,28 +43,15 @@ CHANNEL_HINT = (os.environ.get('HTF_CHANNEL_HINT') or '').strip()
 
 def _allowed_partner_ids(env, partner):
     """Return the set of res.partner ids that SHOULD be members of
-    the Hatif channel for ``partner``."""
-    allowed = set()
-    if partner:
-        allowed.add(partner.id)
+    the Hatif channel for ``partner``.
 
-    admin_group = env.ref(
-        'htf_call_center.group_admin', raise_if_not_found=False,
-    )
-    if admin_group:
-        # Odoo 19 renamed res.groups.users → user_ids.
-        for u in admin_group.user_ids:
-            if u.partner_id:
-                allowed.add(u.partner_id.id)
-
-    # Salespeople on any CRM lead linked to this customer.
-    if partner:
-        leads = env['crm.lead'].sudo().search([('partner_id', '=', partner.id)])
-        for lead in leads:
-            if lead.user_id and lead.user_id.partner_id:
-                allowed.add(lead.user_id.partner_id.id)
-
-    return allowed
+    Delegates to the model so the prune CLI, the auto-provisioning
+    code, the channel write hook, and the CRM-lead write hook all
+    converge on the same 2-gate rule. Pre-19.0.1.27.0 this function
+    inlined the logic; keeping the wrapper preserves the old CLI
+    surface for anyone who scripted against it.
+    """
+    return env['discuss.channel'].sudo()._htf_allowed_member_partner_ids(partner)
 
 
 def run(env):
