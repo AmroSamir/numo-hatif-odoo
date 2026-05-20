@@ -156,7 +156,21 @@
                                 <field name="to_number"/>
                                 <field name="channel_id"
                                        options="{'no_create': True}"/>
-                                <field name="resolved_channel_display" readonly="1"/>
+                                <!--
+                                    Only show the "Resolved Channel"
+                                    helper when channel_id is empty —
+                                    once a channel is explicitly picked
+                                    (or auto-set by the template
+                                    dropdown's onchange), the two
+                                    fields would just duplicate each
+                                    other. The helper still shines when
+                                    channel_id is blank and the
+                                    resolver picks a channel via the
+                                    team-chain fallback.
+                                -->
+                                <field name="resolved_channel_display"
+                                       readonly="1"
+                                       invisible="channel_id"/>
                                 <field name="dnc_blocked" readonly="1"/>
                                 <field name="window_open" readonly="1"/>
                             </group>
