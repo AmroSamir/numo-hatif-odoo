@@ -23,7 +23,7 @@ from ..exceptions import (
     HtfApiError, HtfChannelNotFoundError, HtfDncBlockedError,
     HtfWindowExpiredError,
 )
-from ..services import channel_resolver, whatsapp
+from ..services import channel_resolver, conversations, whatsapp
 
 _logger = logging.getLogger(__name__)
 
@@ -175,6 +175,23 @@ class HtfSendWhatsappWizard(models.TransientModel):
                 resolved = None
             if resolved:
                 vals['channel_id'] = resolved.id
+
+        # Refresh Meta's 24h customer-service-window status directly
+        # from Hatif's conversation timeline so the wizard's free-form
+        # gate reflects RIGHT NOW, not the last time a webhook happened
+        # to update the partner. Webhooks can lag / fail; this puts the
+        # wizard back in sync without an admin having to dig through
+        # the partner form. Best-effort — Hatif outages keep the
+        # locally-cached flag.
+        if partner:
+            try:
+                conversations.refresh_window_from_hatif(self.env, partner)
+            except Exception:  # noqa: BLE001
+                _logger.exception(
+                    "[htf-window] wizard pre-check failed for partner=%s "
+                    "— falling back to local x_htf_24h_window_open=%s",
+                    partner.id, partner.x_htf_24h_window_open,
+                )
         return vals
 
     @api.onchange('template_id')
