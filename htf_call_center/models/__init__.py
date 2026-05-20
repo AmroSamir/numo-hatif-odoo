@@ -1,6 +1,7 @@
 from . import htf_config
 from . import htf_webhook_event
 from . import htf_channel
+from . import htf_template
 from . import htf_tag
 from . import htf_user_link
 from . import htf_contact_link

@@ -3,6 +3,8 @@ access_htf_webhook_event_admin,htf.webhook.event admin,model_htf_webhook_event,h
 access_htf_webhook_event_user,htf.webhook.event user readonly,model_htf_webhook_event,htf_call_center.group_user,0,0,0,0
 access_htf_channel_admin,htf.channel admin,model_htf_channel,htf_call_center.group_admin,1,1,1,1
 access_htf_channel_user,htf.channel user read,model_htf_channel,htf_call_center.group_user,1,0,0,0
+access_htf_template_admin,htf.template admin,model_htf_template,htf_call_center.group_admin,1,1,1,1
+access_htf_template_user,htf.template user read,model_htf_template,htf_call_center.group_user,1,0,0,0
 access_htf_tag_admin,htf.tag admin,model_htf_tag,htf_call_center.group_admin,1,1,1,1
 access_htf_tag_user,htf.tag user read,model_htf_tag,htf_call_center.group_user,1,0,0,0
 access_htf_user_link_admin,htf.user.link admin,model_htf_user_link,htf_call_center.group_admin,1,1,1,1

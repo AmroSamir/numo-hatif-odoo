@@ -169,6 +169,25 @@
                                    placeholder="Type your message…"/>
                         </group>
                         <group invisible="mode != 'template'" string="Template">
+                            <!--
+                                template_id is the user-facing pick:
+                                domain filters to templates approved on
+                                the selected channel (or any channel
+                                when the wizard hasn't resolved one
+                                yet) AND status=approved. The onchange
+                                copies the chosen template's metadata
+                                onto the legacy fields below so the API
+                                call's request body shape stays the same.
+                                Free-form template_name remains editable
+                                so admins can still send a template not
+                                yet registered in htf.template.
+                            -->
+                            <field name="template_id"
+                                   options="{'no_create': True}"
+                                   domain="[('status', '=', 'approved'),
+                                            '|',
+                                                ('channel_id', '=', channel_id),
+                                                ('channel_id.user_ids', '=', uid)]"/>
                             <field name="template_name"
                                    placeholder="exact Hatif-approved template name"/>
                             <field name="template_language"/>

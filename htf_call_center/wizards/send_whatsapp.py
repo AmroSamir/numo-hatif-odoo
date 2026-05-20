@@ -69,8 +69,18 @@ class HtfSendWhatsappWizard(models.TransientModel):
         help='Free-form WA text body — sent only when 24h window is open.',
     )
 
+    template_id = fields.Many2one(
+        'htf.template',
+        string='Template',
+        help='Pick from approved templates registered locally. Filtered '
+             'by the selected channel (or the user\'s allowed channels '
+             'when no channel is set yet). Selecting one auto-fills the '
+             'name, language and category fields below. Leave empty to '
+             'type a name manually (for templates not yet registered).',
+    )
     template_name = fields.Char(
         help='Exact Hatif-approved template name (CASE-SENSITIVE). '
+             'Auto-filled from the Template dropdown above when available. '
              'See app.hatif.io → Settings → Message Templates for the '
              'list of approved names + their status (only Active templates '
              'will send). Common rejection causes if Hatif returns 400:\n'
@@ -146,6 +156,33 @@ class HtfSendWhatsappWizard(models.TransientModel):
                 lead.phone or lead.mobile or vals.get('to_number') or ''
             )
         return vals
+
+    @api.onchange('template_id')
+    def _onchange_template_id(self):
+        """Copy the picked template's metadata onto the legacy free-form
+        fields so ``action_send`` keeps its existing code path: it still
+        reads ``template_name`` / ``template_language`` / ``template_category``
+        and posts those to Hatif. The Many2one is purely a UI convenience.
+
+        Also auto-snaps ``channel_id`` to the template's channel when the
+        wizard's channel is empty, so the agent doesn't have to set both.
+        And surfaces the template's ``parameter_hint`` as the placeholder
+        / default for the body-variables Char (when the agent hasn't
+        typed anything yet).
+        """
+        for w in self:
+            tpl = w.template_id
+            if not tpl:
+                continue
+            w.template_name = tpl.name
+            if tpl.language:
+                w.template_language = tpl.language
+            if tpl.category:
+                w.template_category = tpl.category
+            if not w.channel_id:
+                w.channel_id = tpl.channel_id
+            if tpl.parameter_hint and not w.template_body_params:
+                w.template_body_params = tpl.parameter_hint
 
     @api.depends('partner_id', 'lead_id', 'channel_id', 'mode')
     def _compute_preflight(self):

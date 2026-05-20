@@ -1,6 +1,6 @@
 {
     'name': 'HTF Call Center',
-    'version': '19.0.1.16.0',
+    'version': '19.0.1.17.0',
     'category': 'Productivity/Discuss',
     'summary': 'Hatif/Voxa BPaaS integration: telephony + WhatsApp + IVR',
     'description': """
@@ -52,6 +52,7 @@ for every interaction afterwards.
         # res_partner_views.xml + crm_lead_views.xml (Send WA buttons).
         'views/wizard_views.xml',
         'views/htf_channel_views.xml',
+        'views/htf_template_views.xml',
         'views/htf_tag_views.xml',
         'views/htf_user_link_views.xml',
         'views/htf_contact_link_views.xml',
