@@ -154,23 +154,22 @@
                             <group string="To">
                                 <field name="partner_id" readonly="1"/>
                                 <field name="to_number"/>
+                                <!--
+                                    Single channel field. ``channel_id``
+                                    is pre-resolved in default_get via
+                                    ``channel_resolver.resolve_outbound_wa``
+                                    so the wizard opens with the right
+                                    channel already filled. The
+                                    legacy ``resolved_channel_display``
+                                    helper is intentionally NOT
+                                    rendered here — it duplicates the
+                                    same value. It stays on the model
+                                    in case downstream code reads it,
+                                    but the agent only ever sees ONE
+                                    label for the channel.
+                                -->
                                 <field name="channel_id"
                                        options="{'no_create': True}"/>
-                                <!--
-                                    Only show the "Resolved Channel"
-                                    helper when channel_id is empty —
-                                    once a channel is explicitly picked
-                                    (or auto-set by the template
-                                    dropdown's onchange), the two
-                                    fields would just duplicate each
-                                    other. The helper still shines when
-                                    channel_id is blank and the
-                                    resolver picks a channel via the
-                                    team-chain fallback.
-                                -->
-                                <field name="resolved_channel_display"
-                                       readonly="1"
-                                       invisible="channel_id"/>
                                 <field name="dnc_blocked" readonly="1"/>
                                 <field name="window_open" readonly="1"/>
                             </group>

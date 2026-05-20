@@ -155,6 +155,26 @@ class HtfSendWhatsappWizard(models.TransientModel):
             vals['to_number'] = (
                 lead.phone or lead.mobile or vals.get('to_number') or ''
             )
+
+        # Pre-resolve the outbound channel so the wizard opens with
+        # ``channel_id`` already filled. This collapses the previous
+        # two-field UX ("Channel" picker + "Resolved Channel" read-only
+        # display) into a single editable field showing the channel the
+        # send will actually go through — agents can still override it
+        # via the dropdown when needed, but they don't see two labels
+        # for the same concept anymore.
+        if not vals.get('channel_id'):
+            try:
+                resolved = channel_resolver.resolve_outbound_wa(
+                    self.env,
+                    partner=partner,
+                    lead=lead,
+                    sender_user=self.env.user,
+                )
+            except HtfChannelNotFoundError:
+                resolved = None
+            if resolved:
+                vals['channel_id'] = resolved.id
         return vals
 
     @api.onchange('template_id')
