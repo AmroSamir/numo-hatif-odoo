@@ -9,10 +9,15 @@ Steps:
        (b) Fuzzy name — Arabic-normalized token containment when
            email match fails. e.g. Hatif 'شموس عبدالكريم' matches
            Odoo 'شموس عبدالكريم السليمان'.
-  3. Admin reviews + overrides per row. Click 'Re-suggest unmapped'
+  3. Each line ALSO lets the admin pick which Hatif channels the
+     mapped user is allowed to send through. Pre-filled from the
+     existing ``htf.channel.user_ids`` overrides; saving the wizard
+     diffs additions / removals and writes them back per channel.
+  4. Admin reviews + overrides per row. Click 'Re-suggest unmapped'
      to retry just the empty rows (preserves manual overrides).
-  4. Apply → writes user_id on each link AND res.users.x_htf_user_id /
-     x_htf_user_email / x_htf_role on the matching Odoo user.
+  5. Apply → writes user_id on each link AND res.users.x_htf_user_id /
+     x_htf_user_email / x_htf_role on the matching Odoo user; syncs
+     the user's channel membership on every selected channel.
 
 Idempotent — re-running keeps already-mapped rows and only fills empties.
 """
@@ -125,14 +130,26 @@ class HtfMapUsersWizard(models.TransientModel):
             ('is_ai_agent', '=', False),
         ], order='user_id, email, htf_user_id')
 
+        Channel = self.env['htf.channel'].sudo()
         lines = []
         for link in unmapped:
             suggested = link.user_id  # preserve existing mapping
             if not suggested:
                 suggested = _suggest_user(link.env, link)
+            # Pre-fill channel membership from current overrides on
+            # htf.channel.user_ids so the admin sees what's already
+            # set and can extend or trim from there.
+            current_channels = (
+                Channel.search([
+                    ('user_ids', 'in', suggested.id),
+                    ('state', '=', 'active'),
+                ])
+                if suggested else Channel.browse()
+            )
             lines.append((0, 0, {
                 'link_id': link.id,
                 'user_id': suggested.id if suggested else False,
+                'channel_ids': [(6, 0, current_channels.ids)],
             }))
         vals['line_ids'] = lines
         return vals
@@ -177,6 +194,8 @@ class HtfMapUsersWizard(models.TransientModel):
 
     def action_apply(self):
         self.ensure_one()
+        Channel = self.env['htf.channel'].sudo()
+        channels_changed = 0
         for line in self.line_ids:
             link = line.link_id
             user = line.user_id
@@ -187,13 +206,36 @@ class HtfMapUsersWizard(models.TransientModel):
                     'x_htf_user_email': link.email or False,
                     'x_htf_role': link.role,
                 })
+                # Sync channel memberships: minimal diff between the
+                # user's CURRENT set of active-channel overrides and
+                # what the admin picked in the wizard. We write per
+                # channel (add/remove ONE user) instead of replacing
+                # channel.user_ids wholesale, so we don't clobber
+                # OTHER users that happen to be on the same channel.
+                current = Channel.search([
+                    ('user_ids', 'in', user.id),
+                    ('state', '=', 'active'),
+                ])
+                desired = line.channel_ids
+                for ch in (desired - current):
+                    ch.write({'user_ids': [(4, user.id)]})
+                    channels_changed += 1
+                for ch in (current - desired):
+                    ch.write({'user_ids': [(3, user.id)]})
+                    channels_changed += 1
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
                 'type': 'success',
                 'title': _('Mapping saved'),
-                'message': _('%s links updated.') % len(self.line_ids),
+                'message': _(
+                    '%(links)s links updated, %(channels)s channel '
+                    'membership change(s) applied.'
+                ) % {
+                    'links': len(self.line_ids),
+                    'channels': channels_changed,
+                },
                 'sticky': False,
             },
         }
@@ -218,4 +260,13 @@ class HtfMapUsersWizardLine(models.TransientModel):
         'res.users',
         string='Odoo User',
         domain="[('active', '=', True)]",
+    )
+    channel_ids = fields.Many2many(
+        'htf.channel',
+        string='Allowed Hatif Channels',
+        domain="[('state', '=', 'active')]",
+        help='Hatif channels this user is allowed to send / call through. '
+             'Pre-filled from htf.channel.user_ids; saving the wizard '
+             'diffs additions and removals back onto each channel. '
+             'Empty = the user inherits the team\'s default channel pool.',
     )

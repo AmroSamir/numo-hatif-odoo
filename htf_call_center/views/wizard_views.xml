@@ -74,6 +74,9 @@
                                 <field name="role" readonly="1"/>
                                 <field name="htf_user_id" readonly="1" optional="hide"/>
                                 <field name="user_id"/>
+                                <field name="channel_ids"
+                                       widget="many2many_tags"
+                                       options="{'no_create': True}"/>
                             </list>
                         </field>
                     </sheet>
