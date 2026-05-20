@@ -175,20 +175,83 @@ class DiscussChannel(models.Model):
             'x_htf_partner_id': partner.id,
             'image_128': _hatif_logo_b64(),
         })
-        # Add the customer as a participant so author_id=partner.id renders
-        # their name + avatar on inbound bubbles. They have no res.users
-        # — they never log in. This is the "partner-as-participant"
-        # decision from the spec.
-        self.env['discuss.channel.member'].sudo().create({
-            'channel_id': channel.id,
-            'partner_id': partner.id,
-        })
+        # Seed the channel with only the AUTHORISED members:
+        #   - the customer's partner (always — needed so author_id
+        #     rendering on inbound bubbles attributes to their name +
+        #     avatar; they have no res.users, they never log in)
+        #   - every user in htf_call_center.group_admin (Hatif admins)
+        #   - every user who is the salesperson on a CRM lead linked
+        #     to this partner (the agents actually working the customer)
+        # Other internal users are NOT auto-added — a customer's
+        # conversation should only be visible to the agents handling
+        # them, not the whole workspace.
+        allowed_partner_ids = self._htf_allowed_member_partner_ids(partner)
+        Member = self.env['discuss.channel.member'].sudo()
+        # Odoo's discuss.channel create can auto-add the creating user
+        # as a member (so they see the new channel in their sidebar).
+        # Skip any partner that's already in the channel's membership
+        # to avoid violating the (channel_id, partner_id) unique
+        # constraint when our allowed set overlaps with the auto-adds.
+        already_members = {m.partner_id.id for m in channel.channel_member_ids}
+        for pid in allowed_partner_ids - already_members:
+            Member.create({'channel_id': channel.id, 'partner_id': pid})
         partner.sudo().write({'x_htf_discuss_channel_id': channel.id})
         _logger.info(
-            "[htf-discuss] auto-provisioned channel id=%s for partner id=%s (%s)",
+            "[htf-discuss] auto-provisioned channel id=%s for partner id=%s (%s) "
+            "with %d initial member(s)",
             channel.id, partner.id, partner.display_name,
+            len(allowed_partner_ids),
         )
         return channel
+
+    @api.model
+    def _htf_allowed_member_partner_ids(self, partner):
+        """Return the set of ``res.partner`` ids that should be members
+        of the Hatif Discuss channel for ``partner``.
+
+        Single source of truth shared by the auto-provisioning code,
+        the CRM-lead write hook, and the standalone prune tool — so
+        all three converge on the same access list.
+        """
+        allowed = set()
+        if partner:
+            allowed.add(partner.id)
+        admin_group = self.env.ref(
+            'htf_call_center.group_admin', raise_if_not_found=False,
+        )
+        if admin_group:
+            # Odoo 19 renamed res.groups.users → user_ids.
+            for u in admin_group.user_ids:
+                if u.partner_id:
+                    allowed.add(u.partner_id.id)
+        if partner:
+            leads = self.env['crm.lead'].sudo().search([
+                ('partner_id', '=', partner.id),
+            ])
+            for lead in leads:
+                if lead.user_id and lead.user_id.partner_id:
+                    allowed.add(lead.user_id.partner_id.id)
+        return allowed
+
+    def _htf_sync_channel_members(self):
+        """Recompute and apply the authorised member set for this
+        channel. Called from the CRM-lead salesperson-change hook so
+        a re-assigned lead pulls the new agent INTO the channel and
+        drops the old one OUT.
+        """
+        Member = self.env['discuss.channel.member'].sudo()
+        for ch in self:
+            if not ch.x_htf_partner_id:
+                continue
+            allowed = ch._htf_allowed_member_partner_ids(ch.x_htf_partner_id)
+            current = {m.partner_id.id: m for m in ch.channel_member_ids}
+            # Add missing
+            for pid in allowed - set(current):
+                Member.create({'channel_id': ch.id, 'partner_id': pid})
+            # Remove excess
+            extras = [m for pid, m in current.items() if pid not in allowed]
+            if extras:
+                Member.browse([m.id for m in extras]).unlink()
 
     # ------------------------------------------------------------------ #
     # P7.4 — Outbound override                                           #
