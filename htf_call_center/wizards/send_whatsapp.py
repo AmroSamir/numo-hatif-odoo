@@ -70,13 +70,22 @@ class HtfSendWhatsappWizard(models.TransientModel):
     )
 
     template_name = fields.Char(
-        help='Exact Hatif-approved template name (case-sensitive). '
-             'Templates live on the Hatif portal per Q-13.',
+        help='Exact Hatif-approved template name (CASE-SENSITIVE). '
+             'See app.hatif.io → Settings → Message Templates for the '
+             'list of approved names + their status (only Active templates '
+             'will send). Common rejection causes if Hatif returns 400:\n'
+             '  • Name typo or wrong case (e.g. "Utility" vs "utility")\n'
+             '  • Language mismatch (e.g. "ar" sent but template is "ar_SA")\n'
+             '  • Template under review / pending approval (status must be Active)\n'
+             '  • Missing required body / header parameters for that template\n'
+             '  • Wrong channel — template approved on a different ChannelId',
     )
     template_language = fields.Char(
         default='ar',
-        help='ISO language code (e.g. ar, en, ar_SA) matching the '
-             'approved template on Hatif.',
+        help='ISO language code (e.g. ar, en, ar_SA) — MUST match the '
+             'language tag on the approved Hatif template exactly. '
+             'When Hatif rejects with 400 on a name that looks correct, '
+             'this is the second most-common cause.',
     )
     template_parameters_json = fields.Text(
         string='Parameters (JSON)',

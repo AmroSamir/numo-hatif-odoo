@@ -297,21 +297,30 @@ def _send(
         })
     except HtfValidationError as exc:
         # 4xx — permanent failure, won't retry.
+        # Capture Hatif's response body + request_id so the agent looking
+        # at the htf.message form can see WHY the request was rejected
+        # (e.g. "Template 'utility' not found", "Invalid phone format").
+        # Without this we'd just store "POST ... rejected" which is
+        # never enough to debug a template mismatch on its own.
         msg.write({
             'state': 'failed',
-            'error_reason': exc.message or 'validation',
+            'error_reason': _format_error_reason(exc),
             'error_code': exc.status or 0,
-            'raw_payload': json.dumps({'_request': body, '_error': str(exc)},
-                                       ensure_ascii=False),
+            'raw_payload': json.dumps({
+                '_request': body,
+                '_error': _serialise_api_error(exc),
+            }, ensure_ascii=False),
         })
     except (HtfServerError, HtfApiError) as exc:
         # 5xx + network errors — eligible for retry cron.
         msg.write({
             'state': 'failed_pending',
-            'error_reason': exc.message or exc.__class__.__name__,
+            'error_reason': _format_error_reason(exc),
             'error_code': getattr(exc, 'status', 0) or 0,
-            'raw_payload': json.dumps({'_request': body, '_error': str(exc)},
-                                       ensure_ascii=False),
+            'raw_payload': json.dumps({
+                '_request': body,
+                '_error': _serialise_api_error(exc),
+            }, ensure_ascii=False),
         })
 
     _post_chatter_and_fire(msg, partner, channel)
@@ -488,15 +497,75 @@ def cron_retry_failed_pending(env, max_attempts: int = 6) -> int:
         except HtfValidationError as exc:
             row.write({
                 'state': 'failed',
-                'error_reason': exc.message or 'validation',
+                'error_reason': _format_error_reason(exc),
                 'error_code': exc.status or 0,
             })
         except HtfApiError as exc:
             row.write({
                 'error_code': attempts,
-                'error_reason': (exc.message or exc.__class__.__name__)
+                'error_reason': _format_error_reason(exc)
                     + f' [attempt {attempts}/{max_attempts}]',
             })
 
     _logger.info("[htf-wa] cron retry: %s rows successfully sent", retried)
     return retried
+
+
+# ----------------------------------------------------------------- #
+# Error serialisation helpers                                       #
+# ----------------------------------------------------------------- #
+
+def _serialise_api_error(exc) -> dict:
+    """Return a JSON-safe summary of a HtfApiError for raw_payload.
+
+    Pulls out the structured fields (message / status / body / request_id)
+    so a Hatif rejection like ``{"error":"template_not_found"}`` ends up
+    inspectable on the htf.message form instead of being collapsed to
+    ``str(exc)`` and lost.
+    """
+    body = getattr(exc, 'body', None)
+    # Hatif may return either a parsed dict or a raw string body — store
+    # whatever we got, the http_client already truncated to 500 chars.
+    if isinstance(body, (bytes, bytearray)):
+        try:
+            body = body.decode('utf-8', errors='replace')
+        except Exception:  # noqa: BLE001
+            body = repr(body)
+    return {
+        'class': exc.__class__.__name__,
+        'message': getattr(exc, 'message', None) or str(exc),
+        'status': getattr(exc, 'status', None),
+        'body': body,
+        'request_id': getattr(exc, 'request_id', None),
+    }
+
+
+def _format_error_reason(exc) -> str:
+    """Build the short ``error_reason`` shown directly on the htf.message
+    form. Combines our own framing message with whatever Hatif returned
+    in the body so the agent doesn't have to expand raw_payload just to
+    learn the rejection cause.
+
+    Truncates to 240 chars — Odoo's tree-view error column otherwise
+    blows up the row height with a multi-line dump.
+    """
+    primary = (getattr(exc, 'message', '') or exc.__class__.__name__).strip()
+    body = getattr(exc, 'body', None)
+    if not body:
+        return primary[:240]
+    # Stringify dict / bytes bodies for the one-line column.
+    if isinstance(body, (bytes, bytearray)):
+        try:
+            body = body.decode('utf-8', errors='replace')
+        except Exception:  # noqa: BLE001
+            body = repr(body)
+    elif not isinstance(body, str):
+        try:
+            body = json.dumps(body, ensure_ascii=False)
+        except Exception:  # noqa: BLE001
+            body = repr(body)
+    tail = body.strip().replace('\n', ' ')
+    if not tail:
+        return primary[:240]
+    combined = f'{primary} — {tail}'
+    return combined[:240]
