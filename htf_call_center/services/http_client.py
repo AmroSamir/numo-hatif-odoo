@@ -59,17 +59,22 @@ class HtfHttpClient:
     def get(self, path: str, *, params=None, headers=None) -> Any:
         return self._request('GET', path, params=params, headers=headers)
 
-    def post(self, path: str, *, json_body=None, headers=None) -> Any:
-        return self._request('POST', path, json_body=json_body, headers=headers)
+    def post(self, path: str, *, json_body=None, headers=None, retry: bool = True) -> Any:
+        # ``retry=False`` for non-idempotent POSTs (WhatsApp send,
+        # outbound IVR). Retrying a POST whose response timed out
+        # would re-send the same message to the customer — that bug
+        # was observed live: customer received 3 copies of the same
+        # text because Hatif took >30s and http_client retried twice.
+        return self._request('POST', path, json_body=json_body, headers=headers, retry=retry)
 
-    def put(self, path: str, *, json_body=None, headers=None) -> Any:
-        return self._request('PUT', path, json_body=json_body, headers=headers)
+    def put(self, path: str, *, json_body=None, headers=None, retry: bool = True) -> Any:
+        return self._request('PUT', path, json_body=json_body, headers=headers, retry=retry)
 
     def delete(self, path: str, *, params=None, headers=None) -> Any:
         return self._request('DELETE', path, params=params, headers=headers)
 
-    def post_form(self, path: str, *, data: Mapping, headers=None) -> Any:
-        return self._request('POST', path, form_data=data, headers=headers)
+    def post_form(self, path: str, *, data: Mapping, headers=None, retry: bool = True) -> Any:
+        return self._request('POST', path, form_data=data, headers=headers, retry=retry)
 
     # ------------------------------------------------------------------ #
     # Core request loop                                                   #
@@ -84,13 +89,19 @@ class HtfHttpClient:
         form_data: Mapping | None = None,
         params: Mapping | None = None,
         headers: Mapping | None = None,
+        retry: bool = True,
     ):
         url = self._absolute_url(path)
         auth_service = self.env['htf.config'].get_service('auth')
         debug = self.env['htf.config'].get_param('debug_log_enabled')
 
+        # When ``retry=False`` (used for non-idempotent POSTs like
+        # WhatsApp send), allow at most ONE attempt — the auth-401
+        # retry path still runs once because that one is safe
+        # (token refresh + replay, no side effect on the customer).
+        effective_budget = RETRY_BUDGET if retry else 1
         last_exc: Exception | None = None
-        for attempt in range(RETRY_BUDGET):
+        for attempt in range(effective_budget):
             token = auth_service.get_token()
             req_headers = self._build_headers(token, headers)
 
@@ -113,7 +124,7 @@ class HtfHttpClient:
                     "[htf] %s %s transport error attempt=%s: %s",
                     method, _safe_url(url), attempt + 1, exc,
                 )
-                if attempt < RETRY_BUDGET - 1:
+                if attempt < effective_budget - 1:
                     time.sleep(RETRY_BACKOFF_SECONDS[attempt])
                     continue
                 raise HtfServerError(
@@ -132,7 +143,7 @@ class HtfHttpClient:
 
             # Retry on 5xx (idempotent boundary). For 429, honor Retry-After
             # once when possible.
-            if resp.status_code >= 500 and attempt < RETRY_BUDGET - 1:
+            if resp.status_code >= 500 and attempt < effective_budget - 1:
                 _logger.warning(
                     "[htf] %s %s status=%s attempt=%s — retrying",
                     method, _safe_url(url), resp.status_code, attempt + 1,
@@ -142,7 +153,7 @@ class HtfHttpClient:
 
             if resp.status_code == 429:
                 retry_after = _parse_retry_after(resp.headers.get('Retry-After'))
-                if attempt < RETRY_BUDGET - 1:
+                if attempt < effective_budget - 1:
                     _logger.warning(
                         "[htf] 429 from Hatif, sleeping %ss before retry",
                         retry_after or RETRY_BACKOFF_SECONDS[attempt],

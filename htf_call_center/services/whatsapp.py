@@ -281,9 +281,14 @@ def _send(
 
     # Real send path. Note http_client.post returns the parsed JSON
     # body directly (or text on non-JSON, or None on empty).
+    # ``retry=False`` because WhatsApp send is NOT idempotent: a
+    # ReadTimeout on a slow Hatif response would cause http_client to
+    # re-POST the same body — and the customer receives the message
+    # multiple times. Verified live: a single user "Send" with a slow
+    # Hatif backend produced 3 copies of the same text on WhatsApp.
     try:
         client = env['htf.config'].sudo().get_service('http')
-        data = client.post(endpoint, json_body=body) or {}
+        data = client.post(endpoint, json_body=body, retry=False) or {}
         if not isinstance(data, dict):
             data = {}
         conv_event_id = data.get('conversationEventId') or ''
@@ -477,8 +482,11 @@ def cron_retry_failed_pending(env, max_attempts: int = 6) -> int:
             else ENDPOINT_SEND_TEXT
         )
         try:
+            # ``retry=False`` here too — the cron-retry path is already
+            # the retry of a failed send; we don't want http_client to
+            # add ANOTHER retry layer that could duplicate the message.
             client = env['htf.config'].sudo().get_service('http')
-            data = client.post(endpoint, json_body=req_body) or {}
+            data = client.post(endpoint, json_body=req_body, retry=False) or {}
             if not isinstance(data, dict):
                 data = {}
             row.write({

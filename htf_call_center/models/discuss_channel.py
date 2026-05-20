@@ -55,13 +55,19 @@ def _hatif_logo_b64() -> bytes | None:
         _logger.warning("[htf-discuss] hatif-logo.png missing at %s", path)
         return None
 
-# Hard dedup window for the outbound override. The Discuss voice-recording
-# composer in Odoo 19 has been observed firing message_post 8+ times for a
-# single user action (recording + concurrent typed text + send). Without
-# this guard, each call triggers a real Hatif WhatsApp send → customer
-# receives the same message 8 times. We block any duplicate body from the
-# same author to the same channel within this many seconds.
-_OUTBOUND_DEDUP_SECONDS = 8
+# Hard dedup window for the outbound override.
+#
+# Two distinct failure modes this guards against:
+#   1. Discuss voice-recording composer firing message_post 8+ times
+#      for a single user action (recording + concurrent typed text +
+#      send) — original reason for the guard.
+#   2. User clicking Send a second/third time after the first call
+#      appears to hang (e.g. because Hatif's response is slow). Each
+#      click is a fresh message_post → would be a fresh send. 30s is
+#      well above Hatif's typical 5-15s response window so the second
+#      click is reliably dedup'd, while still narrow enough that a
+#      legitimate same-body reply 30s later isn't blocked.
+_OUTBOUND_DEDUP_SECONDS = 30
 
 
 class DiscussChannel(models.Model):
