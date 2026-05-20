@@ -186,9 +186,15 @@ class HtfSendWhatsappWizard(models.TransientModel):
 
         Also auto-snaps ``channel_id`` to the template's channel when the
         wizard's channel is empty, so the agent doesn't have to set both.
-        And surfaces the template's ``parameter_hint`` as the placeholder
-        / default for the body-variables Char (when the agent hasn't
-        typed anything yet).
+
+        Body variables are intentionally NOT auto-filled from the
+        template's ``parameter_hint`` — that hint is an EXAMPLE of what
+        values look like (``Ahmed|ORD-5123|confirmed``), not real data.
+        Pre-filling it would mean an agent who clicks Send without
+        editing actually transmits the placeholder values to the
+        customer. The hint surfaces as the field's placeholder text
+        instead (set in the view) so the example shape is still
+        visible without being submitted by accident.
         """
         for w in self:
             tpl = w.template_id
@@ -201,8 +207,6 @@ class HtfSendWhatsappWizard(models.TransientModel):
                 w.template_category = tpl.category
             if not w.channel_id:
                 w.channel_id = tpl.channel_id
-            if tpl.parameter_hint and not w.template_body_params:
-                w.template_body_params = tpl.parameter_hint
 
     @api.depends('partner_id', 'lead_id', 'channel_id', 'mode')
     def _compute_preflight(self):
@@ -246,6 +250,8 @@ class HtfSendWhatsappWizard(models.TransientModel):
         self.ensure_one()
         if self.preflight_error:
             raise UserError(self.preflight_error)
+        if self.mode == 'template':
+            self._validate_template_param_count()
         try:
             if self.mode == 'text':
                 msg = whatsapp.send_text(
@@ -289,6 +295,48 @@ class HtfSendWhatsappWizard(models.TransientModel):
             'view_mode': 'form',
             'target': 'current',
         }
+
+    def _validate_template_param_count(self):
+        """Refuse to send when the body-variables count doesn't match
+        the registered template's ``parameter_count``.
+
+        Meta returns ``(#132000) Number of parameters does not match the
+        expected number of params`` as a 400 when this mismatches.
+        Catching it locally with a UserError is much better UX than
+        round-tripping to Hatif, storing a Failed htf.message row, and
+        making the agent open the error to figure out what went wrong.
+
+        Only enforced when the agent picked from the ``template_id``
+        dropdown (so we KNOW the expected count). For free-form
+        ``template_name`` (template not registered in htf.template)
+        we can't validate — that path falls through to Hatif as before.
+
+        ``template_parameters_json`` is treated as an advanced override;
+        when it's set the agent has taken full control of the body
+        shape, so we skip the count check.
+        """
+        if not self.template_id:
+            return
+        if self.template_parameters_json and self.template_parameters_json.strip():
+            return
+        expected = self.template_id.parameter_count or 0
+        raw = (self.template_body_params or '').strip()
+        provided = [v.strip() for v in raw.split('|') if v.strip()] if raw else []
+        if len(provided) != expected:
+            raise UserError(_(
+                'This template expects %(expected)s body variable(s) but '
+                'you provided %(provided)s.\n\n'
+                'Template "%(tpl)s" body shape is set by Hatif/Meta — '
+                'count the {{1}}, {{2}}, … placeholders in the approved '
+                'template body and fill the "Body Variables" field with '
+                'exactly that many pipe-separated values (e.g. '
+                '"value1|value2"). Leave the field empty if the template '
+                'has no body variables.'
+            ) % {
+                'expected': expected,
+                'provided': len(provided),
+                'tpl': self.template_id.name,
+            })
 
     def _compute_template_parameters(self) -> list[dict]:
         if self.template_parameters_json:

@@ -214,7 +214,7 @@
                             <field name="template_language"/>
                             <field name="template_category"/>
                             <field name="template_body_params"
-                                   placeholder="Ahmed|ORD-5123|confirmed"/>
+                                   placeholder="value1|value2 (leave empty if template has no {{N}} placeholders)"/>
                             <field name="template_parameters_json"
                                    placeholder='[{"Type":"Body","Values":[...]}]'
                                    widget="text"/>
