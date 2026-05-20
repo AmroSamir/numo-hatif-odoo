@@ -282,20 +282,59 @@ def _resolve_channel(env, hatif_channel_id):
 
 
 def _resolve_partner(env, hatif_contact_id):
+    """Find or create the ``res.partner`` for an inbound Hatif contact.
+
+    Resolution order:
+
+    1. **Existing htf.contact.link → partner** — fast index path, used
+       on every subsequent webhook after the first.
+
+    2. **NEW: existing partner by normalized phone** — when this is
+       the first webhook for a contactId BUT the customer already
+       has a CRM-side partner (sales rep created a lead, agent
+       imported the number, etc.), look that partner up by phone via
+       Hatif's ``GET /v1/contacts/{contactId}`` lookup and reuse it.
+       Without this step we'd auto-create a placeholder partner with
+       the same phone, splitting the CRM lead and the Hatif activity
+       across two rows (the bug observed on prod: lead 5810 linked to
+       partner 101712, Hatif messages landing on placeholder 101704).
+
+    3. **Placeholder partner** — only when neither (1) nor (2) found
+       a match. The contacts-poll cron later backfills the placeholder's
+       name from Hatif.
+
+    The Hatif contact lookup in step (2) is best-effort: if Hatif is
+    unreachable or returns no usable phone, we silently fall through
+    to (3) — same behaviour as before this patch.
+    """
     if not hatif_contact_id:
         return env['res.partner'].browse()
+
+    # (1) Fast path — already linked.
     link = env['htf.contact.link'].sudo().search(
         [('htf_contact_id', '=', hatif_contact_id)], limit=1,
     )
     if link and link.partner_id:
         return link.partner_id
 
-    # First time we see this contact — create a placeholder partner +
-    # a contact link. The contacts-poll cron (Q-10 ANSWERED: polling
-    # required) will backfill name + phone on its next pass.
-    # The Hatif logo on partner.image_1920 (migration 19.0.1.4.0)
-    # already brands the row visually, so the name is just the
-    # contactId-short.
+    # (2) Try to dedup against an existing CRM-side partner by phone.
+    existing_by_phone = _find_partner_by_hatif_contact_phone(env, hatif_contact_id)
+    if existing_by_phone:
+        # Link the Hatif contactId to the existing partner so future
+        # webhooks hit the fast path.
+        env['htf.contact.link'].sudo().create({
+            'partner_id': existing_by_phone.id,
+            'htf_contact_id': hatif_contact_id,
+            'sync_state': 'pending',
+        })
+        _logger.info(
+            "[htf-wa] linked Hatif contactId=%s to EXISTING partner id=%s "
+            "name=%r (matched by phone) — no duplicate created",
+            hatif_contact_id, existing_by_phone.id, existing_by_phone.name,
+        )
+        return existing_by_phone
+
+    # (3) Placeholder path — no existing partner matched.
     short = (hatif_contact_id or '')[:8] + '…' if hatif_contact_id else 'unknown'
     partner = env['res.partner'].sudo().create({
         'name': short,
@@ -315,6 +354,68 @@ def _resolve_partner(env, hatif_contact_id):
         partner.id, hatif_contact_id,
     )
     return partner
+
+
+def _find_partner_by_hatif_contact_phone(env, hatif_contact_id):
+    """Look up an existing ``res.partner`` for a Hatif contactId via
+    phone-number match. Returns the partner or empty recordset.
+
+    Calls Hatif's ``GET /v1/contacts/{id}`` to fetch the contact's
+    phone, normalises it to E.164, then searches ``res.partner`` for
+    a record with the same normalised phone. Best-effort — any API
+    or parse failure returns empty so the caller falls through to
+    placeholder creation.
+
+    We deliberately do NOT search by ``name``: Arabic / English names
+    can vary wildly and a name-match collision would attach unrelated
+    customers' messages to each other. Phone is the only safe key.
+    """
+    try:
+        from ..utils.phone import normalize_e164
+    except Exception:  # noqa: BLE001
+        return env['res.partner'].browse()
+    try:
+        http = env['htf.config'].get_service('http')
+        contact = http.get(f'/v1/contacts/{hatif_contact_id}')
+    except Exception:  # noqa: BLE001 — never break the webhook on dedup lookup
+        _logger.debug(
+            "[htf-wa] contact lookup failed for contactId=%s — falling "
+            "through to placeholder create", hatif_contact_id,
+        )
+        return env['res.partner'].browse()
+
+    if not isinstance(contact, dict):
+        return env['res.partner'].browse()
+    raw_phone = contact.get('phoneNumber')
+    # Hatif sometimes wraps phoneNumber in a dict; tolerate both shapes.
+    if isinstance(raw_phone, dict):
+        raw_phone = raw_phone.get('number') or raw_phone.get('phoneNumber')
+    if not raw_phone:
+        return env['res.partner'].browse()
+    e164 = normalize_e164(raw_phone)
+    if not e164:
+        return env['res.partner'].browse()
+    digits = ''.join(ch for ch in e164 if ch.isdigit())
+    candidates = env['res.partner'].sudo().search([
+        ('active', '=', True),
+        '|', '|',
+        ('phone', '=', e164),
+        ('phone', 'ilike', digits),
+        ('phone', 'ilike', f'+{digits}'),
+    ], limit=2)
+    if len(candidates) == 1:
+        return candidates
+    # Multiple matches — return the one with no htf.contact.link yet
+    # (so we don't re-attach to a partner already bound to a DIFFERENT
+    # contactId). If none qualify, return empty and fall through to
+    # placeholder create — safer than guessing wrong.
+    Link = env['htf.contact.link'].sudo()
+    unlinked = candidates.filtered(
+        lambda p: not Link.search_count([('partner_id', '=', p.id)])
+    )
+    if len(unlinked) == 1:
+        return unlinked
+    return env['res.partner'].browse()
 
 
 def _resolve_sender(env, hatif_user_id):
