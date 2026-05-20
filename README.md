@@ -7,87 +7,185 @@ Odoo 19 Enterprise modules that integrate the **Hatif / Voxa BPaaS**
 
 | Module | Status | Purpose |
 |---|---|---|
-| `htf_call_center` | **P0 shipped** — installable on Odoo 19 | Vendor wrapper: auth, HTTP client, HMAC webhook verification, signal bus, settings UI. No business endpoints yet. |
-| `numo_crm_htf` | Planning only | Bridge: CRM-specific automation (AI summary card, sentiment trend, auto-stage progression, bulk WA send, daily digest). Empty until P7. **Not installable yet** — no `__manifest__.py`. |
+| `htf_call_center` | **v19.0.1.27.0** — installable on Odoo 19 | Hatif integration: auth + HTTP client + HMAC webhook verification, raw data models, calls + WhatsApp + IVR + Discuss mirror, P0–P8 features shipped. |
+| `numo_crm_htf` | Planning only | Bridge: CRM-specific automation (AI summary card, sentiment trend, auto-stage progression, bulk WA send, daily digest). **Not installable yet** — no `__manifest__.py`. |
 
 Architecture, phase plan, data model, signal contract, and risk register live
 under `htf_call_center/docs/planning/`. Start with `00_OVERVIEW.md`.
 
 ---
 
-## First-time install — full command sequence
+## Installation guide
 
+### Prerequisites
+
+- **Odoo 19 Enterprise** (Community will not work — the OWL Discuss patches
+  assume the enterprise bundle, and several Odoo 19 API renames are hard
+  pre-reqs: `res.groups.user_ids`, `res.users.group_ids`,
+  `ir.cron` without `numbercall`, `models.Constraint` instead of `_sql_constraints`).
+- Python 3.12+ with `requests` and `phonenumbers` packages.
+- Postgres 14+ (the test rig uses 15; nothing version-specific in the schema).
+- Filesystem write access to the Odoo addons path (for `git clone`).
+
+### Step 1 — find your addons path
+
+You need one directory that's already in Odoo's `addons_path`. The exact
+location depends on how you installed Odoo:
+
+| Install style | Typical host path |
+|---|---|
+| **Docker (compose)** | bind-mounted from host into `/mnt/extra-addons` — check `docker-compose.yml`'s `volumes:` |
+| **System (apt / native)** | `/opt/odoo/custom-addons` or `/var/lib/odoo/addons/19.0` |
+| **Odoo.sh** | the repo root of your project (the platform syncs your GitHub repo automatically) |
+
+Confirm with:
 ```bash
-# 1. SSH to the server
-ssh ubuntu@<server-ip>
+# Docker
+docker exec <odoo-container> odoo --addons-path-show 2>&1 | head -3
 
-# 2. Clone into the addons path (sudo required — root-owned dir)
-cd /opt/odoo-erp-numo-sa/extra-addons
-sudo git clone https://github.com/AmroSamir/numo-hatif-odoo.git
-
-# 3. Hand ownership back to ubuntu so future `git pull` doesn't need sudo
-sudo chown -R ubuntu:ubuntu numo-hatif-odoo
-
-# 4. Symlink each module into the addons root so Odoo discovers them
-#    (the clone puts modules one level deep under numo-hatif-odoo/)
-cd /opt/odoo-erp-numo-sa/extra-addons
-sudo ln -s numo-hatif-odoo/htf_call_center htf_call_center
-sudo ln -s numo-hatif-odoo/numo_crm_htf    numo_crm_htf
-
-# 5. Restart the Odoo container so it picks up the new module folders
-cd /opt/odoo-erp-numo-sa
-sudo docker compose restart web
-
-# 6. Wait ~10s for Odoo to come back up, then in the browser:
-#       Apps → Update Apps List
-#       Apps → search "HTF Call Center" → Install
-#       (numo_crm_htf is not installable yet — skip it)
+# System
+sudo -u odoo odoo --addons-path-show 2>&1 | head -3
 ```
 
-> Prefer **symlinks** over `cp` so `git pull` updates both modules in one shot.
-> If your container can't follow symlinks across mounts, replace step 4 with
-> `sudo cp -r numo-hatif-odoo/htf_call_center .` and `cp` again on every update.
+### Step 2 — clone the repo into your addons path
+
+```bash
+# Replace /YOUR/ADDONS/PATH with whatever you confirmed in Step 1.
+cd /YOUR/ADDONS/PATH
+git clone https://github.com/AmroSamir/numo-hatif-odoo.git
+```
+
+Odoo discovers modules as **direct children** of addons-path entries, but
+the repo nests modules one level deep. Two ways to fix that:
+
+**Option A — symlinks (recommended, one-shot updates):**
+```bash
+cd /YOUR/ADDONS/PATH
+ln -s numo-hatif-odoo/htf_call_center htf_call_center
+# numo_crm_htf is not installable yet — skip until it has a manifest.
+```
+
+**Option B — extend `addons_path`** in `odoo.conf` so the nested folder
+is also scanned:
+```ini
+addons_path = /usr/lib/python3/dist-packages/odoo/addons,/YOUR/ADDONS/PATH,/YOUR/ADDONS/PATH/numo-hatif-odoo
+```
+Restart Odoo after editing.
+
+### Step 3 — install Python dependencies
+
+The module imports `requests` and `phonenumbers`. Without these the
+install hard-crashes at module import time.
+
+**Docker:**
+```bash
+docker exec <odoo-container> pip install --break-system-packages requests phonenumbers
+# To persist across container recreation: add the two packages to your
+# Dockerfile or compose's `pip_install` extension, then rebuild.
+```
+
+**System:**
+```bash
+sudo pip3 install requests phonenumbers
+sudo systemctl restart odoo
+```
+
+### Step 4 — install via the Odoo UI
+
+1. Log in as Administrator.
+2. **Apps** → top-right ⋮ menu → **Update Apps List** → Update.
+3. Search **"HTF Call Center"**.
+4. Click **Install**.
+
+The install:
+- Creates the `Hatif: User` and `Hatif: Administrator` groups.
+- Adds `base.user_root` and `base.user_admin` to `Hatif: Administrator`.
+- Seeds the Hatif logo as the avatar for `base.public_partner` (used as
+  the inbound-webhook author placeholder until Step 5 maps real agents).
+- Schedules two crons: token refresh (every 30 min) and webhook-event
+  purge (daily).
+
+### Step 5 — configure credentials (do this before any feature works)
+
+**Settings → Hatif** (Administrator only):
+
+| Field | Where to find it |
+|---|---|
+| `client_id` | Hatif workspace settings → API → Service Account |
+| `client_secret` | Same screen, click "Reveal" (only shown once at creation) |
+| `webhook_secret_current` | Hatif workspace settings → Webhooks → Signing key |
+| Default country code | Your tenant's primary E.164 country (e.g. `966` for KSA) |
+
+Then click **Test Connection** — expect a green "Token acquired" toast.
+If you see an auth error, double-check the secret has no trailing whitespace.
+
+### Step 6 (only if you want WhatsApp sending) — Map Users wizard
+
+1. Open the Hatif app → **Map Users Wizard** → click "Sync from Hatif".
+2. For each Hatif workspace user that's also an Odoo user, pick the
+   matching Odoo user from the **Odoo User** dropdown.
+3. In **Allowed Hatif Channels**, pick the channel(s) each agent works.
+   (Channel selection is the access gate — agents not mapped here cannot
+   open the Send WhatsApp wizard.)
+4. **Save**.
+
+The save automatically grants `Hatif: User` to every mapped agent and
+adds them to the corresponding Hatif Discuss channels for their assigned
+CRM leads. Re-save anytime you change assignments.
 
 ---
 
-## Updating to the latest version
+## Updating to a newer version
 
 ```bash
-# 1. Pull
-cd /opt/odoo-erp-numo-sa/extra-addons/numo-hatif-odoo
+cd /YOUR/ADDONS/PATH/numo-hatif-odoo
 git pull origin main
 
-# 2. Restart the Odoo container so new Python/XML/JS is picked up
-cd /opt/odoo-erp-numo-sa
-sudo docker compose restart web
-
-# 3. In the browser:
-#       Apps → Update Apps List
-#       Apps → search "HTF Call Center" → Upgrade (not Install)
-#
-#    Then hard-refresh the browser tab to reload the OWL asset bundle:
-#       Cmd+Shift+R   (macOS)
-#       Ctrl+Shift+R  (Windows / Linux)
+# Restart Odoo so all workers pick up new Python / XML / JS:
+docker compose restart web         # Docker
+sudo systemctl restart odoo        # System
 ```
+
+Then in the browser: **Apps → search "HTF Call Center" → Upgrade**
+(not Install). After upgrade, hard-refresh the tab to drop the cached
+OWL asset bundle:
+- macOS: `Cmd+Shift+R`
+- Windows / Linux: `Ctrl+Shift+R`
+
+Migrations under `htf_call_center/migrations/<version>/` fire
+automatically on every version bump — no manual SQL needed.
+
+### Headless upgrade (CI / scripted deploys)
+
+```bash
+cd /YOUR/ADDONS/PATH/numo-hatif-odoo && git pull origin main
+
+# Stop workers, run one-shot upgrade, restart workers.
+docker compose stop web
+docker compose run --rm web odoo -d <db_name> -u htf_call_center --stop-after-init
+docker compose up -d web
+```
+
+This is what `htf_call_center/tools/deploy.sh` does. On servers that
+already have a checkout, just `bash htf_call_center/tools/deploy.sh`
+after a `git pull` and you're done.
 
 ---
 
-## Headless upgrade (no UI clicks)
+## Uninstall
 
-Useful for CI / scripted deploys — runs the module upgrade inside the
-container, then exits:
+1. **Apps → HTF Call Center → Uninstall** (UI confirms it'll drop the
+   tables it owns).
+2. Optional cleanup if you also want to remove the host files:
+   ```bash
+   cd /YOUR/ADDONS/PATH
+   rm htf_call_center                              # the symlink, if used
+   rm -rf numo-hatif-odoo                          # the clone
+   ```
 
-```bash
-cd /opt/odoo-erp-numo-sa/extra-addons/numo-hatif-odoo
-git pull origin main
-cd /opt/odoo-erp-numo-sa
-sudo docker compose exec web odoo \
-    -u htf_call_center -d <db_name> --stop-after-init
-sudo docker compose restart web
-```
-
-Once `numo_crm_htf` becomes installable (P7), add it to the `-u` list:
-`-u htf_call_center,numo_crm_htf`.
+Uninstall is safe — every `discuss.channel.x_htf_*` field is nullable
+with a `set null` ondelete, so standard Discuss channels keep working
+even with the module gone.
 
 ---
 
