@@ -342,18 +342,38 @@ def _resolve_outbound_author(env, htf_message, partner=None):
     """Pick the author for an outbound mirror mail.message bubble.
 
     Order of preference:
-      1. htf.message.sender_user_id.partner_id — the agent Hatif tells
-         us sent it via their portal
-      2. The customer's partner (passed in) — gives Hatif-icon avatar
-         + the customer name, which is what Numo agents want for
-         visual consistency in Hatif channels
-      3. OdooBot only as last-resort fallback
+      1. ``htf.message.sender_user_id.partner_id`` — the agent we
+         know sent it (set by our wizard, or by mapping Hatif's
+         ``senderUserId`` via ``htf.user.link``).
+      2. The webhook auth user's partner (``env.user.partner_id``)
+         when env.user is a real internal user — that's typically the
+         API/webhook service account; shows the message came from
+         "the system" not from the customer.
+      3. ``base.partner_root`` (OdooBot) last resort.
+
+    The customer's partner is INTENTIONALLY skipped here — falling
+    back to ``partner`` made outbound bubbles look like they came
+    from the customer in the Discuss UI (verified in user screenshot:
+    the agent-sent template body appeared grouped under the customer's
+    avatar at 12:09 PM). For Hatif WhatsApp flows the directionality
+    has to be visually obvious; misattributing outbound to the
+    customer breaks that completely.
+
+    ``partner`` is still accepted as a parameter for API compatibility
+    with callers — it's ignored for author selection but documents
+    the conversation context.
     """
+    del partner  # explicitly ignore — kept on signature for caller compat
     if htf_message.sender_user_id and htf_message.sender_user_id.partner_id:
         return htf_message.sender_user_id.partner_id
-    if partner:
-        return partner
-    return env.ref('base.partner_root', raise_if_not_found=False) or env.user.partner_id
+    odoobot = env.ref('base.partner_root', raise_if_not_found=False)
+    if env.user and not env.user._is_public() and env.user.partner_id:
+        # Avoid the public webhook user — if env.user really is the
+        # public anon (which Hatif's HMAC route disallows in practice
+        # but be defensive), fall through to OdooBot.
+        if env.user.partner_id != odoobot:
+            return env.user.partner_id
+    return odoobot or env.user.partner_id
 
 
 def _render_call_body(call_row) -> Markup:

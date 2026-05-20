@@ -155,7 +155,34 @@ def _process_inbound(env, payload: dict) -> str:
 def _process_outbound_status(env, payload: dict) -> str:
     Msg = env['htf.message'].sudo()
     msg_id = payload.get('messageId') or ''
+    conv_event_id = payload.get('conversationEventId') or ''
     existing = Msg.find_by_message_id(msg_id) if msg_id else Msg.browse()
+    # Fallback dedup: the POST response to our wizard-driven send
+    # populates ``conversation_event_id`` on the htf.message row but
+    # may not always include ``messageId`` immediately. When the
+    # status webhook arrives we still want to UPDATE the existing
+    # row (preserving its ``sender_user_id`` set by our wizard) —
+    # NOT create a parallel row that loses the agent's identity.
+    # The Discuss mirror's outbound author resolver depends on
+    # ``sender_user_id`` being set; without this fallback the bubble
+    # falls through to OdooBot or the customer (the visual bug
+    # reported in the screenshot).
+    if not existing and conv_event_id:
+        existing = Msg.search([
+            ('conversation_event_id', '=', conv_event_id),
+            ('direction', '=', 'outbound'),
+        ], limit=1)
+        if existing and msg_id and not existing.htf_message_id:
+            # Stamp the messageId we now have so subsequent webhook
+            # status updates (delivered / read / failed) find us via
+            # the fast index path instead of needing this fallback.
+            try:
+                existing.write({'htf_message_id': msg_id})
+            except Exception:  # noqa: BLE001
+                _logger.exception(
+                    "[htf-wa] could not stamp htf_message_id=%s on existing id=%s",
+                    msg_id, existing.id,
+                )
 
     new_state = _normalize_status(payload.get('status')) or 'sent'
     ts = _parse_dt(payload.get('creationTime'))
