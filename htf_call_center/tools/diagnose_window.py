@@ -25,12 +25,14 @@ def diagnose(env, phone_hint):
     Msg = env['htf.message'].sudo()
 
     digits_only = ''.join(ch for ch in phone_hint if ch.isdigit())
+    # res.partner in Odoo 19 dropped ``mobile``; only ``phone`` survives.
+    # Match against both the raw hint and the digits-only form so a
+    # number stored as "+966561868578" or "+966 56 186 8578" both hit.
     candidates = Partner.search([
-        '|', '|', '|',
+        '|', '|',
         ('phone', 'ilike', phone_hint),
         ('phone', 'ilike', digits_only),
         ('phone', 'ilike', f'+{digits_only}'),
-        ('mobile', 'ilike', phone_hint),
     ], limit=5)
     if not candidates:
         print(f'NO PARTNER MATCHED phone-hint={phone_hint!r}')
@@ -42,7 +44,6 @@ def diagnose(env, phone_hint):
     for p in candidates:
         print(f'partner id={p.id} name={p.name!r}')
         print(f'  phone:                       {p.phone!r}')
-        print(f'  mobile:                      {p.mobile!r}')
         print(f'  x_htf_last_inbound_at:       {p.x_htf_last_inbound_at!r}')
         print(f'  x_htf_24h_window_open (cpt): {p.x_htf_24h_window_open}')
         print(f'  x_htf_last_conversation_id:  {p.x_htf_last_conversation_id!r}')
