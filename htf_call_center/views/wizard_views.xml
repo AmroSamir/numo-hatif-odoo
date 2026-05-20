@@ -155,21 +155,29 @@
                                 <field name="partner_id" readonly="1"/>
                                 <field name="to_number"/>
                                 <!--
-                                    Single channel field. ``channel_id``
-                                    is pre-resolved in default_get via
-                                    ``channel_resolver.resolve_outbound_wa``
-                                    so the wizard opens with the right
-                                    channel already filled. The
-                                    legacy ``resolved_channel_display``
-                                    helper is intentionally NOT
-                                    rendered here — it duplicates the
-                                    same value. It stays on the model
-                                    in case downstream code reads it,
-                                    but the agent only ever sees ONE
-                                    label for the channel.
+                                    Single, READ-ONLY channel field.
+                                    ``channel_id`` is pre-resolved in
+                                    default_get via
+                                    ``channel_resolver.resolve_outbound_wa``;
+                                    the resolver is the source of truth
+                                    (team-chain + per-partner / per-lead
+                                    override + workspace fallback), so
+                                    agents shouldn't be picking a channel
+                                    manually from the wizard and risk
+                                    sending via a number Hatif hasn't
+                                    approved the template on. To change
+                                    the channel for a customer, edit the
+                                    partner / lead's team binding (or
+                                    htf.channel.user_ids override) — the
+                                    next time the wizard opens the
+                                    resolver will reflect the new mapping.
+                                    The legacy ``resolved_channel_display``
+                                    helper stays on the model for
+                                    downstream code but is no longer
+                                    rendered here.
                                 -->
-                                <field name="channel_id"
-                                       options="{'no_create': True}"/>
+                                <field name="channel_id" readonly="1"
+                                       force_save="1"/>
                                 <field name="dnc_blocked" readonly="1"/>
                                 <field name="window_open" readonly="1"/>
                             </group>
