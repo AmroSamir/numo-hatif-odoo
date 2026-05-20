@@ -60,32 +60,53 @@ def _norm_phone(raw):
     return digits
 
 
+def _looks_placeholder(partner):
+    """True when ``partner.name`` matches a Hatif placeholder shape —
+    raw phone number, partial UUID, or the literal ``Hatif Contact …``
+    prefix. Used to gate which partners are SAFE to archive.
+
+    Returns False for any human-readable name (even if it shares a
+    phone with another partner) so the tool refuses to merge two real
+    customers who happen to use the same number.
+    """
+    name = (partner.name or '').strip()
+    if not name:
+        return True
+    if name.startswith('+'):
+        return True
+    # 8-char UUID prefix + optional ellipsis (the auto-generated stub)
+    if re.match(r'^[0-9a-f]{8}…?$', name):
+        return True
+    if name.startswith('Hatif Contact '):
+        return True
+    return False
+
+
+def _has_active_user(partner):
+    """True when ``partner`` is the partner of an active ``res.users``.
+    Archiving such a partner raises ``RedirectWarning`` from Odoo
+    core (``base.res_partner.write``) — we MUST skip these. They're
+    Odoo users, not customer placeholders.
+    """
+    Users = partner.env['res.users'].sudo()
+    return bool(Users.search_count([
+        ('partner_id', '=', partner.id),
+        ('active', '=', True),
+    ]))
+
+
 def _pick_primary(group):
     """Choose which partner to keep when merging a duplicate group.
 
     Preference order:
-    1. Partners whose ``name`` does NOT look like a placeholder
-       (raw phone, partial UUID, or ``Hatif Contact ...`` pattern).
+    1. Partners whose ``name`` does NOT look like a placeholder.
     2. The one with the most htf.message activity (biggest history).
     3. Lowest id (oldest record).
     """
-    def looks_placeholder(p):
-        name = (p.name or '').strip()
-        if not name:
-            return True
-        if name.startswith('+'):
-            return True
-        # 8-char UUID prefix + ellipsis
-        if re.match(r'^[0-9a-f]{8}…?$', name):
-            return True
-        if name.startswith('Hatif Contact '):
-            return True
-        return False
-
     env = group[0].env
     Msg = env['htf.message'].sudo()
     counts = {p.id: Msg.search_count([('partner_id', '=', p.id)]) for p in group}
-    non_placeholder = [p for p in group if not looks_placeholder(p)]
+    non_placeholder = [p for p in group if not _looks_placeholder(p)]
     pool = non_placeholder or list(group)
     pool.sort(key=lambda p: (-counts[p.id], p.id))
     return pool[0]
@@ -183,6 +204,8 @@ def run(env):
 
     total_moved = 0
     total_archived = 0
+    skipped_unsafe = 0
+    skipped_user = 0
     for group in groups:
         # Refresh recordset in case earlier merges affected it
         group_recs = Partner.browse([p.id for p in group]).filtered(lambda r: r.active)
@@ -190,6 +213,38 @@ def run(env):
             continue
         primary = _pick_primary(group_recs)
         dups = group_recs - primary
+
+        # SAFETY 1: refuse to merge two real customers who happen to
+        # share a phone number. Only auto-archive partners whose name
+        # looks like a Hatif-generated placeholder. The agent can
+        # manually merge non-placeholder duplicates from the Odoo UI
+        # if they genuinely are the same person.
+        safe_dups = dups.filtered(_looks_placeholder)
+        unsafe_dups = dups - safe_dups
+        if unsafe_dups:
+            for d in unsafe_dups:
+                print(f'  phone={_norm_phone(primary.phone)!r}  '
+                      f'SKIPPED id={d.id} name={d.name!r} '
+                      f'(non-placeholder — possibly distinct person; '
+                      f'merge manually if same)')
+            skipped_unsafe += len(unsafe_dups)
+            if not safe_dups:
+                continue
+            dups = safe_dups
+
+        # SAFETY 2: cannot archive a partner backing an active res.users —
+        # Odoo core rejects with RedirectWarning. Skip those.
+        user_backed = dups.filtered(_has_active_user)
+        if user_backed:
+            for d in user_backed:
+                print(f'  phone={_norm_phone(primary.phone)!r}  '
+                      f'SKIPPED id={d.id} name={d.name!r} '
+                      f'(backs an active res.users — archive the user first)')
+            skipped_user += len(user_backed)
+            dups = dups - user_backed
+            if not dups:
+                continue
+
         n_msgs_dup = env['htf.message'].sudo().search_count([('partner_id', 'in', dups.ids)])
         print(f'  phone={_norm_phone(primary.phone)!r}  '
               f'keeping id={primary.id} name={primary.name!r}  '
@@ -201,6 +256,10 @@ def run(env):
         moved = _merge(env, primary, dups)
         total_moved += moved
         total_archived += len(dups)
+
+    if skipped_unsafe or skipped_user:
+        print(f'safety skips: {skipped_unsafe} non-placeholder, '
+              f'{skipped_user} user-backed (left intact)')
 
     if DRY_RUN:
         print(f'[DRY-RUN] no writes performed.')
