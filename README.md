@@ -27,7 +27,48 @@ under `htf_call_center/docs/planning/`. Start with `00_OVERVIEW.md`.
 - Postgres 14+ (the test rig uses 15; nothing version-specific in the schema).
 - Filesystem write access to the Odoo addons path (for `git clone`).
 
-### Step 1 — find your addons path
+### Quick install — Ubuntu + Docker Compose (Numo's reference layout)
+
+If your server matches the Numo reference layout (Ubuntu VM, Docker
+Compose at `/opt/odoo-erp-numo-sa/`, extra-addons at
+`/opt/odoo-erp-numo-sa/extra-addons/`, `web` container), paste this
+sequence end-to-end:
+
+```bash
+# 1. Clone into the extra-addons folder
+cd /opt/odoo-erp-numo-sa/extra-addons
+sudo git clone https://github.com/AmroSamir/numo-hatif-odoo.git
+sudo chown -R ubuntu:ubuntu numo-hatif-odoo     # so future `git pull` is sudo-free
+
+# 2. Symlink the installable module one level up (Odoo only scans direct children)
+sudo ln -s numo-hatif-odoo/htf_call_center htf_call_center
+ls -la htf_call_center/__manifest__.py          # sanity check — should print the manifest path
+
+# 3. Install Python deps inside the running Odoo container
+cd /opt/odoo-erp-numo-sa
+docker compose ps                                # confirm the container name (assumed `web` below)
+docker compose exec web pip install --break-system-packages requests phonenumbers
+
+# 4. Restart the container so it picks up the new module folder
+docker compose restart web && sleep 8
+
+# 5. In the browser:
+#       Apps → top-right ⋮ → Update Apps List → Update
+#       Apps → search "HTF Call Center" → Install
+```
+
+That's it for installation. Skip ahead to **Step 5 — configure
+credentials** below when you're ready to wire up Hatif.
+
+If your server is NOT the Numo layout (different paths, different
+container name, system Odoo instead of Docker, etc.), follow the
+detailed walkthrough below instead.
+
+---
+
+### Detailed walkthrough (any layout)
+
+#### Step 1 — find your addons path
 
 You need one directory that's already in Odoo's `addons_path`. The exact
 location depends on how you installed Odoo:
@@ -47,7 +88,7 @@ docker exec <odoo-container> odoo --addons-path-show 2>&1 | head -3
 sudo -u odoo odoo --addons-path-show 2>&1 | head -3
 ```
 
-### Step 2 — clone the repo into your addons path
+#### Step 2 — clone the repo into your addons path
 
 ```bash
 # Replace /YOUR/ADDONS/PATH with whatever you confirmed in Step 1.
@@ -72,7 +113,7 @@ addons_path = /usr/lib/python3/dist-packages/odoo/addons,/YOUR/ADDONS/PATH,/YOUR
 ```
 Restart Odoo after editing.
 
-### Step 3 — install Python dependencies
+#### Step 3 — install Python dependencies
 
 The module imports `requests` and `phonenumbers`. Without these the
 install hard-crashes at module import time.
@@ -90,7 +131,7 @@ sudo pip3 install requests phonenumbers
 sudo systemctl restart odoo
 ```
 
-### Step 4 — install via the Odoo UI
+#### Step 4 — install via the Odoo UI
 
 1. Log in as Administrator.
 2. **Apps** → top-right ⋮ menu → **Update Apps List** → Update.
@@ -105,7 +146,7 @@ The install:
 - Schedules two crons: token refresh (every 30 min) and webhook-event
   purge (daily).
 
-### Step 5 — configure credentials (do this before any feature works)
+#### Step 5 — configure credentials (do this before any feature works)
 
 **Settings → Hatif** (Administrator only):
 
@@ -119,7 +160,7 @@ The install:
 Then click **Test Connection** — expect a green "Token acquired" toast.
 If you see an auth error, double-check the secret has no trailing whitespace.
 
-### Step 6 (only if you want WhatsApp sending) — Map Users wizard
+#### Step 6 (only if you want WhatsApp sending) — Map Users wizard
 
 1. Open the Hatif app → **Map Users Wizard** → click "Sync from Hatif".
 2. For each Hatif workspace user that's also an Odoo user, pick the
@@ -136,6 +177,17 @@ CRM leads. Re-save anytime you change assignments.
 ---
 
 ## Updating to a newer version
+
+### Numo reference layout (one-liner)
+
+```bash
+cd /opt/odoo-erp-numo-sa/extra-addons/numo-hatif-odoo && git pull origin main \
+  && cd /opt/odoo-erp-numo-sa && docker compose restart web
+```
+
+Then in the browser: **Apps → search "HTF Call Center" → Upgrade**.
+
+### Generic (any layout)
 
 ```bash
 cd /YOUR/ADDONS/PATH/numo-hatif-odoo
