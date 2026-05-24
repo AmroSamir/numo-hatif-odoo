@@ -87,6 +87,7 @@ def send_text(  # noqa: PLR0913 — kwarg-only signature
     channel=None,
     sender_user=None,
     category: str = 'service',
+    skip_window_check: bool = False,
 ):
     """Send a free-form text WhatsApp.
 
@@ -94,6 +95,16 @@ def send_text(  # noqa: PLR0913 — kwarg-only signature
     typed exceptions on pre-check failure. Hatif API errors are caught
     and persisted as ``state='failed_pending'`` (cron will retry T3.6)
     or ``'failed'`` on permanent rejection.
+
+    ``skip_window_check``: when True, the caller has already verified
+    the 24h window through a more authoritative signal than the
+    partner's ``x_htf_24h_window_open``. The Discuss outbound route
+    uses this — it checks the CHANNEL's inbound timestamp
+    (``discuss.channel.x_htf_last_inbound_at``), which is correct even
+    when phone-format variations split a customer across duplicate
+    partner records (the inbound webhook may update partner B's window
+    while the conversation is anchored on partner A). The DNC check
+    always runs regardless.
     """
     sender = sender_user or env.user
     channel = channel or channel_resolver.resolve_outbound_wa(
@@ -101,7 +112,8 @@ def send_text(  # noqa: PLR0913 — kwarg-only signature
     )
 
     _check_dnc(env, partner, to_number)
-    _check_window(partner)
+    if not skip_window_check:
+        _check_window(partner)
 
     body = {
         'ChannelId': channel.htf_channel_id,

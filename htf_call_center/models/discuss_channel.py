@@ -461,10 +461,35 @@ class DiscussChannel(models.Model):
         # resolver chain (channel=None) only when the conversation has
         # no recorded channel yet.
         htf_channel = self.x_htf_last_htf_channel_id or None
+        # v19.0.1.42.0: gate the 24h window on the CHANNEL's inbound
+        # timestamp, not the partner's. send_text._check_window reads
+        # partner.x_htf_24h_window_open, which is wrong under duplicate
+        # partner records (inbound updated partner B's window while this
+        # conversation is anchored on partner A — see v40). The channel
+        # timestamp is the authoritative signal and matches exactly what
+        # the composer UI used to decide the input was typeable. If the
+        # channel window is closed, reject with the template-required
+        # toast; otherwise tell send_text to skip its partner-based check.
+        chan_open = bool(
+            self.x_htf_last_inbound_at
+            and self.x_htf_last_inbound_at
+            >= fields.Datetime.now() - timedelta(hours=24)
+        )
+        if not chan_open:
+            raise UserError(_(
+                "Template message required\n\n"
+                "To start or resume a conversation, you must send an "
+                "approved Meta template message. Once the customer "
+                "replies, you can message freely for 24 hours.\n\n"
+                "يلزم إرسال قالب رسالة\n\n"
+                "لبدء المحادثة أو استئنافها، يجب إرسال قالب رسالة "
+                "معتمد من Meta. بعد رد العميل، ستتمكن من الكتابة "
+                "بحرية لمدة 24 ساعة."
+            ))
         try:
             htf_msg = whatsapp.send_text(
                 self.env, to_number=phone, text=plain_body, partner=partner,
-                channel=htf_channel,
+                channel=htf_channel, skip_window_check=True,
             )
         except HtfDncBlockedError:
             raise UserError(_(
