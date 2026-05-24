@@ -411,6 +411,13 @@ def _find_partner_by_hatif_contact_phone(env, hatif_contact_id):
     # collapses to the same canonical digit string. Tail-match the last
     # 9 digits as a fallback so local (05XXXXXXXX) vs international
     # (+9665XXXXXXXX) storage still reconciles on the subscriber number.
+    #
+    # v19.0.1.50.0: Odoo 19 removed res.partner.mobile (the column does
+    # not exist), so the previous query crashed with UndefinedColumn on
+    # EVERY inbound webhook — the dispatcher hit this lookup, raised 500,
+    # and Hatif retried forever, so no customer message ever landed in
+    # Odoo. Match against ``phone`` and the stored ``phone_sanitized``
+    # (E.164, computed) instead.
     tail = digits[-9:]
     env.cr.execute(
         """
@@ -418,9 +425,9 @@ def _find_partner_by_hatif_contact_phone(env, hatif_contact_id):
         WHERE active = true
           AND (
             regexp_replace(coalesce(phone, ''), '\\D', '', 'g') = %(d)s
-            OR regexp_replace(coalesce(mobile, ''), '\\D', '', 'g') = %(d)s
+            OR regexp_replace(coalesce(phone_sanitized, ''), '\\D', '', 'g') = %(d)s
             OR regexp_replace(coalesce(phone, ''), '\\D', '', 'g') LIKE %(t)s
-            OR regexp_replace(coalesce(mobile, ''), '\\D', '', 'g') LIKE %(t)s
+            OR regexp_replace(coalesce(phone_sanitized, ''), '\\D', '', 'g') LIKE %(t)s
           )
         LIMIT 2
         """,
