@@ -304,14 +304,15 @@ class HtfSendWhatsappWizard(models.TransientModel):
         except HtfApiError as exc:
             raise UserError(exc.message or _('Send failed: %s') % exc.__class__.__name__)
 
-        # Open the related htf.message form so the agent can see status.
-        return {
-            'type': 'ir.actions.act_window',
-            'res_model': 'htf.message',
-            'res_id': msg.id,
-            'view_mode': 'form',
-            'target': 'current',
-        }
+        # v19.0.1.39.0: just close the wizard. The pre-v39 path
+        # navigated the agent to the htf.message form — useful for
+        # debugging but a poor UX in the Discuss-first flow, where
+        # the agent clicked "Send Template" inside the chat popup
+        # and wants to STAY in the chat to see the message land
+        # (the outbound mirror posts it via _post_chatter_and_fire).
+        # The message is still reachable from the partner's chatter
+        # or the WhatsApp Messages list for status review.
+        return {'type': 'ir.actions.act_window_close'}
 
     def _validate_template_param_count(self):
         """Refuse to send when the body-variables count doesn't match
