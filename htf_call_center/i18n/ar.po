@@ -20,9 +20,13 @@ msgstr ""
 # OWL / JavaScript-side strings (htf_phone_field widget)
 # ============================================================
 
+
+
 #. module: htf_call_center
 #. odoo-javascript
 #: code:addons/htf_call_center/static/src/views/fields/phone/htf_phone_field.xml:0
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_call_form
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_webhook_event__route__call
 msgid "Call"
 msgstr "اتصال"
 
@@ -35,6 +39,7 @@ msgstr "اتصال عبر هاتف"
 #. module: htf_call_center
 #. odoo-javascript
 #: code:addons/htf_call_center/static/src/views/fields/phone/htf_phone_field.xml:0
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_webhook_event__route__whatsapp
 msgid "WhatsApp"
 msgstr "واتساب"
 
@@ -145,22 +150,12 @@ msgstr "📍 موقع"
 msgid "Attachment"
 msgstr "مرفق"
 
-# ============================================================
-# Python _() calls in services/discuss_mirror.py + services/chatter.py
-# (shared between Discuss mirror and chatter renderer)
-# ============================================================
-
 #. module: htf_call_center
 #. odoo-python
 #: code:addons/htf_call_center/services/discuss_mirror.py:0
 #: code:addons/htf_call_center/services/chatter.py:0
 msgid "Summary"
 msgstr "الملخص"
-
-# ============================================================
-# Python _() calls in services/chatter.py
-# (Chatter mirror — original WA + call rendering on res.partner)
-# ============================================================
 
 #. module: htf_call_center
 #. odoo-python
@@ -288,11 +283,6 @@ msgstr "التسجيل"
 msgid "Transcript preview"
 msgstr "معاينة النص"
 
-# ============================================================
-# Python _() calls in models/discuss_channel.py
-# (Outbound override UserError messages)
-# ============================================================
-
 #. module: htf_call_center
 #. odoo-python
 #: code:addons/htf_call_center/models/discuss_channel.py:0
@@ -322,11 +312,6 @@ msgstr "فشل إرسال واتساب عبر Hatif — راجع سجلات ال
 #: code:addons/htf_call_center/models/discuss_channel.py:0
 msgid "This partner has opted out (DNC). WhatsApp send blocked."
 msgstr "هذه جهة الاتصال انسحبت (DNC). إرسال واتساب محظور."
-
-# ============================================================
-# Python _() calls in wizards/send_whatsapp.py
-# (Pre-flight error wording in the Send WhatsApp wizard)
-# ============================================================
 
 #. module: htf_call_center
 #. odoo-python
@@ -370,23 +355,11 @@ msgstr "انتهت نافذة 24 ساعة"
 msgid "Channel not found"
 msgstr "لم يتم العثور على القناة"
 
-# ============================================================
-# act_window action names (top-bar wizard titles)
-# ============================================================
-
-# (the "Send WhatsApp" view arch + act_window entry lives further down,
-#  combined into one msgid block to satisfy PO uniqueness)
-
-# ============================================================
-# Send WhatsApp wizard — field labels
-# (auto-derived from field name when no string= is set, OR the explicit
-#  string= passed to the field constructor)
-# ============================================================
-
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__partner_id
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_message__partner_id
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_contact_link__partner_id
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_call__partner_id
 msgid "Partner"
 msgstr "جهة الاتصال"
 
@@ -398,6 +371,8 @@ msgstr "إلى الرقم"
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__channel_id
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_message__channel_id
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_template_search
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_call__channel_id
 msgid "Channel"
 msgstr "القناة"
 
@@ -416,9 +391,6 @@ msgstr "محظور (DNC)"
 msgid "Window Open"
 msgstr "نافذة 24 ساعة مفتوحة"
 
-# `mode` field auto-label entry is combined with the view arch_db entry
-# for "Mode" below to satisfy PO msgid uniqueness.
-
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__text
 msgid "Message"
@@ -426,6 +398,8 @@ msgstr "الرسالة"
 
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_send_whatsapp_wizard__template_name
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_template__name
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_template_form
 msgid "Template Name"
 msgstr "اسم القالب"
 
@@ -459,11 +433,6 @@ msgstr "خطأ في التحقق المسبق"
 msgid "Lead"
 msgstr "عميل محتمل"
 
-# ============================================================
-# Send WhatsApp wizard — selection labels
-# (Radio button values for the `mode` and `template_category` fields)
-# ============================================================
-
 #. module: htf_call_center
 #: model:ir.model.fields.selection,name:htf_call_center.selection__htf_send_whatsapp_wizard__mode__text
 msgid "Free-form text (24h window required)"
@@ -476,28 +445,27 @@ msgstr "قالب معتمد (يمكن إرساله في أي وقت)"
 
 #. module: htf_call_center
 #: model:ir.model.fields.selection,name:htf_call_center.selection__htf_send_whatsapp_wizard__template_category__marketing
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_template__category__marketing
 msgid "Marketing"
 msgstr "تسويق"
 
 #. module: htf_call_center
 #: model:ir.model.fields.selection,name:htf_call_center.selection__htf_send_whatsapp_wizard__template_category__utility
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_template__category__utility
 msgid "Utility"
 msgstr "خدمي"
 
 #. module: htf_call_center
 #: model:ir.model.fields.selection,name:htf_call_center.selection__htf_send_whatsapp_wizard__template_category__authentication
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_template__category__authentication
 msgid "Authentication"
 msgstr "مصادقة"
 
 #. module: htf_call_center
 #: model:ir.model.fields.selection,name:htf_call_center.selection__htf_send_whatsapp_wizard__template_category__service
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_template__category__service
 msgid "Service"
 msgstr "خدمة"
-
-# ============================================================
-# Send WhatsApp wizard — view arch_db strings
-# (Form title, group labels, button labels, placeholders)
-# ============================================================
 
 #. module: htf_call_center
 #: model:ir.actions.act_window,name:htf_call_center.action_htf_send_whatsapp_wizard
@@ -546,10 +514,6 @@ msgstr "إرسال"
 msgid "Cancel"
 msgstr "إلغاء"
 
-# ============================================================
-# Bind Channels wizard — view arch_db strings + action name
-# ============================================================
-
 #. module: htf_call_center
 #: model:ir.actions.act_window,name:htf_call_center.action_htf_bind_channels_wizard
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_bind_channels_wizard_form
@@ -560,10 +524,6 @@ msgstr "ربط القنوات بالفرق"
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_bind_channels_wizard_form
 msgid "Save"
 msgstr "حفظ"
-
-# ============================================================
-# Map Users wizard — view arch_db strings + action name
-# ============================================================
 
 #. module: htf_call_center
 #: model:ir.actions.act_window,name:htf_call_center.action_htf_map_users_wizard
@@ -584,10 +544,6 @@ msgstr "مزامنة من Hatif"
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_map_users_wizard_form
 msgid "🔄 Re-suggest unmapped"
 msgstr "🔄 إعادة اقتراح غير المربوطة"
-
-# ============================================================
-# Import vCards wizard — view arch_db strings + action name
-# ============================================================
 
 #. module: htf_call_center
 #: model:ir.ui.menu,name:htf_call_center.menu_htf_import_vcards
@@ -620,14 +576,6 @@ msgstr "النتيجة"
 msgid "…or paste vCards directly:"
 msgstr "…أو الصق بطاقات vCard مباشرة:"
 
-# ============================================================
-# Settings → Hatif page (v19.0.1.28.0 + v19.0.1.29.0 additions)
-# Covers res.config.settings fields, helps, and the inherited
-# view's block titles + setting strings + numbered hint copy.
-# ============================================================
-
-# ---- App / settings tab ----
-
 #. module: htf_call_center
 #: model:ir.ui.menu,name:htf_call_center.menu_root_htf
 #: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
@@ -638,8 +586,6 @@ msgstr "Hatif"
 #: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
 msgid "Hatif/Voxa telephony + WhatsApp integration"
 msgstr "تكامل الاتصال الصوتي وواتساب عبر Hatif/Voxa"
-
-# ---- Connection block ----
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
@@ -680,8 +626,6 @@ msgstr "نطاق OAuth"
 #: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
 msgid "Test Connection"
 msgstr "اختبار الاتصال"
-
-# ---- Webhook URLs block (NEW v19.0.1.28.0) ----
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
@@ -748,8 +692,6 @@ msgstr "٤. احفظ التغييرات داخل Hatif. لا حاجة لإعاد
 msgid "Wrong URL? It is computed from web.base.url. Update it in Settings → Technical → Parameters → System Parameters if Odoo is behind a proxy and the auto-detected URL is wrong."
 msgstr "هل الرابط غير صحيح؟ يتم احتسابه من web.base.url. حدّثه من «الإعدادات ← التقنية ← المعاملات ← معاملات النظام» إذا كان Odoo خلف وكيل (proxy) وكان الرابط المُكتشف تلقائياً غير صحيح."
 
-# ---- Webhook signing block ----
-
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
 msgid "Webhook signing"
@@ -779,8 +721,6 @@ msgstr "سرّ الـ Webhook (السابق)"
 #: model:ir.model.fields,help:htf_call_center.field_res_config_settings__htf_webhook_secret_previous
 msgid "Rotation overlap window — kept valid for 7 days after rotation."
 msgstr "نافذة التداخل أثناء التدوير — تبقى صالحة لمدة 7 أيام بعد التغيير."
-
-# ---- Sync from Hatif block ----
 
 #. module: htf_call_center
 #: model:ir.ui.menu,name:htf_call_center.menu_htf_channels
@@ -831,8 +771,6 @@ msgstr "تجلب كل مستخدمي مساحة العمل / وكلاء الذك
 msgid "Sync Workspace Users Now"
 msgstr "مزامنة مستخدمي مساحة العمل الآن"
 
-# ---- Polling block ----
-
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
 msgid "Polling"
@@ -857,8 +795,6 @@ msgstr "فترة استطلاع جهات الاتصال (دقيقة)"
 #: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_poll_conversations_interval_min
 msgid "Conversations Poll Interval (min)"
 msgstr "فترة استطلاع المحادثات (دقيقة)"
-
-# ---- Defaults block ----
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
@@ -889,8 +825,6 @@ msgstr "أنثى"
 #: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_timezone_offset_for_filters
 msgid "Timezone Offset (for Hatif filters)"
 msgstr "إزاحة المنطقة الزمنية (لمرشّحات Hatif)"
-
-# ---- Debug block ----
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
@@ -927,11 +861,6 @@ msgstr "تخطّي تحقّق HMAC للـ Webhook"
 msgid "When ON, inbound webhooks are accepted without checking the HMAC signature. Required today because Hatif does not yet include X-Voxa-Signature on deliveries. Flip OFF once Hatif turns on signing and the per-channel Webhook Secrets above are set. Defence-in-depth recommendation: allowlist Hatif source IP (8.213.48.16) on your reverse proxy while this is ON."
 msgstr "عند التفعيل، تُقبل الـ Webhooks الواردة دون التحقّق من توقيع HMAC. هذا الخيار مطلوب حالياً لأن Hatif لا تُضمّن ترويسة X-Voxa-Signature في الإشعارات بعد. أوقفه فور تفعيل Hatif للتوقيع وتعبئة «أسرار الـ Webhook» لكل قناة في الأعلى. توصية أمنية متعمّقة: أضِف عنوان IP الخاص بـ Hatif (8.213.48.16) إلى قائمة السماح في الـ reverse proxy طوال فترة تفعيل هذا الخيار."
 
-# ============================================================
-# v19.0.1.29.0 — channelId mirror on res.partner / crm.lead /
-# discuss.channel (for the "Call via Hatif" deep link)
-# ============================================================
-
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_res_partner__x_htf_last_channel_uuid
 msgid "Last Hatif channelId"
@@ -957,8 +886,6 @@ msgstr "قراءة مرتبطة بأحدث معرّف قناة Hatif لجهة ا
 msgid "Last Hatif channelId (UUID)"
 msgstr "آخر معرّف قناة Hatif (UUID)"
 
-# ---- Existing v14 conversation_id labels (translated retroactively) ----
-
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_res_partner__x_htf_last_conversation_id
 #: model:ir.model.fields,field_description:htf_call_center.field_discuss_channel__x_htf_last_conversation_id
@@ -975,14 +902,10 @@ msgstr "آخر معرّف محادثة Hatif (عبر جهة الاتصال)"
 msgid "Last Hatif Channel Used"
 msgstr "آخر قناة Hatif مستخدمة"
 
-# ============================================================
-# v19.0.1.30.0 — Hatif top menu items + Channels list + nocontent
-# ============================================================
-
-# ---- Top-level Hatif menu items ----
-
 #. module: htf_call_center
 #: model:ir.ui.menu,name:htf_call_center.menu_htf_templates
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_template_list
+#: model:ir.actions.act_window,name:htf_call_center.action_htf_template
 msgid "WhatsApp Templates"
 msgstr "قوالب واتساب"
 
@@ -1025,15 +948,17 @@ msgstr "رسائل واتساب"
 
 #. module: htf_call_center
 #: model:ir.ui.menu,name:htf_call_center.menu_htf_calls
+#: model:ir.actions.act_window,name:htf_call_center.htf_call_action
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_call_list
 msgid "Calls"
 msgstr "المكالمات"
 
 #. module: htf_call_center
 #: model:ir.ui.menu,name:htf_call_center.menu_htf_webhook_events
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_webhook_event_list
+#: model:ir.actions.act_window,name:htf_call_center.action_htf_webhook_event
 msgid "Webhook events"
 msgstr "أحداث الـ Webhook"
-
-# ---- Channels list — nocontent helper ----
 
 #. module: htf_call_center
 #: model_terms:ir.actions.act_window,help:htf_call_center.action_htf_channel
@@ -1055,8 +980,6 @@ msgstr "الخطوة ١. افتح قائمة «⚙ الإجراءات» (أعل�
 msgid "Step 2. Select the synced channels (checkbox at left of each row) → ⚙ Actions → Bind Channels to Teams. Assign each channel to a CRM sales team and pick one as the default outbound WA."
 msgstr "الخطوة ٢. حدّد القنوات المُزامنة (مربع الاختيار يسار كل صف) ← «⚙ الإجراءات» ← «ربط القنوات بالفِرَق». خصّص كل قناة لفريق مبيعات في CRM واختر إحداها كقناة افتراضية للواتساب الصادر."
 
-# ---- Server / wizard actions ----
-
 #. module: htf_call_center
 #: model:ir.actions.server,name:htf_call_center.action_htf_sync_channels_server
 #: model:ir.actions.server,name:htf_call_center.action_server_sync_channels
@@ -1073,8 +996,6 @@ msgstr "مزامنة الوسوم من Hatif"
 msgid "Sync Workspace Users from Hatif"
 msgstr "مزامنة مستخدمي مساحة العمل من Hatif"
 
-# ---- Channels list view ----
-
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_channel_list
 msgid "Hatif Channels"
@@ -1082,6 +1003,7 @@ msgstr "قنوات Hatif"
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_channel_form
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_template__channel_id
 msgid "Hatif Channel"
 msgstr "قناة Hatif"
 
@@ -1102,10 +1024,9 @@ msgstr "الوكلاء المسموح لهم"
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_channel_form
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_template_form
 msgid "Notes"
 msgstr "ملاحظات"
-
-# ---- Channel search view filters ----
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_channel_search
@@ -1114,6 +1035,8 @@ msgstr "نشِط"
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_channel_search
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_template__status__archived
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_template_search
 msgid "Archived"
 msgstr "مؤرشَف"
 
@@ -1137,11 +1060,10 @@ msgstr "الفريق"
 msgid "Brand"
 msgstr "العلامة التجارية"
 
-# ---- htf.channel field labels (column headers) ----
-
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_channel__state
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_message__state
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_template_form
 msgid "State"
 msgstr "الحالة"
 
@@ -1158,6 +1080,7 @@ msgstr "نوع القناة"
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_channel__display_name
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_user_link__display_name
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_map_users_wizard_line__display_name
 msgid "Display Name"
 msgstr "الاسم المعروض"
 
@@ -1180,13 +1103,6 @@ msgstr "واتساب صادر"
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_channel__htf_channel_id
 msgid "Hatif Channel ID"
 msgstr "معرّف قناة Hatif"
-
-# ============================================================
-# v19.0.1.31.0 — Tags / User Mapping / WhatsApp Messages /
-# Contact Links list views + Map Users wizard description
-# ============================================================
-
-# ---- htf.tag list ----
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_tag_list
@@ -1212,8 +1128,6 @@ msgstr "لون Kanban"
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_tag__is_pinned
 msgid "Pinned"
 msgstr "مثبَّت"
-
-# ---- htf.user.link list (User Mapping) ----
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_user_link_list
@@ -1242,21 +1156,21 @@ msgstr "وكيل ذكاء اصطناعي"
 
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_user_link__role
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_map_users_wizard_line__role
 msgid "Role"
 msgstr "الدور"
 
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_user_link__user_id
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_map_users_wizard_line__user_id
 msgid "Odoo User"
 msgstr "مستخدم Odoo"
 
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_user_link__email
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_map_users_wizard_line__email
 msgid "Email"
 msgstr "البريد الإلكتروني"
-
-
-# ---- htf.message list (WhatsApp Messages) ----
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_message_form
@@ -1265,6 +1179,7 @@ msgstr "رسالة واتساب"
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_message_form
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_template_form
 msgid "Routing"
 msgstr "التوجيه"
 
@@ -1298,9 +1213,6 @@ msgstr "التدقيق"
 msgid "Opt-out keyword"
 msgstr "كلمة طلب الإلغاء"
 
-
-
-
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_message__message_type
 msgid "Message Type"
@@ -1308,11 +1220,13 @@ msgstr "نوع الرسالة"
 
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_message__direction
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_call__direction
 msgid "Direction"
 msgstr "الاتجاه"
 
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_message__created_at
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_call__created_at
 msgid "Created At"
 msgstr "تاريخ الإنشاء"
 
@@ -1325,8 +1239,6 @@ msgstr "لا توجد رسائل واتساب بعد"
 #: model_terms:ir.actions.act_window,help:htf_call_center.htf_message_action
 msgid "Inbound and outbound WhatsApp messages will appear here. End-users normally read messages on the related contact's chatter — this view is for debugging."
 msgstr "تظهر هنا رسائل واتساب الواردة والصادرة. عادةً يقرأ المستخدمون الرسائل في سجل المحادثة على جهة الاتصال المرتبطة — هذه الشاشة مخصّصة لأغراض التصحيح."
-
-# ---- htf.contact.link list (Contact Links) ----
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_contact_link_list
@@ -1345,6 +1257,7 @@ msgstr "الخصائص المخصّصة (خام)"
 
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_contact_link__last_synced_at
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_user_link__last_synced_at
 msgid "Last Synced At"
 msgstr "آخر مزامنة في"
 
@@ -1358,9 +1271,6 @@ msgstr "حالة المزامنة"
 msgid "Hatif Contact ID"
 msgstr "معرّف جهة اتصال Hatif"
 
-
-# ---- Map Users wizard ----
-
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_map_users_wizard_form
 msgid "Each Hatif workspace user mapped to its Odoo user. Auto-suggestion is by exact-email match (case-insensitive). Click \"Sync from Hatif\" first if the list is stale."
@@ -1368,5 +1278,195 @@ msgstr "كل مستخدم في مساحة عمل Hatif مرتبط بمستخدم
 
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_map_users_wizard_line__allowed_channel_ids
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_map_users_wizard_line__channel_ids
 msgid "Allowed Hatif Channels"
 msgstr "قنوات Hatif المسموح بها"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_template_form
+msgid "WhatsApp Template"
+msgstr "قالب واتساب"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_template_search
+msgid "Templates"
+msgstr "القوالب"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_template_form
+msgid "e.g. welcom_message"
+msgstr "مثال: welcom_message"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_template_list
+msgid "# params"
+msgstr "عدد المعطيات"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_template__language
+msgid "Language Tag"
+msgstr "رمز اللغة"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_template__category
+msgid "Category"
+msgstr "الفئة"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_template__status
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_call__status
+msgid "Status"
+msgstr "الحالة"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_template__body_preview
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_template_form
+msgid "Body Preview"
+msgstr "معاينة المحتوى"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_template__parameter_count
+msgid "Body Parameters"
+msgstr "معطيات المحتوى"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_template__parameter_hint
+msgid "Parameter Hint"
+msgstr "تلميح المعطيات"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_template_form
+msgid "Paste a copy of the approved template body here for agent reference. Variables: {{1}}, {{2}}, ..."
+msgstr "الصق نسخة من نص القالب المعتمد هنا كمرجع للموظفين. المتغيرات: {{1}}, {{2}}, ..."
+
+#. module: htf_call_center
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_template__status__approved
+msgid "Approved (Active)"
+msgstr "معتمد (نشِط)"
+
+#. module: htf_call_center
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_template__status__pending
+msgid "Under Review"
+msgstr "قيد المراجعة"
+
+#. module: htf_call_center
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_template__status__rejected
+msgid "Rejected"
+msgstr "مرفوض"
+
+#. module: htf_call_center
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_template__status__paused
+msgid "Paused"
+msgstr "موقوف مؤقتاً"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_template_search
+msgid "Approved"
+msgstr "معتمد"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_template_search
+msgid "Language"
+msgstr "اللغة"
+
+#. module: htf_call_center
+#: model_terms:ir.actions.act_window,help:htf_call_center.action_htf_template
+msgid "Register an approved WhatsApp template"
+msgstr "سجّل قالب واتساب معتمد"
+
+#. module: htf_call_center
+#: model_terms:ir.actions.act_window,help:htf_call_center.action_htf_template
+msgid "Mirror your Hatif-approved templates here so agents can pick them from a dropdown in the Send WhatsApp wizard instead of typing the exact name + language by hand. The Meta template name + language MUST match Hatif byte-for-byte or the send will be rejected with a 400."
+msgstr "اعكس قوالبك المعتمدة في Hatif هنا حتى يتمكن الموظفون من اختيارها من قائمة منسدلة في معالج إرسال واتساب بدلاً من كتابة الاسم واللغة يدوياً. يجب أن يتطابق اسم القالب واللغة في Meta حرفاً بحرف مع Hatif وإلا سيُرفض الإرسال بخطأ 400."
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_user_link__htf_user_id
+msgid "Hatif User ID"
+msgstr "معرّف مستخدم Hatif"
+
+#. module: htf_call_center
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_user_link__role__owner
+msgid "Owner"
+msgstr "مالك"
+
+#. module: htf_call_center
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_user_link__role__member
+msgid "Member"
+msgstr "عضو"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_call__sentiment
+msgid "Sentiment"
+msgstr "المشاعر"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_call__duration_display
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_call_list
+msgid "Duration"
+msgstr "المدة"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_call__pickup_kind
+msgid "Pickup By"
+msgstr "تم الرد بواسطة"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_call__handler_user_id
+msgid "Handled by"
+msgstr "تمت معالجتها من قِبَل"
+
+#. module: htf_call_center
+#: model_terms:ir.actions.act_window,help:htf_call_center.htf_call_action
+msgid "No calls yet"
+msgstr "لا توجد مكالمات بعد"
+
+#. module: htf_call_center
+#: model_terms:ir.actions.act_window,help:htf_call_center.htf_call_action
+msgid "Calls flow in automatically when Hatif posts to the Post-call Webhook URL configured per channel at app.hatif.io/en/settings/api-connect."
+msgstr "تُسجَّل المكالمات تلقائياً عندما ترسل Hatif إشعارات إلى Post-call Webhook URL المعرّف لكل قناة في app.hatif.io/en/settings/api-connect."
+
+#. module: htf_call_center
+#: model_terms:ir.actions.act_window,help:htf_call_center.htf_call_action
+msgid "Set each channel's Post-call URL to https://<your-host>/htf/webhook/call and place a test call to see rows here."
+msgstr "اضبط Post-call URL لكل قناة على https://<your-host>/htf/webhook/call وقم بإجراء مكالمة اختبارية لظهور الصفوف هنا."
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_webhook_event_form
+msgid "Webhook event"
+msgstr "حدث Webhook"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_webhook_event__event_id
+msgid "Provider Event ID"
+msgstr "معرّف الحدث لدى المزوّد"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_webhook_event__route
+msgid "Route"
+msgstr "المسار"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_webhook_event__received_at
+msgid "Received At"
+msgstr "تاريخ الاستلام"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_webhook_event__processed
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_webhook_event_search
+msgid "Processed"
+msgstr "تمت المعالجة"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_webhook_event__note
+msgid "Note"
+msgstr "ملاحظة"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_webhook_event_search
+msgid "Unprocessed"
+msgstr "لم تتم معالجته"
+
+#. module: htf_call_center
+#: model:ir.model.fields.selection,name:htf_call_center.selection__htf_webhook_event__route__ivr
+msgid "IVR"
+msgstr "الرد الآلي"

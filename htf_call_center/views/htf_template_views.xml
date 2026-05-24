@@ -121,14 +121,7 @@
             <field name="context">{'search_default_filter_approved': 1, 'search_default_group_channel': 1}</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face">Register an approved WhatsApp template</p>
-                <p>
-                    Mirror your Hatif-approved templates here so agents
-                    can pick them from a dropdown in the Send WhatsApp
-                    wizard instead of typing the exact name + language
-                    by hand. The Mata template name + language MUST
-                    match Hatif byte-for-byte or the send will be
-                    rejected with a 400.
-                </p>
+                <p>Mirror your Hatif-approved templates here so agents can pick them from a dropdown in the Send WhatsApp wizard instead of typing the exact name + language by hand. The Meta template name + language MUST match Hatif byte-for-byte or the send will be rejected with a 400.</p>
             </field>
         </record>
 
