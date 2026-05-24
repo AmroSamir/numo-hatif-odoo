@@ -511,6 +511,8 @@ msgstr "إرسال"
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_send_whatsapp_wizard_form
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_map_users_wizard_form
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_bind_channels_wizard_form
 msgid "Cancel"
 msgstr "إلغاء"
 
@@ -522,6 +524,7 @@ msgstr "ربط القنوات بالفرق"
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_bind_channels_wizard_form
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_map_users_wizard_form
 msgid "Save"
 msgstr "حفظ"
 
@@ -1381,6 +1384,7 @@ msgstr "اعكس قوالبك المعتمدة في Hatif هنا حتى يتمك
 
 #. module: htf_call_center
 #: model:ir.model.fields,field_description:htf_call_center.field_htf_user_link__htf_user_id
+#: model:ir.model.fields,field_description:htf_call_center.field_htf_map_users_wizard_line__htf_user_id
 msgid "Hatif User ID"
 msgstr "معرّف مستخدم Hatif"
 
