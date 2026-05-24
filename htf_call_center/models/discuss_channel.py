@@ -120,6 +120,22 @@ class DiscussChannel(models.Model):
         readonly=True,
         store=False,
     )
+    # v19.0.1.40.0 — channel-level inbound timestamp. Stamped by the
+    # INBOUND mirror whenever a customer message lands in this channel,
+    # REGARDLESS of which exact res.partner record authored it. This is
+    # the robust source of truth for the 24h window in the Discuss
+    # composer: relying on author-id == x_htf_partner_id breaks when
+    # phone-format variations create duplicate partner records (the
+    # inbound webhook resolves to partner B while the channel was
+    # provisioned for partner A — same human, two rows). The channel
+    # always knows when IT last received inbound traffic.
+    x_htf_last_inbound_at = fields.Datetime(
+        string='Last Inbound At (channel)',
+        copy=False,
+        help='When this channel last received an inbound WhatsApp '
+             'message. Drives the composer 24h-window gate. Set by the '
+             'inbound discuss mirror; pushed to the OWL store reactively.',
+    )
 
     # ------------------------------------------------------------------ #
     # P7.5 — Push x_htf fields to the OWL store                          #
@@ -141,8 +157,31 @@ class DiscussChannel(models.Model):
                 'x_htf_partner_id',
                 'x_htf_last_conversation_id',
                 'x_htf_last_channel_uuid',
+                'x_htf_last_inbound_at',
             ]
         return base
+
+    def _htf_stamp_inbound_now(self, when=None):
+        """Stamp x_htf_last_inbound_at and push it to the OWL store so
+        connected composers re-evaluate their 24h-window gate within
+        ~1-2 seconds, without a page refresh.
+
+        Called by the inbound discuss mirror. ``when`` defaults to now;
+        callers can pass the message's created_at for accuracy.
+        """
+        self.ensure_one()
+        from odoo.addons.mail.tools.discuss import Store
+        ts = when or fields.Datetime.now()
+        self.sudo().write({'x_htf_last_inbound_at': ts})
+        try:
+            Store(bus_channel=self).add(
+                self, {'x_htf_last_inbound_at': ts},
+            ).bus_send()
+        except Exception:  # noqa: BLE001 — push is best-effort; DB write already done
+            _logger.exception(
+                "[htf-discuss] bus push of x_htf_last_inbound_at failed "
+                "for channel=%s", self.id,
+            )
 
     # ------------------------------------------------------------------ #
     # Channel auto-provisioning                                          #

@@ -73,20 +73,34 @@ patch(Thread.prototype, {
         if (!this.x_htf_partner_id) {
             return true;
         }
-        const partnerId =
-            typeof this.x_htf_partner_id === "object"
-                ? this.x_htf_partner_id.id
-                : this.x_htf_partner_id;
-        if (!partnerId) {
-            return false;
-        }
         const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+
+        // PRIMARY: channel-level inbound timestamp, stamped server-side
+        // by the inbound mirror (discuss_channel._htf_stamp_inbound_now)
+        // and pushed reactively via the bus. This is robust against
+        // duplicate partner records — it tracks when THE CHANNEL last
+        // received inbound, not which partner authored it. The bus push
+        // updates this value in-place so the getter re-runs and the
+        // composer re-enables ~1-2s after the customer replies.
+        if (this.x_htf_last_inbound_at) {
+            const t = this._htfParseDate(this.x_htf_last_inbound_at);
+            if (t !== null && t >= cutoff) {
+                return true;
+            }
+        }
+
+        // FALLBACK: scan loaded messages for a customer-authored bubble
+        // within 24h. Covers the brief gap before the channel field
+        // syncs, and any channel that pre-dates the v40 stamp. A message
+        // counts as "customer inbound" when its author is NOT the
+        // current user (agents send via the wizard as themselves; the
+        // customer is anyone else). Best-effort — the primary path above
+        // is the authoritative one.
+        const selfPartnerId =
+            this.store?.self?.partner?.id ?? this.store?.self?.id ?? null;
         const messages = this.messages || [];
         for (let i = messages.length - 1; i >= 0; i--) {
             const m = messages[i];
-            // Resolve the message's author partner id robustly: prefer
-            // the Odoo 19 ``author_id`` relation, fall back to legacy
-            // ``author`` shapes for cross-version safety.
             const author = m?.author_id ?? m?.author;
             const authorId =
                 typeof author === "object"
@@ -94,18 +108,33 @@ patch(Thread.prototype, {
                     : typeof author === "number"
                     ? author
                     : null;
-            if (!authorId || authorId !== partnerId) {
-                continue;
+            if (!authorId || (selfPartnerId && authorId === selfPartnerId)) {
+                continue; // skip my own outbound sends
             }
-            const dateObj = m.date instanceof Date ? m.date : new Date(m.date);
-            if (!isNaN(dateObj.getTime()) && dateObj.getTime() >= cutoff) {
+            const t = this._htfParseDate(m.date);
+            if (t !== null && t >= cutoff) {
                 return true;
             }
-            // Found the latest partner-authored message but it's older
-            // than 24h — window is closed. No need to scan deeper.
-            return false;
         }
         return false;
+    },
+
+    /** Parse Odoo/luxon/ISO date shapes to epoch ms, or null. */
+    _htfParseDate(value) {
+        if (!value) {
+            return null;
+        }
+        // luxon DateTime (Odoo 19 often stores these) exposes .ts
+        if (typeof value === "object" && typeof value.ts === "number") {
+            return value.ts;
+        }
+        if (value instanceof Date) {
+            const t = value.getTime();
+            return isNaN(t) ? null : t;
+        }
+        const d = new Date(value);
+        const t = d.getTime();
+        return isNaN(t) ? null : t;
     },
 
     /**

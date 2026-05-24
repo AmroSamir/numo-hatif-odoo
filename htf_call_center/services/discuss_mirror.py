@@ -219,6 +219,13 @@ def mirror_inbound_wa(env, partner, htf_message, payload: dict) -> None:
             message_type='comment',
             message_id=sentinel,
         )
+        # v19.0.1.40.0 — stamp the channel's inbound timestamp and push
+        # it to the OWL store so the composer's 24h-window gate opens
+        # reactively. This is keyed on the CHANNEL, not the authoring
+        # partner, so it stays correct even when phone-format variations
+        # land the inbound on a duplicate partner record different from
+        # the channel's x_htf_partner_id.
+        channel._htf_stamp_inbound_now(when=htf_message.created_at or None)
     except Exception:  # noqa: BLE001 — never break the webhook
         _logger.exception(
             "[htf-discuss] mirror_inbound_wa failed for partner=%s htf.message=%s",
