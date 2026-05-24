@@ -1,236 +1,107 @@
 # NEXT SESSION — start here
 
-Last updated: **2026-05-23** (end of session)
+Last updated: **2026-05-25** (end of session)
 
-Short follow-up session on top of yesterday's v19.0.1.26.0 push. The
-InPrivate browser test surfaced a P8 regression — assigned salespeople
-hit AccessError on the Send WhatsApp wizard because P8 only managed
-channel membership, not the `Hatif: User` group ACL. Redesigned the
-whole access model around a 2-gate intersection (channel mapping + lead
-salesperson) and shipped v19.0.1.27.0 to GitHub. **NOT yet deployed to
-prod — user chose push-only.** Also rewrote the install README so the
-module works on a fresh Ubuntu+Docker server (Numo's new `web-vm` at
-`/opt/odoo-erp-numo-sa/extra-addons`).
+This session built the **Discuss-first WhatsApp UX** and chased a long
+chain of root-cause bugs through to v19.0.1.49.0. All shipped to GitHub
+AND deployed to **staging** (erp.amro.pro). NOT yet on prod (erp.numo.sa).
 
-GitHub: https://github.com/AmroSamir/numo-hatif-odoo
-Latest commit on `main`: `cc9f3aa docs(readme): add Numo Ubuntu+Docker quick-install block and one-line update`
-Module version on GitHub: `19.0.1.27.0`
-Module version on prod (`erp.amro.pro`): still `19.0.1.26.0` — **needs deploy**
-Test scoreboard: **303/309** local (e2e 59, p1 72, p2 62, p3 24, p3_ui 17, p4 37, p7 32 — same 6 pre-existing failures as session-close yesterday; 9 NEW assertions in p7 [8] for the 2-gate model all pass).
+GitHub: https://github.com/AmroSamir/numo-hatif-odoo — branch `main`
+HEAD: `0e26d1a` · Module version: **19.0.1.49.0**
 
 ---
 
-## 30-second TL;DR
+## ENVIRONMENTS
 
-P8's channel-membership privacy fix worked, but locked out the
-assigned salespeople too because they aren't in the `Hatif: User`
-group. v19.0.1.27.0 rebuilds access as: **CHANNEL gate (Map Users
-wizard) AND LEAD gate (crm.lead.user_id)** — both must pass. Auto
-grants/revokes `Hatif: User` when channel mappings change. Code is on
-GitHub; prod deploy is the next physical step.
+- **Canonical source:** `/Users/amro/numo-hatif-odoo/htf_call_center`
+- **LOCAL dev:** container `web-numo-local`, DB `odoo19_local`, host extra-addons
+  `/Users/amro/odoo19/stack/extra-addons`. Workflow: edit canonical → rsync to
+  local extra-addons → `docker exec web-numo-local odoo -d odoo19_local -u htf_call_center --stop-after-init --no-http` → `docker restart web-numo-local`.
+- **STAGING:** SSH alias `contabo` (root@84.247.189.212, key `~/.ssh/contabo_vps`, host `vmi3095315`).
+  Path `/opt/odoo-erp-amro-pro`, container `web-erp-amro-pro`, DB **`numo`**, db container `db-erp-amro-pro`. URL https://erp.amro.pro.
+  Deploy one-liner:
+  ```
+  ssh contabo 'cd /opt/odoo-erp-amro-pro/extra-addons/numo-hatif-odoo && git pull origin main && cd /opt/odoo-erp-amro-pro && docker compose stop web && docker compose run --rm web odoo -d numo --i18n-overwrite -u htf_call_center --stop-after-init --no-http && docker compose up -d web'
+  ```
+- **PROD:** erp.numo.sa (`/opt/odoo-erp-numo-sa`). ⚠️ ONE Hatif workspace = ONE webhook URL,
+  so staging + prod share the same Hatif channels; inbound webhooks can only go to ONE Odoo
+  (currently amro.pro). Hatif source IP `8.213.48.16`.
 
----
-
-## What shipped today (1 feature commit + 2 docs, v19.0.1.26.0 → v19.0.1.27.0)
-
-### Feature — 2-gate Hatif channel access (commit `2595293`)
-
-**The bug:** an assigned CRM salesperson (in screenshot, lead 5810 "my
-personal number" → Salesperson "Amr Afifi" → channel "أكاديمية نمو")
-gets AccessError on the Send WhatsApp wizard because P8's
-membership-only fix didn't update the `htf_call_center.group_user`
-ACL.
-
-**The new model** (locked with user after 3 rounds of clarification):
-
-| Gate | Source | Meaning |
-|---|---|---|
-| CHANNEL gate | Map Users wizard → `htf.channel.user_ids` (filtered by `lead.team_id == channel.team_id`) | "I'm allowed to work on channel X." |
-| LEAD gate | `crm.lead.user_id` (Salesperson field on lead form) | "This specific customer is mine." |
-| Both required? | YES — AND intersection | |
-| Admin override | `Hatif: Administrator` always sees everything | |
-
-**Files changed** (9 files, 460 +/- 47):
-
-- `models/discuss_channel.py` — `_htf_allowed_member_partner_ids` rewritten for 2-gate (channel-gate via `HtfChannel.search_count` with team match, lead-gate via existing iteration).
-- `models/res_users.py` — new `_htf_sync_group_membership()` — idempotent grant/revoke of `Hatif: User` based on whether the user has any active `htf.channel.user_ids` mapping. Never touches admins (their group implies user).
-- `models/htf_channel.py` — write/create hooks (`_htf_propagate_access_change`) that:
-  - resync group for users added/removed,
-  - recompute Discuss channel membership for every customer on the affected team.
-- `models/crm_lead.py` — extended `write` hook to also fire on `team_id` change (matters under 2-gate); added `create` hook so a new lead with `user_id` set triggers resync immediately.
-- `wizards/map_users.py` — `action_apply` calls `_htf_sync_group_membership()` on every touched user (so a no-op apply still converges drifted state from older installs).
-- `tools/prune_htf_discuss_members.py` — `_allowed_partner_ids` now delegates to `discuss.channel._htf_allowed_member_partner_ids` (the single source of truth — no more duplicated logic).
-- `migrations/19.0.1.27.0/post-2gate-rebuild.py` — idempotent backfill: grants `Hatif: User` to every user in any active `htf.channel.user_ids`, then recomputes membership on every Hatif Discuss channel.
-- `tools/htf_p7_check.py` — new section `[8] 2-gate access` with 9 assertions covering each gate alone, both together, drop/re-add cycles, and the originally-failing wizard-open path (`htf.send.whatsapp.wizard.with_user(agent).check_access('create')`).
-- `__manifest__.py` — version bump.
-
-**Regression result**: 303/309 — the 9 new p7 assertions all pass; the same 6 pre-existing failures from session-close yesterday persist (outbound author = customer, call body has phone icon, missed-call body wording, chatter Summary/Recording from DNS-failing cdn.example URL, p2 dispatch-rollback). NONE related to my changes.
-
-### Docs — README install guide rewrite (commits `2fcbfe4` + `cc9f3aa`)
-
-- Pattern: "Quick install — Ubuntu + Docker Compose (Numo's reference layout)" at the TOP with exact paste-sequence using real paths (`/opt/odoo-erp-numo-sa/extra-addons`, `web` container), followed by a "Detailed walkthrough (any layout)" with `/YOUR/ADDONS/PATH` placeholders.
-- Critical step that the old README was missing: `pip install --break-system-packages requests phonenumbers` inside the Odoo container. Without it the install hard-crashes at module import (`requests` is the first thing services/http_client.py imports).
-- "Updating to a newer version" now has a Numo one-liner (`git pull && docker compose restart web`) followed by the generic any-layout block.
-- New "Uninstall" section noting the schema is safe (every `discuss.channel.x_htf_*` field is nullable with `set null` ondelete).
+### Running odoo shell via SSH (paste-indent breaks heredocs)
+Write probe to `/tmp/x.py` locally → `scp -q /tmp/x.py contabo:/tmp/x.py` →
+`ssh contabo 'docker cp /tmp/x.py web-erp-amro-pro:/tmp/x.py && docker exec -i web-erp-amro-pro odoo shell -d numo --no-http < /tmp/x.py 2>/dev/null'`.
 
 ---
 
-## Live state at session close
+## THE FEATURE (Option C)
 
-| Surface | Local DB | erp.amro.pro (prod) |
-|---|---|---|
-| Module version | 19.0.1.27.0 (manifest + DB) | 19.0.1.26.0 (NEEDS DEPLOY) |
-| 2-gate access model | LIVE, 9/9 tests passing | NOT YET LIVE |
-| Hatif: User auto-grant | LIVE | NOT YET LIVE |
-| All other P0–P8 features | LIVE | LIVE (yesterday) |
-| Prune state | clean (verified 0 extras across 6 channels yesterday) | clean (verified 0 extras) |
+WhatsApp buttons (partner form, lead form, `htf_phone` widget) open the per-partner
+**Hatif Discuss chat popup** instead of the Send wizard. Composer disables free-form text
+when Meta's 24h window is closed and shows an in-banner teal **"Send Template"** button
+(→ existing wizard, template mode). Window open → free-chat.
 
----
+Toggle: `htf.config.whatsapp_button_opens_discuss` (default True; migration 19.0.1.35.0).
+It's a RUNTIME OVERRIDE in `htf.config.discuss_mirror_active()` — True forces all 4
+discuss-mirror sub-flags active without mutating stored values.
 
-## PENDING ACTIONS for the next session
-
-### 1. ★ Deploy v19.0.1.27.0 to prod (the only blocking item)
-
-```bash
-ssh contabo
-cd /opt/odoo-erp-amro-pro/extra-addons/numo-hatif-odoo
-git pull origin main
-bash htf_call_center/tools/deploy.sh
-```
-
-Migration `19.0.1.27.0/post-2gate-rebuild.py` fires automatically on
-the version bump. Expect:
-- Step 1 log: "syncing Hatif: User group for N distinct user(s) from 1 active channel(s)" — N depends on how many agents you previously mapped in the Map Users wizard. From the screenshot at session start, only 2 agents had "أكاديمية نمو" assigned (Amr Afifi + amro.sa.af@gmail.com), so N=2.
-- Step 2 log: "recomputing membership on 6 Hatif Discuss channel(s)" — current member set on prod is `{customer + admin}` per channel; agents added by the 2-gate model would show up here.
-
-### 2. Open the Map Users wizard on prod and finish the mapping
-
-The screenshot at session start showed 5 of 7 Hatif agents with no
-Odoo user mapped and no channel assigned. Pick the matching Odoo user
-for each + assign "أكاديمية نمو" (or the right channel) for each
-sales agent. Click Save. The group + Discuss-membership sync fires
-automatically.
-
-### 3. Re-verify in the InPrivate browser
-
-Same session/account that hit the original error: open a lead in
-"Numo Academy" team where the InPrivate user is the Salesperson, click
-**Send WhatsApp** — expect the wizard to open instead of the
-"خطأ في الوصول" dialog. If it works, take a screenshot and we're done.
-
-### 4. THEN return to the original queue choice
-
-The original AskUserQuestion ("which queue item next?") was deferred
-behind this fix. Re-ask once the deploy + InPrivate re-test are done.
-Options remain:
-- P8 with proposed defaults (Outbound Sales Acceleration)
-- P9 — Speech Analytics via n8n
-- P5 — Conversations Sync
-- Send the Hatif support email
+Key files: `models/res_partner.py:action_htf_open_whatsapp()`, `models/crm_lead.py:action_htf_open_whatsapp()`,
+`static/src/discuss/open_chat_action.js`, `composer_patch.js`, `composer_banner.xml`,
+`htf_composer.scss`, `thread_model_patch.js`.
 
 ---
 
-## Lessons learned this session (sticky)
+## BUG-FIX CHAIN (the "why")
 
-### Odoo migration loader is silent unless versions differ
-
-`migrations/<version>/post-*.py` ONLY fires when DB-recorded
-`latest_version` is strictly less than the manifest version. If you
-just bumped 1.26→1.27 and ran the upgrade, the SECOND run won't
-re-trigger the migration even with `-u`. To re-test locally:
-
-```sql
-UPDATE ir_module_module SET latest_version='19.0.1.26.0' WHERE name='htf_call_center';
-```
-
-Then re-upgrade. Run with `--log-level=info` to see
-`odoo.modules.migration: module X: Running upgrade [version>] script-name`.
-Without that level the migration runs silently and is easy to miss
-in casual log scanning.
-
-### Odoo 19 group write API
-
-```python
-user.write({'group_ids': [(4, group.id)]})   # add
-user.write({'group_ids': [(3, group.id)]})   # remove
-```
-
-The field on `res.users` is `group_ids` (NOT `groups_id` which was the
-Odoo ≤18 name). Reverse direction: `group.user_ids` (NOT `users`).
-Checks: `group in user.group_ids` or `user in group.user_ids` both work.
-
-### Test wizard ACL access without raising
-
-```python
-env['htf.send.whatsapp.wizard'].with_user(agent).check_access('create')
-```
-
-Raises `AccessError` if denied, returns None if allowed. This is
-exactly what we used to assert the regression fix in p7 test [8],
-state S5. Avoid catching `Exception` — `check_access` only raises one
-specific class so be precise.
-
-### deploy.sh vs UI module upload
-
-For git-deployed modules: deploy.sh wins. UI Import (Apps → ⋮ →
-Import Module) is fine for one-off third-party `.zip` drops but
-bypasses git (drift), often fails on read-only bind mounts, only
-reloads Python on ONE worker (others serve stale code until recycle),
-and is hard to log/script. Rollback for git-deployed: `git checkout
-<prev sha> && deploy.sh`. Rollback for UI-uploaded: "find the old
-zip somewhere".
-
-### Map Users wizard's channel_ids was already there
-
-The Many2many `channel_ids` on `htf.map.users.wizard.line` was added
-in v19.0.1.15.0 (commit `57d2b63`). Until v19.0.1.27.0 it only wrote
-to `htf.channel.user_ids` — not used as the source of truth for ACL
-or membership. The 2-gate redesign promotes it: wizard mapping is NOW
-the canonical "who can work this channel" allowlist, and the group +
-Discuss membership are derived signals.
-
-### README install pattern: Quick (concrete) + Detailed (generic)
-
-For modules with both a reference deployment AND public installers,
-the winning structure is: Prerequisites → "Quick install — [reference
-layout]" with real paths + real container names → divider → "Detailed
-walkthrough (any layout)" with `/YOUR/ADDONS/PATH` placeholders. Same
-pattern for the Updating section. Critical: include the Python deps
-step (`requests`, `phonenumbers`) in BOTH paths — without them the
-install hard-crashes at module import, and it's the most common
-skipped step. Use `pip install --break-system-packages` for Docker
-containers on Debian 12 base.
+- **v37** outbound mirror also fires from `_post_chatter_and_fire` (wizard sends show in discuss).
+- **v38** render template body from `htf.template.body_preview` (was "Attachment/welcom_message").
+- **v39** wizard `action_send` → `act_window_close` (was redirecting to htf.message form).
+- **v40** `discuss.channel.x_htf_last_inbound_at` field + `_htf_stamp_inbound_now()` (writes + bus push
+  `Store(bus_channel=self).add(...).bus_send()`). `windowOpen` reads it. **Dup-partner-proof.**
+  Migration 19.0.1.40.0 backfills. Root cause: DUPLICATE PARTNER RECORDS (same phone, 2 rows).
+- **v41** discuss route passes `channel=self.x_htf_last_htf_channel_id` to `send_text` (was re-resolving via team-default → `HtfChannelNotFoundError`).
+- **v42** discuss route gates window on CHANNEL timestamp; `send_text` gains `skip_window_check`.
+- **v44** `htf.outbound.dedup` model + `_htf_claim_send()` AUTONOMOUS-cursor committed claim BEFORE the slow HTTP → stops duplicate sends from websocket-reconnect resend storms (customer got same msg 5×). xact advisory lock (v43) FAILED — resends are sequential not concurrent. 90s window.
+- **v45** `skip_discuss_mirror` flag (no 2nd OdooBot bubble) + unlink resend bubble on failed claim → one bubble per send.
+- **v46** inbound `_find_partner_by_hatif_contact_phone` uses `regexp_replace(phone,'\D','','g')=digits` + last-9-digit tail. Was `('phone','ilike',digits)` → MISSED spaced phones "+966 56 692 5142" → created duplicate placeholder partner.
+- **v47** `action_htf_open_whatsapp` calls `conversations.refresh_window_from_hatif(partner, channel)` on chat-open; falls back to `lookup_latest_conversation_id(phone)`. Hatif = source of truth for the 24h window.
+- **v48 CRITICAL** Hatif conversations/timeline API returns **lowercase** keys (`items/direction/creationTime/id/lastActivityAt`); code read PascalCase → `get_latest_inbound_at` + `lookup_latest_conversation_id` ALWAYS returned None. `direction:1`=customer INBOUND, `direction:2`=outbound. Working endpoints: `GET /v2/conversations/service-account/channels/{channelId}?PhoneNumber=<e164>&Sorting=LastActivityAt DESC` and `GET /v2/conversations/service-account/{convId}/timeline`.
+- **v49** `_lookup_latest_conversation(env,e164)` returns `(conv_id, htf_channel)`; refresh records `x_htf_last_htf_channel_id` on chat-open so the reply routes (closes v41 gap).
 
 ---
 
-## Tools shipped (under `htf_call_center/tools/`) — unchanged from yesterday
+## KEY LEARNINGS
 
-| Tool | Purpose |
-|---|---|
-| `deploy.sh` | Paste-safe wrapper for `git pull && stop web && -u htf_call_center && up -d web`. |
-| `diagnose_window.{py,sh}` | Walks a partner's 24h-window state. |
-| `merge_duplicate_partners.{py,sh}` | Reparents children + archives duplicate partner records sharing a normalized phone. |
-| `prune_htf_discuss_members.{py,sh}` | Removes unauthorised members from existing Hatif Discuss channels. NOW delegates to `discuss.channel._htf_allowed_member_partner_ids` instead of duplicating logic. |
-| `htf_e2e_check.py`, `htf_p1..p7_check.py` | Local regression suites. p7 grew from 26 to 35 assertions with the 2-gate section. |
-
----
-
-## Re-entry sequence (next session)
-
-1. Read this file.
-2. Confirm prod is healthy: `curl -I https://erp.amro.pro/web/login`
-3. Confirm git is up to date: `cd ~/numo-hatif-odoo && git status && git pull origin main`
-4. Run the 7 local suites (expect 303/309):
-   ```bash
-   for s in e2e p1 p2 p3 p3_ui p4 p7; do
-     echo -n "$s: "; python3 ~/numo-hatif-odoo/htf_call_center/tools/htf_${s}_check.py 2>&1 | grep -E "passed|RESULT" | tail -1
-   done
-   ```
-5. **First physical action**: deploy v19.0.1.27.0 to prod (section "PENDING ACTIONS #1" above).
-6. After deploy + InPrivate verification, re-ask the queue-choice question.
+1. Config params set via `odoo shell` DON'T invalidate the running web workers' ormcache — `docker compose restart web` after shell config changes. Settings-UI changes invalidate immediately.
+2. DRY-RUN: `allow_real_outbound` + `outbound_phone_whitelist`. Non-empty whitelist = only listed numbers real, rest dry-run (event id "dryrun:"). Currently: `allow_real_outbound=True`, whitelist EMPTY (all real).
+3. `--i18n-overwrite` REQUIRED on upgrade when a translatable source string changed, else stale ar stays mapped to old source → English shows.
+4. OWL Composer: `inputClasses` is a template-local var (t-set), NOT a property — can't patch as getter. Use `isSendButtonDisabled` + template-injected class. Composer actions render ICON-ONLY → prominent button goes inside the banner via t-inherit.
+5. Odoo 19 mail.message OWL field is `author_id` (res.partner relation), not `author`.
+6. `ir.config_parameter.set_param('')` DELETES the row → get_param falls back to schema default.
+7. DUPLICATE PARTNERS are the recurring villain. All window/channel/send logic keys on the CHANNEL, not the partner.
 
 ---
 
-Welcome back. Don't skip THE DRILL (`/Users/amro/Downloads/Claude/odoo-modules/CLAUDE.md`).
+## OUTSTANDING / DO NEXT
 
-— end of NEXT_SESSION.md (clean handoff 2026-05-23, v19.0.1.27.0 on GitHub / pending deploy)
+1. **PENDING USER VERIFICATION (cold-start test):** adam test partner **101718**, phone `+966 56 692 5142`,
+   live Hatif conversation `3a216e25-1703-ba02-691e-d7949fb20c2d` on channel `3a20ffce-cc80-7229-8300-a394d13725a4` (أكاديمية نمو).
+   adam was just un-stamped (cold, no local data). User clicks Send WhatsApp → expect composer
+   auto-opens (window resolved from Hatif by phone, v48), reply sends once (v44) and routes (v49).
+2. **welcom_message template body_preview is EMPTY** (htf.template id 2) → renders "Attachment/welcom_message".
+   User must paste approved Meta body. Real text: "حياك الله، شفت تسجيلك بالنظام وودي اشوف اذا عندك اي سؤال او استفسار حنا جاهزين / أكاديمية نمو".
+3. **Websocket "Real-time connection lost"** on staging — Odoo bus error `KeyError:'socket'` at
+   `bus/websocket.py:1014`. Nginx /websocket config is CORRECT. It's an Odoo worker/gevent config
+   issue (environmental, not the module). Triggers the resend storms (now defended). Check odoo.conf workers/gevent.
+4. Parked (composer_patch.js header): mobile composer untested; no inline template picker; no "X hours left" badge (needs stored `x_htf_window_closes_at`).
+5. De-dupe the test partners sharing one phone (data hygiene).
+
+---
+
+## TEST DATA on staging (DB numo)
+
+- Team "numo academy" id 45 (note: a capitalized "Numo Academy" team also exists; channel أكاديمية نمو is bound to "Numo Academy"). Leaders: NUMO ACADEMY LEADER (uid 90), NUMO ACADEMY LEADER 2 (uid 91). All pwd `admin`.
+- Agents SAL AGN 1/2/3 (uids 87/88/89, `sal.agn.{1,2,3}@numo.test`, pwd `admin`), groups sale_salesman + htf group_user.
+- 6 opportunities ids 5812-5817 (2/agent, stage New, dummy phones +9665000000XX).
+- adam test partner 101718 (real test number).
+- Hatif: 2 channels, 1 template (welcom_message, empty body_preview), 7 user.link mappings. `dev_mode_skip_hmac=True`. `allow_real_outbound=True`, whitelist empty.
+- Arabic (ar_001) fully translated incl. app/menu name "Hatif"→"هاتف". ar.po ~267 unique msgids.
