@@ -13,3 +13,4 @@ from . import crm_team
 from . import crm_lead
 from . import res_config_settings
 from . import discuss_channel
+from . import htf_outbound_dedup

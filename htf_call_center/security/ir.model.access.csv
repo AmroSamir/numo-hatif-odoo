@@ -22,3 +22,5 @@ access_htf_map_users_wizard_line_admin,map.users wizard line admin,model_htf_map
 access_htf_import_vcards_wizard_admin,import.vcards wizard admin,model_htf_import_vcards_wizard,htf_call_center.group_admin,1,1,1,1
 access_htf_send_whatsapp_wizard_user,send.whatsapp wizard user,model_htf_send_whatsapp_wizard,htf_call_center.group_user,1,1,1,0
 access_htf_send_whatsapp_wizard_admin,send.whatsapp wizard admin,model_htf_send_whatsapp_wizard,htf_call_center.group_admin,1,1,1,1
+access_htf_outbound_dedup_user,htf.outbound.dedup user,model_htf_outbound_dedup,htf_call_center.group_user,1,1,1,0
+access_htf_outbound_dedup_admin,htf.outbound.dedup admin,model_htf_outbound_dedup,htf_call_center.group_admin,1,1,1,1
