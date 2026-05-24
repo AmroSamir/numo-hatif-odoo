@@ -203,6 +203,13 @@ def _process_outbound_status(env, payload: dict) -> str:
             'latitude': payload.get('latitude') or 0.0,
             'longitude': payload.get('longitude') or 0.0,
             'htf_message_id': msg_id or False,
+            # v19.0.1.51.0: persist conversationEventId so a later status
+            # webhook for the SAME message (Hatif reuses one
+            # conversationEventId across Pending → Sent → Delivered → Read
+            # but only sends the wamid on later events) matches THIS row
+            # via the conversation_event_id fallback instead of creating a
+            # parallel row + a duplicate OdooBot mirror bubble.
+            'conversation_event_id': payload.get('conversationEventId') or False,
             'conversation_uuid': payload.get('conversationId') or False,
             'contact_uuid': payload.get('contactId') or False,
             'channel_id': channel.id if channel else False,
