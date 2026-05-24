@@ -1,20 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates>
     <!--
-        v19.0.1.35.0 — banner injected above the composer textarea
-        when the partner's 24h Meta window is closed. Triggers off
-        the same reactive computed `props.composer.thread.windowOpen`
-        that the composer_patch.js getters read, so it appears /
-        disappears automatically when an inbound message arrives.
+        v19.0.1.35.0 — composer template extensions:
+          1. Banner above the input pocket when the partner's 24h
+             Meta window is closed.
+          2. Add `o-htf-composer-pocket-disabled` to the input
+             container so the textarea + paperclip + emoji surfaces
+             look unmistakably greyed-out (handled in
+             htf_composer.scss).
 
-        Bilingual content (English line + Arabic line) lives directly
-        in the template so the message is intelligible even before
-        translations load — matches the existing hardcoded pattern
-        in services/whatsapp.py:_check_window UserError text.
+        Both gates read `props.composer.thread.windowOpen` — the
+        reactive computed defined on Thread.prototype in
+        thread_model_patch.js. When the customer replies, OWL
+        appends the new mail.message to the thread, windowOpen
+        recomputes True, and both the banner and the disabled
+        styling disappear without any manual refresh.
+
+        Bilingual content (English line + Arabic line) lives
+        directly in the template so the message is intelligible
+        even before translations load — same pattern as the
+        hardcoded UserError text in services/whatsapp.py:_check_window.
     -->
-    <t t-name="htf_call_center.ComposerWindowClosedBanner"
+    <t t-name="htf_call_center.ComposerExtensions"
        t-inherit="mail.Composer"
        t-inherit-mode="extension">
+        <!--
+            Insert the warning banner just above the main composer
+            row (which contains the textarea + actions).
+        -->
         <xpath expr="//div[hasclass('o-mail-Composer-coreMain')]" position="before">
             <div t-if="props.composer.thread?.x_htf_partner_id and props.composer.thread.windowOpen === false"
                  class="o-htf-window-closed-banner alert alert-warning d-flex align-items-center mx-2 my-2 py-2 px-3"
@@ -29,6 +42,16 @@
                     </div>
                 </div>
             </div>
+        </xpath>
+        <!--
+            Toggle a class on the input container so descendant
+            CSS can grey-out the textarea + block pointer events.
+            Using a `t-att-class` modifier on the existing container
+            keeps the original class string intact and conditionally
+            appends ours.
+        -->
+        <xpath expr="//div[hasclass('o-mail-Composer-inputContainer')]" position="attributes">
+            <attribute name="t-att-class">props.composer.thread?.x_htf_partner_id and props.composer.thread.windowOpen === false ? 'o-htf-composer-pocket-disabled' : ''</attribute>
         </xpath>
     </t>
 </templates>

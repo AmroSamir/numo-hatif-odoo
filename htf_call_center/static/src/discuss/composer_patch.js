@@ -56,8 +56,17 @@ const HTF_BRAND_TEAL = "#02c7b5";
 patch(Composer.prototype, {
     /**
      * Hatif-linked thread with closed 24h window? Return true to
-     * propagate the disabled state to (a) the Send button, (b) the
-     * textarea readOnly attribute via inputClasses below.
+     * grey-out the Send button. The textarea greying + readonly
+     * treatment is applied via the inherited template
+     * (composer_banner.xml) which conditionally adds the
+     * o-htf-composer-pocket-disabled class on the composer
+     * container — we don't patch inputClasses here because that
+     * symbol is a TEMPLATE-LOCAL variable assigned via
+     *   <t t-set="inputClasses" t-value="..."/>
+     * inside composer.xml, not a class property. Overriding it as
+     * a prototype getter shadowed the template's setContextValue
+     * call and raised "Cannot set property inputClasses of
+     * #<Composer> which has only a getter" at first render.
      */
     get isSendButtonDisabled() {
         if (this._htfIsWindowClosed()) {
@@ -67,24 +76,9 @@ patch(Composer.prototype, {
     },
 
     /**
-     * Inject a CSS class onto the textarea when the window is
-     * closed. CSS lives in htf_composer.scss and adds the greyed
-     * background + not-allowed cursor. We also stash the disabled
-     * state for the t-att-readOnly binding via the patched
-     * `state.active` below.
-     */
-    get inputClasses() {
-        const base = super.inputClasses || "";
-        if (this._htfIsWindowClosed()) {
-            return `${base} o-htf-composer-disabled`;
-        }
-        return base;
-    },
-
-    /**
-     * Helper centralising the gate decision. Reads from
-     * ``props.composer.thread`` which OWL re-wires every render —
-     * the getter is reactive automatically.
+     * Helper centralising the gate decision. Read from
+     * ``props.composer.thread`` so the getter recomputes whenever
+     * OWL rebinds props on rerender.
      */
     _htfIsWindowClosed() {
         const thread = this.props?.composer?.thread;

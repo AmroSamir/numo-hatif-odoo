@@ -5,17 +5,22 @@
 // via the inputClasses getter override). This file gives it the
 // greyed-out visual treatment.
 
-.o-mail-Composer-input.o-htf-composer-disabled {
-    background-color: var(--o-mail-Composer-bg, #f4f4f5);
-    color: var(--o-text-muted, #6c757d);
-    cursor: not-allowed;
-    opacity: 0.55;
+// Disabled-input pocket — applied to o-mail-Composer-inputContainer
+// via composer_banner.xml when the partner's 24h window is closed.
+// Greys the entire input pocket (textarea + paperclip + emoji icons)
+// so it reads as unmistakably inert.
+.o-mail-Composer-inputContainer.o-htf-composer-pocket-disabled {
+    background-color: #f4f4f5;
+    opacity: 0.65;
     pointer-events: none;
-    // Prevent paste / drag-drop in the disabled state. The pointer-events
-    // none above blocks click+drag, but a focused keyboard could still
-    // type. The server-side _check_window remains the final gate, but
-    // we want the UI to look unambiguously inert.
-    user-select: none;
+    cursor: not-allowed;
+
+    .o-mail-Composer-input {
+        cursor: not-allowed;
+        background-color: #f4f4f5;
+        color: #6c757d;
+        user-select: none;
+    }
 }
 
 // Send Template button — Hatif teal. Same brand colour as the
