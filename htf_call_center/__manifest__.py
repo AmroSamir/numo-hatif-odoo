@@ -1,6 +1,6 @@
 {
     'name': 'HTF Call Center',
-    'version': '19.0.1.36.0',
+    'version': '19.0.1.37.0',
     'category': 'Productivity/Discuss',
     'summary': 'Hatif/Voxa BPaaS integration: telephony + WhatsApp + IVR',
     'description': """

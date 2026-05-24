@@ -47,20 +47,27 @@ patch(Thread.prototype, {
     },
 
     /**
-     * v19.0.1.35.0 — reactive 24h-window state for the composer patch.
+     * v19.0.1.35.0 (fixed v37) — reactive 24h-window state.
      *
-     * Returns true when this thread is either NOT a Hatif-linked
-     * channel (so non-Hatif threads behave normally) OR when there
-     * is a customer-authored inbound message in the loaded message
-     * list whose creation date is within the last 24 hours.
+     * Returns true when:
+     *   - the thread is NOT a Hatif-linked channel (non-Hatif threads
+     *     behave unchanged), OR
+     *   - the most recent message authored by the partner (i.e. the
+     *     inbound side of the conversation) is within the last 24h.
      *
-     * Computed CLIENT-side from this.messages so it reactively
-     * re-evaluates the moment a new inbound mail.message arrives via
-     * the standard discuss bus push — no custom server-side bus
-     * notification needed. When a customer replies, OWL appends the
-     * message to thread.messages, this getter re-runs, the composer
-     * patch sees windowOpen flip to true, and the textarea re-enables
-     * within ~1-2 seconds of the webhook hit.
+     * Initial v35 implementation used ``m.author?.id`` which doesn't
+     * exist on Odoo 19's Message model — the actual relation is
+     * ``author_id = fields.One("res.partner")`` per
+     * mail/static/src/core/common/message_model.js:39. So
+     * ``m.author_id`` resolves to the partner Record, and
+     * ``m.author_id.id`` is the raw integer partner id. Without the
+     * fix, every read returned ``authorId = undefined`` and the
+     * window stayed closed forever.
+     *
+     * Reactive automatically: reads ``this.messages`` which OWL
+     * updates when the standard discuss bus push delivers a new
+     * mail.message — composer re-renders within ~1-2 seconds of
+     * the inbound webhook landing.
      */
     get windowOpen() {
         if (!this.x_htf_partner_id) {
@@ -70,12 +77,23 @@ patch(Thread.prototype, {
             typeof this.x_htf_partner_id === "object"
                 ? this.x_htf_partner_id.id
                 : this.x_htf_partner_id;
+        if (!partnerId) {
+            return false;
+        }
         const cutoff = Date.now() - 24 * 60 * 60 * 1000;
         const messages = this.messages || [];
         for (let i = messages.length - 1; i >= 0; i--) {
             const m = messages[i];
+            // Resolve the message's author partner id robustly: prefer
+            // the Odoo 19 ``author_id`` relation, fall back to legacy
+            // ``author`` shapes for cross-version safety.
+            const author = m?.author_id ?? m?.author;
             const authorId =
-                m?.author?.id ?? (typeof m?.author === "number" ? m.author : null);
+                typeof author === "object"
+                    ? author?.id ?? author?.partner?.id
+                    : typeof author === "number"
+                    ? author
+                    : null;
             if (!authorId || authorId !== partnerId) {
                 continue;
             }
@@ -83,6 +101,8 @@ patch(Thread.prototype, {
             if (!isNaN(dateObj.getTime()) && dateObj.getTime() >= cutoff) {
                 return true;
             }
+            // Found the latest partner-authored message but it's older
+            // than 24h — window is closed. No need to scan deeper.
             return false;
         }
         return false;

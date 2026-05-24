@@ -340,6 +340,33 @@ def _post_chatter_and_fire(msg, partner, channel):
             _logger.exception(
                 "[htf-wa] outbound chatter post failed for msg id=%s", msg.id,
             )
+        # v19.0.1.37.0: also mirror the outbound message (template OR
+        # free-form text) into the per-partner Hatif discuss.channel so
+        # the agent sees their own send appear in the chat popup right
+        # next to the customer's replies. Without this the Discuss-first
+        # UX would show ONLY inbound traffic, breaking the conversation
+        # illusion. Gated by the same discuss_mirror_active('inbound')
+        # check that the from-Hatif-webhook outbound mirror uses (the
+        # mirror is symmetric — once enabled it covers both directions).
+        try:
+            from . import discuss_mirror  # local import — avoid cycle
+            # The discuss-mirror helper expects a payload with
+            # ``conversationId`` so it can stamp the discuss.channel's
+            # last-known conversation id. The wizard-driven send doesn't
+            # always have one (Hatif assigns it during delivery), so
+            # pass whatever the message ended up with after the API
+            # round-trip — empty dict if nothing.
+            payload = {}
+            if msg.conversation_uuid:
+                payload['conversationId'] = msg.conversation_uuid
+            discuss_mirror.mirror_outbound_wa_from_hatif(
+                msg.env, partner, msg, payload,
+            )
+        except Exception:  # noqa: BLE001
+            _logger.exception(
+                "[htf-wa] outbound discuss-mirror failed for msg id=%s",
+                msg.id,
+            )
     htf_signals.fire('htf.wa.outbound', {
         'message_id': msg.id,
         'partner_id': partner.id if partner else None,
