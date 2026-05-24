@@ -396,13 +396,38 @@ def _find_partner_by_hatif_contact_phone(env, hatif_contact_id):
     if not e164:
         return env['res.partner'].browse()
     digits = ''.join(ch for ch in e164 if ch.isdigit())
-    candidates = env['res.partner'].sudo().search([
-        ('active', '=', True),
-        '|', '|',
-        ('phone', '=', e164),
-        ('phone', 'ilike', digits),
-        ('phone', 'ilike', f'+{digits}'),
-    ], limit=2)
+    if not digits:
+        return env['res.partner'].browse()
+    # v19.0.1.46.0: match on a SEPARATOR-INSENSITIVE digit comparison.
+    # The previous ``('phone', 'ilike', digits)`` only matched when the
+    # stored phone had no separators — a partner stored as
+    # "+966 56 692 5142" (with spaces, the Odoo default formatting) was
+    # NEVER matched against the contiguous "966566925142", so the
+    # inbound webhook created a DUPLICATE placeholder partner and the
+    # customer's reply landed on the wrong discuss channel (verified
+    # live: adam test partner 101718 missed, placeholder "3a216e25…"
+    # created instead). regexp_replace strips every non-digit from the
+    # STORED phone/mobile before comparing, so any separator format
+    # collapses to the same canonical digit string. Tail-match the last
+    # 9 digits as a fallback so local (05XXXXXXXX) vs international
+    # (+9665XXXXXXXX) storage still reconciles on the subscriber number.
+    tail = digits[-9:]
+    env.cr.execute(
+        """
+        SELECT id FROM res_partner
+        WHERE active = true
+          AND (
+            regexp_replace(coalesce(phone, ''), '\\D', '', 'g') = %(d)s
+            OR regexp_replace(coalesce(mobile, ''), '\\D', '', 'g') = %(d)s
+            OR regexp_replace(coalesce(phone, ''), '\\D', '', 'g') LIKE %(t)s
+            OR regexp_replace(coalesce(mobile, ''), '\\D', '', 'g') LIKE %(t)s
+          )
+        LIMIT 2
+        """,
+        {'d': digits, 't': '%' + tail},
+    )
+    ids = [r[0] for r in env.cr.fetchall()]
+    candidates = env['res.partner'].sudo().browse(ids)
     if len(candidates) == 1:
         return candidates
     # Multiple matches — return the one with no htf.contact.link yet
