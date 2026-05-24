@@ -56,11 +56,39 @@
                             </setting>
                         </block>
 
+                        <block title="Inbound webhook URLs (give these to Hatif)"
+                               name="htf_webhook_urls_block">
+                            <setting id="htf_webhook_urls"
+                                     string="Webhook endpoints on this Odoo"
+                                     help="These are the public URLs this Odoo instance listens on for Hatif post-call and WhatsApp deliveries. They are derived from web.base.url so each environment (dev / staging / prod) shows its own correct URL automatically.">
+                                <div class="content-group">
+                                    <div class="row">
+                                        <label for="htf_webhook_url_call" class="col-lg-3 o_light_label"/>
+                                        <field name="htf_webhook_url_call" widget="CopyClipboardChar" readonly="1"/>
+                                    </div>
+                                    <div class="row">
+                                        <label for="htf_webhook_url_whatsapp" class="col-lg-3 o_light_label"/>
+                                        <field name="htf_webhook_url_whatsapp" widget="CopyClipboardChar" readonly="1"/>
+                                    </div>
+                                    <div class="text-muted mt8" style="font-size: 0.9em;">
+                                        <strong>How to wire these up in Hatif:</strong>
+                                        <ol class="mt4">
+                                            <li>Open <a href="https://app.hatif.io/en/settings/api-connect" target="_blank">app.hatif.io → Settings → API Connect</a>.</li>
+                                            <li>For <em>each</em> channel (inbox) listed there, click <strong>Edit</strong> on its <strong>Post-call Webhook URL</strong> and paste the first URL above.</li>
+                                            <li>Repeat for that channel's <strong>WhatsApp Webhook URL</strong> using the second URL above.</li>
+                                            <li>Save in Hatif. No restart needed on the Odoo side.</li>
+                                        </ol>
+                                        Wrong URL? It is computed from <code>web.base.url</code>. Update it in <em>Settings → Technical → Parameters → System Parameters</em> if Odoo is behind a proxy and the auto-detected URL is wrong.
+                                    </div>
+                                </div>
+                            </setting>
+                        </block>
+
                         <block title="Webhook signing"
                                name="htf_webhook_block">
                             <setting id="htf_webhook_secrets"
                                      string="HMAC secrets"
-                                     help="Each channel on the Hatif side has its own webhookSecret. Paste the current one here; previous stays valid for a 7-day rotation overlap.">
+                                     help="Each channel on the Hatif side has its own webhookSecret. Paste the current one here; previous stays valid for a 7-day rotation overlap. NOTE (May 2026): Hatif does not yet expose webhookSecret in their portal UI nor send X-Voxa-Signature on deliveries — leave these blank and keep 'Skip webhook HMAC verification' ON in Debug until Hatif enables signing.">
                                 <div class="content-group">
                                     <div class="row">
                                         <label for="htf_webhook_secret_current" class="col-lg-3 o_light_label"/>

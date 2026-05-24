@@ -5,7 +5,7 @@ settings view machinery handles save/load via `config_parameter` attribute.
 Secret fields are guarded by `group_admin`.
 """
 
-from odoo import fields, models
+from odoo import api, fields, models
 
 from ..constants import CONFIG_PARAM_PREFIX
 
@@ -40,6 +40,39 @@ class ResConfigSettings(models.TransientModel):
         default='VoxaAPI',
         groups='htf_call_center.group_admin',
     )
+
+    # ---- Webhook URLs (read-only; what to paste into the Hatif portal) ----
+    # Derived from web.base.url so dev / staging / prod each show their own
+    # absolute URL. Not stored — every load recomputes from the system
+    # parameter so an admin changing web.base.url is reflected instantly.
+    htf_webhook_url_call = fields.Char(
+        string='Post-call Webhook URL',
+        compute='_compute_htf_webhook_urls',
+        help='Paste this into app.hatif.io → Settings → API Connect → '
+             '<each channel> → Post-call Webhook URL.',
+    )
+    htf_webhook_url_whatsapp = fields.Char(
+        string='WhatsApp Webhook URL',
+        compute='_compute_htf_webhook_urls',
+        help='Paste this into app.hatif.io → Settings → API Connect → '
+             '<each channel> → WhatsApp Webhook URL.',
+    )
+
+    @api.depends_context('uid')
+    def _compute_htf_webhook_urls(self):
+        base = (
+            self.env['ir.config_parameter']
+            .sudo()
+            .get_param('web.base.url', '')
+            .rstrip('/')
+        )
+        for rec in self:
+            rec.htf_webhook_url_call = (
+                f'{base}/htf/webhook/call' if base else ''
+            )
+            rec.htf_webhook_url_whatsapp = (
+                f'{base}/htf/webhook/whatsapp' if base else ''
+            )
 
     # ---- Webhook secrets (HMAC) ----
     htf_webhook_secret_current = fields.Char(
@@ -92,14 +125,25 @@ class ResConfigSettings(models.TransientModel):
         help='When ON, log full request/response bodies. Secrets stripped.',
     )
 
-    # ---- Dev mode flag (must stay OFF in production) ----
+    # ---- HMAC kill switch ----
+    # Defaults to True because Hatif's live webhook deliveries do NOT
+    # include the X-Voxa-Signature header (see
+    # docs/HATIF_SUPPORT_WEBHOOK_SIGNING_REQUEST.md). With this OFF,
+    # every inbound call/WhatsApp event is rejected at the HMAC gate
+    # and the integration looks broken. Admins should flip it OFF the
+    # moment Hatif enables signing AND the Webhook Secrets (above) are
+    # configured per channel.
     htf_dev_mode_skip_hmac = fields.Boolean(
-        string='DEV MODE — skip webhook HMAC',
+        string='Skip webhook HMAC verification',
         config_parameter=_p('dev_mode_skip_hmac'),
-        default=False,
+        default=True,
         groups='htf_call_center.group_admin',
-        help='Local development only. MUST be OFF in production — verified '
-             'in the pre-prod checklist.',
+        help='When ON, inbound webhooks are accepted without checking the '
+             'HMAC signature. Required today because Hatif does not yet '
+             'include X-Voxa-Signature on deliveries. Flip OFF once Hatif '
+             'turns on signing and the per-channel Webhook Secrets above '
+             'are set. Defence-in-depth recommendation: allowlist Hatif '
+             "source IP (8.213.48.16) on your reverse proxy while this is ON.",
     )
 
     # ------------------------------------------------------------------ #
