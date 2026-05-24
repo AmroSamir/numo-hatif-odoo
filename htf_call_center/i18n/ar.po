@@ -1515,3 +1515,86 @@ msgstr "إرسال قالب"
 #: code:addons/htf_call_center/static/src/discuss/composer_banner.xml:0
 msgid "24-hour reply window is closed. To re-start the conversation, send an approved WhatsApp template. Free-form text will be enabled when the customer replies."
 msgstr "نافذة الردّ خلال 24 ساعة مغلقة. لإعادة بدء المحادثة، أرسل قالب واتساب معتمداً. ستُفعَّل الرسائل النصية الحرة عندما يردّ العميل."
+
+# ============================================================
+# v19.0.1.36.0 — channel-resolver preflight remediation strings
+# + Send WhatsApp wizard "Template" group title
+# ============================================================
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/channel_resolver.py:0
+msgid "No WhatsApp channel could be resolved for this contact."
+msgstr "تعذّر إيجاد قناة واتساب صالحة لهذه جهة الاتصال."
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/channel_resolver.py:0
+msgid "No Call channel could be resolved for this contact."
+msgstr "تعذّر إيجاد قناة اتصال هاتفي صالحة لهذه جهة الاتصال."
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/channel_resolver.py:0
+msgid "Resolution chain (first match wins):"
+msgstr "ترتيب البحث عن قناة (أوّل تطابق يفوز):"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/channel_resolver.py:0
+msgid "  1. Lead → Team → Default channel"
+msgstr "  ١. العميل المحتمل ← الفريق ← القناة الافتراضية"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/channel_resolver.py:0
+msgid "  2. Partner → Team → Default channel"
+msgstr "  ٢. جهة الاتصال ← الفريق ← القناة الافتراضية"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/channel_resolver.py:0
+msgid "  3. Partner override (x_htf_default_channel_id)"
+msgstr "  ٣. تجاوز خاص بجهة الاتصال (x_htf_default_channel_id)"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/channel_resolver.py:0
+msgid "  4. Sender user → Team → Default channel"
+msgstr "  ٤. المستخدم المُرسل ← الفريق ← القناة الافتراضية"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/channel_resolver.py:0
+msgid "  5. htf.config workspace fallback"
+msgstr "  ٥. القناة الاحتياطية في إعدادات مساحة العمل (htf.config)"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/channel_resolver.py:0
+msgid "Fix: open Settings → CRM → Sales Teams, pick the team, and set \"Default outbound WhatsApp\" to one of the synced Hatif channels."
+msgstr "للإصلاح: افتح «الإعدادات ← CRM ← فِرَق المبيعات»، اختر الفريق، ثم اضبط «واتساب الصادر الافتراضي» على إحدى قنوات Hatif المُزامنة."
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/channel_resolver.py:0
+msgid "Fix: open Settings → CRM → Sales Teams, pick the team, and set \"Default outbound Call\" to one of the synced Hatif channels."
+msgstr "للإصلاح: افتح «الإعدادات ← CRM ← فِرَق المبيعات»، اختر الفريق، ثم اضبط «الاتصال الصادر الافتراضي» على إحدى قنوات Hatif المُزامنة."
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/channel_resolver.py:0
+msgid "Partner: %(name)s (id=%(id)s)"
+msgstr "جهة الاتصال: %(name)s (id=%(id)s)"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/channel_resolver.py:0
+msgid "Lead: %(name)s (id=%(id)s)"
+msgstr "العميل المحتمل: %(name)s (id=%(id)s)"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/channel_resolver.py:0
+msgid "Sender: %(name)s (id=%(id)s)"
+msgstr "المُرسل: %(name)s (id=%(id)s)"

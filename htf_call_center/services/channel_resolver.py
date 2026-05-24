@@ -22,6 +22,8 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from odoo import _
+
 from ..exceptions import HtfChannelNotFoundError
 
 _logger = logging.getLogger(__name__)
@@ -122,26 +124,49 @@ def _walk_chain(env, *, partner, lead, sender_user, mode: str):
 
 
 def _remediation(kind: str, partner, lead, sender_user) -> str:
-    """Build an actionable error message for the admin."""
-    parts = [
-        f'No {kind} channel could be resolved for this contact.',
-        'Resolution chain (first match wins):',
-        '  1. Lead → Team → Default channel',
-        '  2. Partner → Team → Default channel',
-    ]
-    if kind == 'WhatsApp':
-        parts.append('  3. Partner override (x_htf_default_channel_id)')
-    parts += [
-        '  4. Sender user → Team → Default channel',
-        f'  5. htf.config workspace fallback',
-        '',
-        'Fix: open Settings → CRM → Sales Teams, pick the team, '
-        f'and set "Default outbound {kind}" to one of the synced Hatif channels.',
-    ]
+    """Build an actionable error message for the admin.
+
+    Every line goes through ``_()`` so the .po extractor picks them
+    up; the message renders in the user's language at runtime. The
+    ``kind`` argument is "WhatsApp" or "Call" — we route through two
+    fixed branches instead of f-string interpolation so the msgid is
+    deterministic for the translation extractor.
+    """
+    is_wa = kind == 'WhatsApp'
+    if is_wa:
+        parts = [_("No WhatsApp channel could be resolved for this contact.")]
+    else:
+        parts = [_("No Call channel could be resolved for this contact.")]
+    parts.append(_("Resolution chain (first match wins):"))
+    parts.append(_("  1. Lead → Team → Default channel"))
+    parts.append(_("  2. Partner → Team → Default channel"))
+    if is_wa:
+        parts.append(_("  3. Partner override (x_htf_default_channel_id)"))
+    parts.append(_("  4. Sender user → Team → Default channel"))
+    parts.append(_("  5. htf.config workspace fallback"))
+    parts.append('')
+    if is_wa:
+        parts.append(_(
+            "Fix: open Settings → CRM → Sales Teams, pick the team, "
+            "and set \"Default outbound WhatsApp\" to one of the synced "
+            "Hatif channels."
+        ))
+    else:
+        parts.append(_(
+            "Fix: open Settings → CRM → Sales Teams, pick the team, "
+            "and set \"Default outbound Call\" to one of the synced "
+            "Hatif channels."
+        ))
     if partner:
-        parts.append(f'Partner: {partner.display_name} (id={partner.id})')
+        parts.append(_("Partner: %(name)s (id=%(id)s)") % {
+            'name': partner.display_name, 'id': partner.id,
+        })
     if lead:
-        parts.append(f'Lead: {lead.display_name} (id={lead.id})')
+        parts.append(_("Lead: %(name)s (id=%(id)s)") % {
+            'name': lead.display_name, 'id': lead.id,
+        })
     if sender_user:
-        parts.append(f'Sender: {sender_user.display_name} (id={sender_user.id})')
+        parts.append(_("Sender: %(name)s (id=%(id)s)") % {
+            'name': sender_user.display_name, 'id': sender_user.id,
+        })
     return '\n'.join(parts)
