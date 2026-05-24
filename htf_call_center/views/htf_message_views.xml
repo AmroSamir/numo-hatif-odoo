@@ -97,14 +97,8 @@
         <field name="view_mode">list,form</field>
         <field name="context">{}</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-                No WhatsApp messages yet
-            </p>
-            <p>
-                Inbound and outbound WhatsApp messages will appear here.
-                End-users normally read messages on the related contact's
-                chatter — this view is for debugging.
-            </p>
+            <p class="o_view_nocontent_smiling_face">No WhatsApp messages yet</p>
+            <p>Inbound and outbound WhatsApp messages will appear here. End-users normally read messages on the related contact's chatter — this view is for debugging.</p>
         </field>
     </record>
 </odoo>

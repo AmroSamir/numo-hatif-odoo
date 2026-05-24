@@ -52,11 +52,7 @@
             <field name="arch" type="xml">
                 <form string="Map Hatif Users to Odoo Users">
                     <sheet>
-                        <p>
-                            Each Hatif workspace user mapped to its Odoo user.
-                            Auto-suggestion is by exact-email match (case-insensitive).
-                            Click "Sync from Hatif" first if the list is stale.
-                        </p>
+                        <p>Each Hatif workspace user mapped to its Odoo user. Auto-suggestion is by exact-email match (case-insensitive). Click "Sync from Hatif" first if the list is stale.</p>
                         <button name="action_sync_from_hatif" type="object"
                                 string="Sync from Hatif" icon="fa-refresh"/>
                         <field name="line_ids">
