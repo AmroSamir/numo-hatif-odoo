@@ -450,9 +450,21 @@ class DiscussChannel(models.Model):
         plain_body = html2plaintext(message.body or '').strip()
         if not plain_body:
             raise UserError(_('Empty message body — nothing to send.'))
+        # v19.0.1.41.0: route the reply through the SAME Hatif channel
+        # the conversation has been using (stamped on the discuss
+        # channel as x_htf_last_htf_channel_id) instead of re-resolving
+        # through the team-default chain. A reply belongs on the channel
+        # the customer contacted us through — and re-resolution fails
+        # outright when the partner's team has no default WA channel
+        # (HtfChannelNotFoundError), which is what produced the ⚠️
+        # send-failures on free-form replies. Falls back to the
+        # resolver chain (channel=None) only when the conversation has
+        # no recorded channel yet.
+        htf_channel = self.x_htf_last_htf_channel_id or None
         try:
             htf_msg = whatsapp.send_text(
                 self.env, to_number=phone, text=plain_body, partner=partner,
+                channel=htf_channel,
             )
         except HtfDncBlockedError:
             raise UserError(_(
