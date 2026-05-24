@@ -1,6 +1,6 @@
 {
     'name': 'HTF Call Center',
-    'version': '19.0.1.34.0',
+    'version': '19.0.1.35.0',
     'category': 'Productivity/Discuss',
     'summary': 'Hatif/Voxa BPaaS integration: telephony + WhatsApp + IVR',
     'description': """
@@ -82,6 +82,14 @@ for every interaction afterwards.
             # was dropped because xpath-into-OWL-asset patches break
             # the bundle when upstream re-renders the template.
             'htf_call_center/static/src/discuss/thread_model_patch.js',
+            # v19.0.1.35.0 — Discuss-first WhatsApp UX. Client action
+            # that opens the per-partner chat popup, composer patch
+            # that disables the textarea outside Meta's 24h window
+            # and surfaces a Send Template button, plus brand-teal CSS.
+            'htf_call_center/static/src/discuss/open_chat_action.js',
+            'htf_call_center/static/src/discuss/composer_patch.js',
+            'htf_call_center/static/src/discuss/composer_banner.xml',
+            'htf_call_center/static/src/discuss/htf_composer.scss',
         ],
     },
     'installable': True,

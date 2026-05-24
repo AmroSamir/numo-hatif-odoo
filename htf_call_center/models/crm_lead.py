@@ -22,7 +22,7 @@ this is purely a read-through for the frontend.
 
 import logging
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
 
 _logger = logging.getLogger(__name__)
 
@@ -85,6 +85,31 @@ class CrmLead(models.Model):
 
         self._htf_resync_partner_channels(partners_to_resync)
         return res
+
+    def action_htf_open_whatsapp(self):
+        """Delegate to the partner's WhatsApp entry point (Discuss popup
+        when the new UX flag is on, classic wizard otherwise).
+
+        Falls back to the wizard with the lead's phone pre-filled when
+        the lead has no linked partner yet.
+        """
+        self.ensure_one()
+        cfg = self.env['htf.config'].sudo()
+        if self.partner_id:
+            return self.partner_id.action_htf_open_whatsapp()
+        # No partner yet — fall back to the classic wizard so the agent
+        # can still send a template against a raw phone number.
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Send WhatsApp'),
+            'res_model': 'htf.send.whatsapp.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_lead_id': self.id,
+                'default_to_number': self.phone or self.mobile or '',
+            },
+        }
 
     @api.model_create_multi
     def create(self, vals_list):

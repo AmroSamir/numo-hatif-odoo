@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates>
+    <!--
+        v19.0.1.35.0 — banner injected above the composer textarea
+        when the partner's 24h Meta window is closed. Triggers off
+        the same reactive computed `props.composer.thread.windowOpen`
+        that the composer_patch.js getters read, so it appears /
+        disappears automatically when an inbound message arrives.
+
+        Bilingual content (English line + Arabic line) lives directly
+        in the template so the message is intelligible even before
+        translations load — matches the existing hardcoded pattern
+        in services/whatsapp.py:_check_window UserError text.
+    -->
+    <t t-name="htf_call_center.ComposerWindowClosedBanner"
+       t-inherit="mail.Composer"
+       t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('o-mail-Composer-coreMain')]" position="before">
+            <div t-if="props.composer.thread?.x_htf_partner_id and props.composer.thread.windowOpen === false"
+                 class="o-htf-window-closed-banner alert alert-warning d-flex align-items-center mx-2 my-2 py-2 px-3"
+                 role="status">
+                <i class="fa fa-clock-o me-2"/>
+                <div class="flex-grow-1 small">
+                    <div>
+                        24-hour reply window is closed. To re-start the conversation, send an approved WhatsApp template. Free-form text will be enabled when the customer replies.
+                    </div>
+                    <div dir="rtl" class="mt-1">
+                        نافذة الردّ خلال 24 ساعة مغلقة. لإعادة بدء المحادثة، أرسل قالب واتساب معتمداً. ستُفعَّل الرسائل النصية الحرة عندما يردّ العميل.
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </t>
+</templates>

@@ -47,6 +47,48 @@ patch(Thread.prototype, {
     },
 
     /**
+     * v19.0.1.35.0 — reactive 24h-window state for the composer patch.
+     *
+     * Returns true when this thread is either NOT a Hatif-linked
+     * channel (so non-Hatif threads behave normally) OR when there
+     * is a customer-authored inbound message in the loaded message
+     * list whose creation date is within the last 24 hours.
+     *
+     * Computed CLIENT-side from this.messages so it reactively
+     * re-evaluates the moment a new inbound mail.message arrives via
+     * the standard discuss bus push — no custom server-side bus
+     * notification needed. When a customer replies, OWL appends the
+     * message to thread.messages, this getter re-runs, the composer
+     * patch sees windowOpen flip to true, and the textarea re-enables
+     * within ~1-2 seconds of the webhook hit.
+     */
+    get windowOpen() {
+        if (!this.x_htf_partner_id) {
+            return true;
+        }
+        const partnerId =
+            typeof this.x_htf_partner_id === "object"
+                ? this.x_htf_partner_id.id
+                : this.x_htf_partner_id;
+        const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+        const messages = this.messages || [];
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const m = messages[i];
+            const authorId =
+                m?.author?.id ?? (typeof m?.author === "number" ? m.author : null);
+            if (!authorId || authorId !== partnerId) {
+                continue;
+            }
+            const dateObj = m.date instanceof Date ? m.date : new Date(m.date);
+            if (!isNaN(dateObj.getTime()) && dateObj.getTime() >= cutoff) {
+                return true;
+            }
+            return false;
+        }
+        return false;
+    },
+
+    /**
      * Deep-link URL for the "Call via Hatif" header button, or
      * ``false`` when the thread is not a Hatif-linked channel.
      *

@@ -1474,3 +1474,44 @@ msgstr "لم تتم معالجته"
 #: model:ir.model.fields.selection,name:htf_call_center.selection__htf_webhook_event__route__ivr
 msgid "IVR"
 msgstr "الرد الآلي"
+
+# ============================================================
+# v19.0.1.35.0 — Discuss-first WhatsApp UX
+# ============================================================
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_whatsapp_button_opens_discuss
+msgid "Open WhatsApp in Discuss chat (recommended)"
+msgstr "فتح واتساب في محادثة Discuss (موصى به)"
+
+#. module: htf_call_center
+#: model:ir.model.fields,help:htf_call_center.field_res_config_settings__htf_whatsapp_button_opens_discuss
+msgid "When ON (recommended): clicking the WhatsApp button on a contact, lead, or phone-widget opens that customer's Discuss chat popup directly — agents can read history and reply inline. The composer auto-disables when Meta's 24h reply window is closed, and surfaces a 'Send Template' button that launches the existing template wizard. When the customer replies, the composer re-enables within 1-2 seconds (no refresh needed).\n\nWhen OFF: WhatsApp buttons open the classic Send WhatsApp wizard directly, preserving the pre-v35 behaviour. The wizard remains available either way via the 'Send Template' button inside the disabled composer.\n\nTechnical note: this flag also acts as a runtime override for the four Discuss-mirror sub-flags below — toggling it ON does NOT mutate their stored values, so toggling OFF restores your previous granular configuration."
+msgstr "عند التفعيل (موصى به): ينقر الموظف زر واتساب من شاشة جهة الاتصال أو العميل المحتمل أو من حقل الهاتف فتفتح مباشرةً نافذة Discuss للمحادثة مع ذلك العميل — يستطيع الموظف قراءة السجل والرد ضمن نفس النافذة. يُعطَّل حقل الإدخال تلقائياً عند إغلاق نافذة الردّ التي مدّتها 24 ساعة من Meta، ويظهر زر «إرسال قالب» يفتح معالج القوالب الحالي. عندما يردّ العميل، يُعاد تفعيل حقل الإدخال خلال 1-2 ثانية تلقائياً (بدون إعادة تحميل الصفحة).\n\nعند الإيقاف: أزرار واتساب تفتح معالج «إرسال واتساب» الكلاسيكي مباشرةً، حفاظاً على السلوك السابق لنسخة v35. ويبقى المعالج متاحاً في الحالتين عبر زر «إرسال قالب» داخل حقل الإدخال المعطَّل.\n\nملاحظة تقنية: يعمل هذا الخيار أيضاً كـ«قاسر زمن تشغيل» للأعلام الأربعة لمرآة Discuss أدناه — تفعيله لا يغيّر القيم المُخزَّنة لتلك الأعلام، بالتالي إيقافه يعيد إعداداتك الدقيقة السابقة."
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "WhatsApp UX"
+msgstr "تجربة واتساب"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "WhatsApp button behaviour"
+msgstr "سلوك زر واتساب"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Controls what happens when an agent clicks the WhatsApp button on a contact, lead, or phone widget. The recommended Discuss-first UX lets agents read full chat history inline and only forces the template wizard when Meta's 24h reply window is closed."
+msgstr "يتحكم بما يحدث عند ضغط الموظف زر واتساب من شاشة جهة الاتصال أو العميل المحتمل أو حقل الهاتف. تتيح تجربة «Discuss أولاً» الموصى بها للموظف قراءة سجل المحادثة كاملاً ضمن النافذة، ولا تفرض معالج القوالب إلا عند إغلاق نافذة الردّ خلال 24 ساعة من Meta."
+
+#. module: htf_call_center
+#. odoo-javascript
+#: code:addons/htf_call_center/static/src/discuss/composer_patch.js:0
+msgid "Send Template"
+msgstr "إرسال قالب"
+
+#. module: htf_call_center
+#. odoo-javascript
+#: code:addons/htf_call_center/static/src/discuss/composer_banner.xml:0
+msgid "24-hour reply window is closed. To re-start the conversation, send an approved WhatsApp template. Free-form text will be enabled when the customer replies."
+msgstr "نافذة الردّ خلال 24 ساعة مغلقة. لإعادة بدء المحادثة، أرسل قالب واتساب معتمداً. ستُفعَّل الرسائل النصية الحرة عندما يردّ العميل."

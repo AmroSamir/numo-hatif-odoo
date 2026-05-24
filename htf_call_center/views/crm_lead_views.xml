@@ -41,18 +41,20 @@
                     <field name="x_htf_last_channel_uuid" invisible="1"/>
                 </xpath>
                 <xpath expr="//header" position="inside">
-                    <button name="%(action_htf_send_whatsapp_wizard)d"
-                            type="action"
+                    <!--
+                        v19.0.1.35.0: routes through action_htf_open_whatsapp
+                        which decides Discuss popup vs classic wizard based
+                        on whatsapp_button_opens_discuss param. Falls back to
+                        wizard if the lead has no linked partner yet (see
+                        crm_lead.action_htf_open_whatsapp).
+                    -->
+                    <button name="action_htf_open_whatsapp"
+                            type="object"
                             string="Send WhatsApp"
                             class="btn-primary"
                             icon="fa-whatsapp"
                             invisible="not phone"
-                            groups="htf_call_center.group_user"
-                            context="{
-                                'default_lead_id': id,
-                                'default_partner_id': partner_id,
-                                'default_to_number': phone,
-                            }"/>
+                            groups="htf_call_center.group_user"/>
                 </xpath>
             </field>
         </record>

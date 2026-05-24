@@ -125,6 +125,32 @@ class ResConfigSettings(models.TransientModel):
         help='When ON, log full request/response bodies. Secrets stripped.',
     )
 
+    # ---- Discuss-first WhatsApp UX (v19.0.1.35.0) ----
+    htf_whatsapp_button_opens_discuss = fields.Boolean(
+        string='Open WhatsApp in Discuss chat (recommended)',
+        config_parameter=_p('whatsapp_button_opens_discuss'),
+        default=True,
+        groups='htf_call_center.group_admin',
+        help=(
+            "When ON (recommended): clicking the WhatsApp button on a "
+            "contact, lead, or phone-widget opens that customer's "
+            "Discuss chat popup directly — agents can read history "
+            "and reply inline. The composer auto-disables when Meta's "
+            "24h reply window is closed, and surfaces a 'Send Template' "
+            "button that launches the existing template wizard. When "
+            "the customer replies, the composer re-enables within "
+            "1-2 seconds (no refresh needed).\n\n"
+            "When OFF: WhatsApp buttons open the classic Send WhatsApp "
+            "wizard directly, preserving the pre-v35 behaviour. The "
+            "wizard remains available either way via the 'Send Template' "
+            "button inside the disabled composer.\n\n"
+            "Technical note: this flag also acts as a runtime override "
+            "for the four Discuss-mirror sub-flags below — toggling it "
+            "ON does NOT mutate their stored values, so toggling OFF "
+            "restores your previous granular configuration."
+        ),
+    )
+
     # ---- HMAC kill switch ----
     # Defaults to True because Hatif's live webhook deliveries do NOT
     # include the X-Voxa-Signature header (see

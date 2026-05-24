@@ -40,17 +40,20 @@
                 -->
                 <xpath expr="//sheet" position="before">
                     <header>
-                        <button name="%(action_htf_send_whatsapp_wizard)d"
-                                type="action"
+                        <!--
+                            v19.0.1.35.0: button calls action_htf_open_whatsapp
+                            instead of opening the wizard directly. The Python
+                            handler decides Discuss popup vs classic wizard
+                            based on whatsapp_button_opens_discuss param so
+                            the view stays the same for both UXes.
+                        -->
+                        <button name="action_htf_open_whatsapp"
+                                type="object"
                                 string="Send WhatsApp"
                                 class="btn-primary"
                                 icon="fa-whatsapp"
                                 invisible="not phone"
-                                groups="htf_call_center.group_user"
-                                context="{
-                                    'default_partner_id': id,
-                                    'default_to_number': phone,
-                                }"/>
+                                groups="htf_call_center.group_user"/>
                     </header>
                 </xpath>
             </field>

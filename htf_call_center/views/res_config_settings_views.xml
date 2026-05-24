@@ -158,6 +158,20 @@
                             </setting>
                         </block>
 
+                        <block title="WhatsApp UX"
+                               name="htf_whatsapp_ux_block">
+                            <setting id="htf_whatsapp_ux"
+                                     string="WhatsApp button behaviour"
+                                     help="Controls what happens when an agent clicks the WhatsApp button on a contact, lead, or phone widget. The recommended Discuss-first UX lets agents read full chat history inline and only forces the template wizard when Meta's 24h reply window is closed.">
+                                <div class="content-group">
+                                    <div class="row">
+                                        <field name="htf_whatsapp_button_opens_discuss"/>
+                                        <label for="htf_whatsapp_button_opens_discuss"/>
+                                    </div>
+                                </div>
+                            </setting>
+                        </block>
+
                         <block title="Defaults"
                                name="htf_defaults_block">
                             <setting id="htf_defaults"

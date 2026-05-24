@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
 
 from ..constants import META_24H_WINDOW_HOURS
 
@@ -148,3 +148,55 @@ class ResPartner(models.Model):
         action['domain'] = [('partner_id', '=', self.id)]
         action['context'] = {'default_partner_id': self.id}
         return action
+
+    # ------------------------------------------------------------------ #
+    # v19.0.1.35.0 — Discuss-first WhatsApp entry point                  #
+    # ------------------------------------------------------------------ #
+    def action_htf_open_whatsapp(self):
+        """Entry point for every "Send WhatsApp" / "WhatsApp" button.
+
+        Behaviour depends on the workspace toggle
+        ``whatsapp_button_opens_discuss``:
+
+        * **ON** (default, v35+): get-or-create the partner's Hatif
+          Discuss channel and return a client action that opens it as
+          a chat popup. The composer auto-disables outside Meta's 24h
+          window and shows a "Send Template" button that launches the
+          classic wizard in template mode.
+        * **OFF**: fall through to the classic Send WhatsApp wizard,
+          preserving pre-v35 behaviour.
+
+        Returns an ``ir.actions.{client,act_window}`` dict. The button
+        on the form uses ``type="object"`` so Odoo routes the returned
+        action through the action service.
+        """
+        self.ensure_one()
+        cfg = self.env['htf.config'].sudo()
+        if not cfg.get_param('whatsapp_button_opens_discuss'):
+            # Fallback: classic wizard. Kept here so a single button
+            # XML wiring covers both behaviours, no view conditionals.
+            return {
+                'type': 'ir.actions.act_window',
+                'name': _('Send WhatsApp'),
+                'res_model': 'htf.send.whatsapp.wizard',
+                'view_mode': 'form',
+                'target': 'new',
+                'context': {
+                    'default_partner_id': self.id,
+                    'default_to_number': self.phone or self.mobile or '',
+                },
+            }
+
+        # Discuss-first path. Ensure the per-partner channel exists
+        # (idempotent) so we always have something to open, even on
+        # brand-new contacts with zero Hatif history.
+        Channel = self.env['discuss.channel'].sudo()
+        channel = Channel._ensure_htf_discuss_channel(self)
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'htf_call_center.open_discuss_chat',
+            'params': {
+                'channel_id': channel.id,
+                'partner_id': self.id,
+            },
+        }

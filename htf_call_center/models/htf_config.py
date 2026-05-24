@@ -79,6 +79,18 @@ _PARAM_SCHEMA = {
     'discuss_mirror_calls': ('False', lambda v: v == 'True'),
     'discuss_outbound_route': ('False', lambda v: v == 'True'),
     'discuss_ui_override': ('False', lambda v: v == 'True'),
+    # v19.0.1.35.0 — Discuss-first WhatsApp UX (Option C).
+    # When ON, the WhatsApp buttons on partner / lead forms open the
+    # per-partner Hatif Discuss popup instead of the Send wizard, and
+    # the composer disables free-form text when Meta's 24h window is
+    # closed (showing a "Send Template" button that launches the
+    # existing wizard in template mode).
+    # This master toggle ALSO acts as a runtime override for the four
+    # mirror sub-flags above: when True, ``discuss_mirror_active``
+    # returns True regardless of the underlying stored sub-flag values
+    # (sub-flag rows are left untouched, so toggling this OFF restores
+    # whatever the admin previously chose).
+    'whatsapp_button_opens_discuss': ('True', lambda v: v == 'True'),
 }
 
 
@@ -137,7 +149,18 @@ class HtfConfig(models.AbstractModel):
 
         Known sub-flag names: 'inbound', 'calls', 'outbound', 'ui'.
         Pass None to check only the master flag.
+
+        v19.0.1.35.0: ``whatsapp_button_opens_discuss`` acts as a runtime
+        override — when True it forces the master + every sub-flag to
+        be reported active without mutating the stored sub-flag rows.
+        Admins who toggle the discuss-first UX off get back exactly the
+        granular state they had before.
         """
+        if self.get_param('whatsapp_button_opens_discuss'):
+            # The discuss-first UX requires every mirror codepath to be
+            # active, so treat the override as covering the master and
+            # every sub-flag without touching their stored values.
+            return True
         if not self.get_param('discuss_mirror_enabled'):
             return False
         if sub_flag is None:

@@ -1,0 +1,54 @@
+// v19.0.1.35.0 — Discuss-first WhatsApp composer styling.
+//
+// When the 24h Meta reply window is closed, the composer's textarea
+// gets the `o-htf-composer-disabled` class (added by composer_patch.js
+// via the inputClasses getter override). This file gives it the
+// greyed-out visual treatment.
+
+.o-mail-Composer-input.o-htf-composer-disabled {
+    background-color: var(--o-mail-Composer-bg, #f4f4f5);
+    color: var(--o-text-muted, #6c757d);
+    cursor: not-allowed;
+    opacity: 0.55;
+    pointer-events: none;
+    // Prevent paste / drag-drop in the disabled state. The pointer-events
+    // none above blocks click+drag, but a focused keyboard could still
+    // type. The server-side _check_window remains the final gate, but
+    // we want the UI to look unambiguously inert.
+    user-select: none;
+}
+
+// Send Template button — Hatif teal. Same brand colour as the
+// "Call via Hatif" header action so the popup has a consistent
+// Hatif-action visual language.
+.o-htf-send-template {
+    background-color: #02c7b5 !important;
+    border-color: #02c7b5 !important;
+
+    &:hover,
+    &:focus {
+        background-color: darken(#02c7b5, 6%) !important;
+        border-color: darken(#02c7b5, 6%) !important;
+    }
+
+    .fa {
+        color: #ffffff;
+    }
+}
+
+.o-htf-send-template-label {
+    color: #ffffff;
+}
+
+// Window-closed banner — sits above the textarea inside the composer
+// pocket. Slightly subdued styling so it informs without dominating.
+.o-htf-window-closed-banner {
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.35;
+
+    .fa-clock-o {
+        font-size: 1.1rem;
+        flex-shrink: 0;
+    }
+}

@@ -45,6 +45,7 @@ export class HtfPhoneField extends PhoneField {
     setup() {
         super.setup();
         this.action = useService("action");
+        this.orm = useService("orm");
     }
 
     /**
@@ -152,19 +153,16 @@ export class HtfPhoneField extends PhoneField {
         if (!partnerId) {
             return;
         }
-        await this.action.doAction(
-            "htf_call_center.action_htf_send_whatsapp_wizard",
-            {
-                additionalContext: {
-                    active_model: "res.partner",
-                    active_id: partnerId,
-                    active_ids: [partnerId],
-                    // Pre-fill phone from the current field so the wizard
-                    // doesn't need to re-resolve from partner.phone.
-                    default_to_number: this.props.record.data[this.props.name] || "",
-                },
-            }
+        // v19.0.1.35.0: call the partner's WA entry point so the
+        // server decides Discuss-popup vs classic-wizard based on
+        // the workspace toggle. Falls through to the wizard when
+        // the toggle is OFF — single client path for both UXes.
+        const action = await this.orm.call(
+            "res.partner",
+            "action_htf_open_whatsapp",
+            [[partnerId]],
         );
+        await this.action.doAction(action);
     }
 }
 
