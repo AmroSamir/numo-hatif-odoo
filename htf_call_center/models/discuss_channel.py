@@ -468,6 +468,18 @@ class DiscussChannel(models.Model):
         if not self.env['htf.outbound.dedup']._htf_claim_send(
             self.id, plain_body,
         ):
+            # v19.0.1.45.0: this is a duplicate resend (websocket
+            # reconnect storm). The send is suppressed AND we remove the
+            # resend's bubble so the Discuss panel shows the message
+            # once, not 2-5 times. Best-effort unlink — never let a
+            # cleanup failure surface to the agent.
+            try:
+                message.sudo().unlink()
+            except Exception:  # noqa: BLE001
+                _logger.exception(
+                    "[htf-discuss] could not unlink duplicate resend "
+                    "bubble msg=%s channel=%s", message.id, self.id,
+                )
             return  # an identical send was already claimed — skip
         # v19.0.1.41.0: route the reply through the SAME Hatif channel
         # the conversation has been using (stamped on the discuss
@@ -509,6 +521,7 @@ class DiscussChannel(models.Model):
             htf_msg = whatsapp.send_text(
                 self.env, to_number=phone, text=plain_body, partner=partner,
                 channel=htf_channel, skip_window_check=True,
+                skip_discuss_mirror=True,
             )
         except HtfDncBlockedError:
             raise UserError(_(

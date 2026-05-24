@@ -88,6 +88,7 @@ def send_text(  # noqa: PLR0913 — kwarg-only signature
     sender_user=None,
     category: str = 'service',
     skip_window_check: bool = False,
+    skip_discuss_mirror: bool = False,
 ):
     """Send a free-form text WhatsApp.
 
@@ -132,6 +133,7 @@ def send_text(  # noqa: PLR0913 — kwarg-only signature
         sender_user=sender,
         category=category,
         to_number=to_number,
+        skip_discuss_mirror=skip_discuss_mirror,
     )
 
 
@@ -246,6 +248,7 @@ def _send(
     sender_user,
     category: str,
     to_number: str | None = None,
+    skip_discuss_mirror: bool = False,
 ):
     """Common path: persist row → POST (or dry-run) → update row → chatter + signal.
 
@@ -288,7 +291,7 @@ def _send(
                 'note': 'allow_real_outbound is OFF — no HTTP call made',
             }, ensure_ascii=False),
         })
-        _post_chatter_and_fire(msg, partner, channel)
+        _post_chatter_and_fire(msg, partner, channel, skip_discuss_mirror=skip_discuss_mirror)
         return msg
 
     # Real send path. Note http_client.post returns the parsed JSON
@@ -340,11 +343,11 @@ def _send(
             }, ensure_ascii=False),
         })
 
-    _post_chatter_and_fire(msg, partner, channel)
+    _post_chatter_and_fire(msg, partner, channel, skip_discuss_mirror=skip_discuss_mirror)
     return msg
 
 
-def _post_chatter_and_fire(msg, partner, channel):
+def _post_chatter_and_fire(msg, partner, channel, skip_discuss_mirror=False):
     if partner:
         try:
             chatter.post_outbound_wa(partner, msg)
@@ -360,6 +363,22 @@ def _post_chatter_and_fire(msg, partner, channel):
         # illusion. Gated by the same discuss_mirror_active('inbound')
         # check that the from-Hatif-webhook outbound mirror uses (the
         # mirror is symmetric — once enabled it covers both directions).
+        #
+        # v19.0.1.45.0: skip when the send ORIGINATED in the Discuss
+        # composer (skip_discuss_mirror=True). The agent's typed bubble
+        # already exists in the channel — mirroring would post a
+        # redundant OdooBot-authored copy (the duplicate bubbles the
+        # agent saw). Wizard-originated sends still mirror (no bubble
+        # exists yet for those).
+        if skip_discuss_mirror:
+            htf_signals.fire('htf.wa.outbound', {
+                'message_id': msg.id,
+                'partner_id': partner.id if partner else None,
+                'channel_id': channel.id if channel else None,
+                'state': msg.state,
+                'message_type': msg.message_type,
+            })
+            return
         try:
             from . import discuss_mirror  # local import — avoid cycle
             # The discuss-mirror helper expects a payload with
