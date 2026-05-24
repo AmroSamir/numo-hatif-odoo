@@ -33,6 +33,7 @@ Style notes:
 from __future__ import annotations
 
 import logging
+from typing import Optional
 from html import escape
 
 import requests
@@ -523,12 +524,26 @@ def _render_wa_body(htf_message, direction: str) -> Markup:
     Uses ``htf_message.env._(...)`` (NOT module-level ``_()``) so the
     pinned-lang env passed in by the caller actually drives translation.
     See ``_render_call_body`` for the why.
+
+    v19.0.1.38.0: for outbound template sends, look up the matching
+    htf.template by name + channel and render its body_preview with
+    {{1}}/{{2}}/... parameter substitution from the htf.message's
+    raw_payload. Falls back to the previous "📝 <template_name>" form
+    when the template isn't found locally OR the body_preview is
+    blank (admin hasn't pasted it yet). Without this fix outbound
+    templates surfaced as "Attachment / welcom_message" in the
+    Discuss popup, hiding the actual customer-visible content.
     """
     env = htf_message.env
     msg_type = htf_message.message_type or 'text'
     body = htf_message.body or ''
     if msg_type == 'text':
         return Markup(escape(body).replace('\n', '<br/>'))
+    if msg_type == 'template':
+        rendered = _render_template_bubble(htf_message)
+        if rendered is not None:
+            return rendered
+        # fall through to generic attachment label
     label = {
         'image': env._('📷 Image'),
         'video': env._('🎥 Video'),
@@ -539,3 +554,67 @@ def _render_wa_body(htf_message, direction: str) -> Markup:
     caption = escape(body) if body else ''
     html = f'<em>{escape(label)}</em>' + (f'<br/>{caption}' if caption else '')
     return Markup(html)
+
+
+def _render_template_bubble(htf_message) -> Optional[Markup]:
+    """Resolve the htf.template for an outbound template send and render
+    its body_preview with {{N}} substituted by the actual parameters
+    used at send time. Returns None when the template can't be located
+    OR the admin hasn't pasted body_preview yet — caller falls back to
+    the generic attachment-style label.
+
+    The template name we want to look up lives in the htf.message body,
+    which was set by ``_render_template_preview`` to
+    ``📝 <template_name> — value1 | value2`` (or just ``📝 <name>`` for
+    parameter-less templates). We strip the 📝 prefix to recover the
+    name. The actual parameter values are pulled from the request
+    payload preserved on ``raw_payload`` so the rendered preview
+    matches exactly what the customer received.
+    """
+    import json as _json
+    import re as _re
+    env = htf_message.env
+    body = htf_message.body or ''
+    # Body is set by _render_template_preview: "📝 <name> — v1 | v2"
+    # Strip emoji + isolate the name (everything before " — " or EOL).
+    stripped = body.replace('📝', '', 1).strip()
+    template_name = stripped.split(' — ', 1)[0].strip() if stripped else ''
+    if not template_name:
+        return None
+    Template = env['htf.template'].sudo()
+    domain = [('name', '=', template_name)]
+    if htf_message.channel_id:
+        # Prefer the template on the same channel, but fall back to
+        # any template with this name — channel-scoped lookups can
+        # miss if Hatif moved the template between channels.
+        scoped = Template.search(
+            domain + [('channel_id', '=', htf_message.channel_id.id)],
+            limit=1,
+        )
+        tmpl = scoped or Template.search(domain, limit=1)
+    else:
+        tmpl = Template.search(domain, limit=1)
+    if not tmpl or not (tmpl.body_preview or '').strip():
+        return None
+    # Extract Body parameters from the original Hatif request payload
+    # we stored on htf.message.raw_payload at send-time.
+    values: list[str] = []
+    try:
+        payload = _json.loads(htf_message.raw_payload or '{}') or {}
+        request_body = (payload.get('_request') or {})
+        for entry in request_body.get('Parameters') or []:
+            if entry.get('Type') == 'Body':
+                for v in entry.get('Values') or []:
+                    if isinstance(v, dict) and v.get('Type') == 'text':
+                        values.append(str(v.get('Text', '')))
+                break
+    except (TypeError, ValueError):
+        values = []
+    text = tmpl.body_preview
+    if values:
+        def _sub(m):
+            idx = int(m.group(1)) - 1
+            return values[idx] if 0 <= idx < len(values) else m.group(0)
+        text = _re.sub(r'\{\{(\d+)\}\}', _sub, text)
+    safe = escape(text).replace('\n', '<br/>')
+    return Markup(safe)
