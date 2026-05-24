@@ -7,11 +7,14 @@ without re-implementing the date math.
 
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 
 from odoo import _, api, fields, models
 
 from ..constants import META_24H_WINDOW_HOURS
+
+_logger = logging.getLogger(__name__)
 
 
 class ResPartner(models.Model):
@@ -192,6 +195,23 @@ class ResPartner(models.Model):
         # brand-new contacts with zero Hatif history.
         Channel = self.env['discuss.channel'].sudo()
         channel = Channel._ensure_htf_discuss_channel(self)
+        # v19.0.1.47.0: sync the 24h window from Hatif (the source of
+        # truth) BEFORE opening the chat. Covers two real cases the
+        # local mirror can't: (a) the customer replied <24h ago but
+        # Odoo missed/wiped the inbound, (b) the conversation was
+        # started on the Hatif platform and the agent continues it in
+        # Odoo. refresh_window_from_hatif resolves the conversation by
+        # phone when Odoo has no local id, queries the timeline, and
+        # stamps the channel so the composer unlocks if the window is
+        # genuinely open. Best-effort — never blocks chat-open.
+        try:
+            from ..services import conversations
+            conversations.refresh_window_from_hatif(self.env, self, channel=channel)
+        except Exception:  # noqa: BLE001
+            _logger.exception(
+                "[htf] window sync on chat-open failed for partner=%s",
+                self.id,
+            )
         return {
             'type': 'ir.actions.client',
             'tag': 'htf_call_center.open_discuss_chat',

@@ -180,7 +180,7 @@ def get_latest_inbound_at(env, conversation_id: str) -> Optional[datetime]:
     return None
 
 
-def refresh_window_from_hatif(env, partner) -> bool:
+def refresh_window_from_hatif(env, partner, channel=None) -> bool:
     """Sync the partner's ``x_htf_24h_window_open`` /
     ``x_htf_last_inbound_at`` fields with Hatif's live conversation
     timeline. Returns the new window-open boolean.
@@ -210,6 +210,18 @@ def refresh_window_from_hatif(env, partner) -> bool:
     if not partner:
         return False
     convo_id = partner.x_htf_last_conversation_id
+    # v19.0.1.47.0: when Odoo has no local conversation id (history
+    # wiped, inbound webhook missed, OR the conversation was started on
+    # the Hatif platform and the agent comes to Odoo to continue), fall
+    # back to asking Hatif for the latest conversation by phone. Hatif
+    # is the source of truth for the 24h window — Odoo's local mirror is
+    # only a cache. Without this the composer would wrongly block
+    # free-form replies even when the customer replied <24h ago.
+    if not convo_id:
+        phone = partner.phone or partner.mobile or ''
+        if phone:
+            convo_id = lookup_latest_conversation_id(env, phone)
+
     if not convo_id:
         return bool(partner.x_htf_24h_window_open)
 
@@ -229,11 +241,26 @@ def refresh_window_from_hatif(env, partner) -> bool:
         partner.x_htf_last_inbound_at != last_inbound_naive
     ):
         updates['x_htf_last_inbound_at'] = last_inbound_naive
+    if convo_id and partner.x_htf_last_conversation_id != convo_id:
+        updates['x_htf_last_conversation_id'] = convo_id
     if updates:
         try:
             partner.sudo().write(updates)
         except Exception:  # noqa: BLE001
             _logger.exception(
                 "[htf-window] partner write failed for id=%s", partner.id,
+            )
+
+    # v19.0.1.47.0: stamp the discuss channel so the composer's window
+    # gate (which reads discuss.channel.x_htf_last_inbound_at, robust to
+    # duplicate-partner records) reflects the Hatif truth immediately on
+    # chat-open — even with zero local message history.
+    if channel and open_now:
+        try:
+            channel._htf_stamp_inbound_now(when=last_inbound_naive)
+        except Exception:  # noqa: BLE001
+            _logger.exception(
+                "[htf-window] channel stamp failed for channel=%s",
+                getattr(channel, 'id', None),
             )
     return open_now
