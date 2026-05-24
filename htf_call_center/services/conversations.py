@@ -106,12 +106,16 @@ def lookup_latest_conversation_id(env, phone: str) -> Optional[str]:
             )
             continue
 
-        items = (resp or {}).get('Items') if isinstance(resp, dict) else None
+        # v19.0.1.48.0: Hatif returns lowercase keys (items/id/
+        # lastActivityAt); read those first, PascalCase as fallback.
+        items = None
+        if isinstance(resp, dict):
+            items = resp.get('items') or resp.get('Items')
         if not items:
             continue
         top = items[0] or {}
-        conv_id = top.get('Id') or top.get('id')
-        last_at = top.get('LastActivityAt') or top.get('lastActivityAt') or ''
+        conv_id = top.get('id') or top.get('Id')
+        last_at = top.get('lastActivityAt') or top.get('LastActivityAt') or ''
         if conv_id and (not best_when or last_at > best_when):
             best_id = conv_id
             best_when = last_at or ''
@@ -156,14 +160,29 @@ def get_latest_inbound_at(env, conversation_id: str) -> Optional[datetime]:
         )
         return None
 
-    items = (resp or {}).get('Items') if isinstance(resp, dict) else None
+    # v19.0.1.48.0: Hatif's timeline API returns lowercase/camelCase
+    # keys (items / direction / creationTime), NOT the PascalCase the
+    # original code assumed (Items / Direction / CreationTime). With the
+    # wrong case ev.get('Direction') was always None, so the inbound
+    # filter never matched and this returned None for EVERY conversation
+    # — silently breaking the 24h-window refresh. Read lowercase first,
+    # fall back to PascalCase for cross-version safety.
+    items = None
+    if isinstance(resp, dict):
+        items = resp.get('items') or resp.get('Items')
     if not items:
         return None
 
     for ev in items:
-        if ev.get('Direction') != _DIRECTION_INBOUND:
+        direction = ev.get('direction')
+        if direction is None:
+            direction = ev.get('Direction')
+        if direction != _DIRECTION_INBOUND:
             continue
-        when = ev.get('CreationTime') or ev.get('creationTime')
+        when = (
+            ev.get('creationTime')
+            or ev.get('CreationTime')
+        )
         if not when:
             continue
         try:
