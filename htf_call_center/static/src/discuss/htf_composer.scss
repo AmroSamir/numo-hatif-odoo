@@ -48,14 +48,36 @@
 }
 
 // Window-closed banner — sits above the textarea inside the composer
-// pocket. Slightly subdued styling so it informs without dominating.
+// pocket. It's inserted as a sibling of o-mail-Composer-coreMain
+// inside a `.o-mail-Composer.d-grid` parent. In the Discuss full-page
+// view that parent has additional flex/sizing constraints that
+// squeeze the banner to a few px wide — so we force the banner to
+// occupy the full grid column AND override any flex shrinking with
+// flex-basis: 100%. width: 100% alone is not enough because the
+// d-flex layout inside .o-htf-window-closed-banner.d-flex would still
+// be constrained by its parent's flex calculation.
 .o-htf-window-closed-banner {
+    width: 100%;
+    flex: 1 1 100%;
+    grid-column: 1 / -1;
     border-radius: 0.5rem;
     font-size: 0.875rem;
     line-height: 1.35;
+    // Allow children to wrap naturally on narrow screens (e.g.
+    // mobile or the small chat-window popup) without crushing the
+    // call-to-action button into a vertical strip.
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
 
     .fa-clock-o {
         font-size: 1.1rem;
         flex-shrink: 0;
+    }
+
+    // Make sure the message text gets the room it needs; button
+    // stays on its own track when the alert wraps.
+    > div.flex-grow-1 {
+        min-width: 14rem;
+        flex: 1 1 14rem;
     }
 }
