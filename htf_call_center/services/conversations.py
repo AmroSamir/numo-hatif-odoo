@@ -77,11 +77,27 @@ def lookup_latest_conversation_id(env, phone: str) -> Optional[str]:
     if not channels:
         return None
 
-    http = env['htf.config'].get_service('http')
-    best_id: Optional[str] = None
-    best_when: str = ''  # ISO-8601 string compares lexicographically
+    return _lookup_latest_conversation(env, e164)[0]
 
-    for ch in channels:
+
+def _lookup_latest_conversation(env, e164: str):
+    """Internal: return ``(conversation_id, htf_channel_record)`` for the
+    most recently active conversation matching ``e164`` across all
+    active Hatif channels, or ``(None, empty recordset)``.
+
+    v19.0.1.49.0: tracks WHICH htf.channel the winning conversation
+    lives on so callers (the chat-open window sync) can record
+    ``x_htf_last_htf_channel_id`` — otherwise a free-form reply sent
+    right after the window opens has no channel to route through and
+    fails resolution.
+    """
+    empty_channel = env['htf.channel'].browse()
+    http = env['htf.config'].get_service('http')
+    best_id = None
+    best_channel = empty_channel
+    best_when = ''  # ISO-8601 string compares lexicographically
+
+    for ch in env['htf.channel'].sudo().search([('state', '=', 'active')]):
         if not ch.htf_channel_id:
             continue
         try:
@@ -118,9 +134,10 @@ def lookup_latest_conversation_id(env, phone: str) -> Optional[str]:
         last_at = top.get('lastActivityAt') or top.get('LastActivityAt') or ''
         if conv_id and (not best_when or last_at > best_when):
             best_id = conv_id
+            best_channel = ch
             best_when = last_at or ''
 
-    return best_id
+    return best_id, best_channel
 
 
 def get_latest_inbound_at(env, conversation_id: str) -> Optional[datetime]:
@@ -236,13 +253,30 @@ def refresh_window_from_hatif(env, partner, channel=None) -> bool:
     # is the source of truth for the 24h window — Odoo's local mirror is
     # only a cache. Without this the composer would wrongly block
     # free-form replies even when the customer replied <24h ago.
+    resolved_channel = env['htf.channel'].browse()
     if not convo_id:
         phone = partner.phone or partner.mobile or ''
         if phone:
-            convo_id = lookup_latest_conversation_id(env, phone)
+            e164 = normalize_e164(phone)
+            if e164:
+                convo_id, resolved_channel = _lookup_latest_conversation(env, e164)
 
     if not convo_id:
         return bool(partner.x_htf_24h_window_open)
+
+    # v19.0.1.49.0: record which Hatif channel this conversation lives
+    # on so a free-form reply sent right after the window opens has a
+    # channel to route through (v41 reads channel.x_htf_last_htf_channel_id).
+    if resolved_channel and channel and not channel.x_htf_last_htf_channel_id:
+        try:
+            channel.sudo().write({
+                'x_htf_last_htf_channel_id': resolved_channel.id,
+            })
+        except Exception:  # noqa: BLE001
+            _logger.exception(
+                "[htf-window] failed to set channel htf_channel for channel=%s",
+                getattr(channel, 'id', None),
+            )
 
     latest = get_latest_inbound_at(env, convo_id)
     if not latest:
