@@ -450,6 +450,42 @@ class DiscussChannel(models.Model):
         plain_body = html2plaintext(message.body or '').strip()
         if not plain_body:
             raise UserError(_('Empty message body — nothing to send.'))
+        # v19.0.1.42.0 P0: idempotency guard against duplicate sends.
+        # The Hatif HTTP POST runs synchronously inside this
+        # message_post transaction and can take ~1 minute on a slow
+        # Hatif backend. The browser RPC times out, OWL / the discuss
+        # websocket resends the message, and each resend fires another
+        # _message_post_after_hook -> another send. Verified live: one
+        # "hey" went out to the customer 5 times. The time-based dedup
+        # in _htf_should_route_outbound can't catch these because the
+        # sibling mail.message rows are still uncommitted (every retry
+        # is its own open transaction blocked on the slow POST).
+        #
+        # A transaction-level advisory lock keyed on (channel, body)
+        # fixes it: the first request acquires it and holds it for the
+        # duration of the slow send; concurrent retries call
+        # pg_try_advisory_xact_lock, get False immediately, and bail
+        # WITHOUT sending. The lock auto-releases at transaction end,
+        # so a genuine later resend of the same text still works.
+        import hashlib
+        lock_key = (
+            int(
+                hashlib.sha256(
+                    f'htfwa:{self.id}:{plain_body}'.encode()
+                ).hexdigest()[:15],
+                16,
+            )
+            % (2 ** 31)
+        )
+        self.env.cr.execute(
+            "SELECT pg_try_advisory_xact_lock(%s)", [lock_key]
+        )
+        if not self.env.cr.fetchone()[0]:
+            _logger.info(
+                "[htf-discuss] duplicate-send suppressed (concurrent "
+                "retry) channel=%s body=%r", self.id, plain_body[:40],
+            )
+            return  # another in-flight request is already sending this
         # v19.0.1.41.0: route the reply through the SAME Hatif channel
         # the conversation has been using (stamped on the discuss
         # channel as x_htf_last_htf_channel_id) instead of re-resolving
