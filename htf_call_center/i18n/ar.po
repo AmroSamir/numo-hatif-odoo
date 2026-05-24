@@ -580,7 +580,7 @@ msgstr "…أو الصق بطاقات vCard مباشرة:"
 #: model:ir.ui.menu,name:htf_call_center.menu_root_htf
 #: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
 msgid "Hatif"
-msgstr "Hatif"
+msgstr "هاتف"
 
 #. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
