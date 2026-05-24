@@ -24,7 +24,7 @@ import logging
 import os
 from datetime import timedelta
 
-from odoo import _, api, fields, models
+from odoo import _, api, fields, models, SUPERUSER_ID
 from odoo.exceptions import UserError
 from odoo.tools import html2plaintext
 
@@ -441,7 +441,7 @@ class DiscussChannel(models.Model):
         partner = self.x_htf_partner_id
         if not partner:
             raise UserError(_('Hatif channel has no partner — cannot send.'))
-        phone = partner.phone or partner.mobile or ''
+        phone = partner.phone or ''  # Odoo 19 dropped res.partner.mobile
         if not phone:
             raise UserError(
                 _('Partner %s has no phone number — cannot send WhatsApp.')
@@ -450,37 +450,6 @@ class DiscussChannel(models.Model):
         plain_body = html2plaintext(message.body or '').strip()
         if not plain_body:
             raise UserError(_('Empty message body — nothing to send.'))
-        # v19.0.1.44.0 P0: idempotency claim against duplicate sends.
-        # The Hatif HTTP POST runs synchronously inside this
-        # message_post transaction and can take up to ~60s on a slow
-        # Hatif backend. The browser RPC times out, the discuss
-        # websocket resends the message (the persistent "Real-time
-        # connection lost" reconnect storm), and each resend fires
-        # another _htf_send_outbound_via_hatif -> another send. Verified
-        # live: one "هلا" reached the customer 5 times.
-        #
-        # The v42/v43 transaction-level advisory lock did NOT fix it:
-        # the resends arrive ~0.4-2s apart and each completes before the
-        # next starts, so the xact lock (released at commit) never sees
-        # an overlap. The robust fix is an AUTONOMOUS claim — committed
-        # in a separate cursor immediately, before the slow POST — so
-        # every concurrent AND sequential retry sees it and bails.
-        if not self.env['htf.outbound.dedup']._htf_claim_send(
-            self.id, plain_body,
-        ):
-            # v19.0.1.45.0: this is a duplicate resend (websocket
-            # reconnect storm). The send is suppressed AND we remove the
-            # resend's bubble so the Discuss panel shows the message
-            # once, not 2-5 times. Best-effort unlink — never let a
-            # cleanup failure surface to the agent.
-            try:
-                message.sudo().unlink()
-            except Exception:  # noqa: BLE001
-                _logger.exception(
-                    "[htf-discuss] could not unlink duplicate resend "
-                    "bubble msg=%s channel=%s", message.id, self.id,
-                )
-            return  # an identical send was already claimed — skip
         # v19.0.1.41.0: route the reply through the SAME Hatif channel
         # the conversation has been using (stamped on the discuss
         # channel as x_htf_last_htf_channel_id) instead of re-resolving
@@ -517,22 +486,30 @@ class DiscussChannel(models.Model):
                 "معتمد من Meta. بعد رد العميل، ستتمكن من الكتابة "
                 "بحرية لمدة 24 ساعة."
             ))
+        # v19.0.1.52.0: VALIDATE + persist the pending htf.message row
+        # synchronously (so a DNC/window failure still rolls the bubble
+        # back via UserError), but DEFER the Hatif HTTP POST to a
+        # post-commit hook. The POST used to run inside this message_post
+        # transaction; Hatif fires its delivery-status echo webhook the
+        # instant it receives the send, and that webhook writes the SAME
+        # discuss.channel row, so this transaction hit SerializationFailure
+        # and Odoo retried it. On retry the autonomous dedup claim
+        # suppressed the "resend", so the agent's own bubble was dropped
+        # and the echo re-created it as an OdooBot mirror (the duplicate
+        # bubble + ⚠️ the agent saw). A post-commit send fires EXACTLY
+        # ONCE after this transaction commits — Odoo discards the
+        # post-commit callbacks of a rolled-back attempt — so there is no
+        # race with the echo and no double-send on retry.
         try:
-            htf_msg = whatsapp.send_text(
+            htf_msg, endpoint, body = whatsapp.prepare_text_send(
                 self.env, to_number=phone, text=plain_body, partner=partner,
                 channel=htf_channel, skip_window_check=True,
-                skip_discuss_mirror=True,
             )
         except HtfDncBlockedError:
             raise UserError(_(
                 'This partner has opted out (DNC). WhatsApp send blocked.'
             )) from None
         except HtfWindowExpiredError:
-            # Locked wording matches Hatif's portal notice so agents see
-            # consistent messaging across both surfaces. Arabic line
-            # follows the English so workspaces with an Arabic locale
-            # see the same message directly without needing a .po file
-            # round-trip.
             raise UserError(_(
                 "Template message required\n\n"
                 "To start or resume a conversation, you must send an "
@@ -543,21 +520,51 @@ class DiscussChannel(models.Model):
                 "معتمد من Meta. بعد رد العميل، ستتمكن من الكتابة "
                 "بحرية لمدة 24 ساعة."
             )) from None
-        # Tag the Discuss-composer mail.message with the SAME message_id
-        # sentinel a server-side mirror write would use. Reason: when
-        # Hatif's outbound STATUS webhook later fires
-        # mirror_outbound_wa_from_hatif, its _already_mirrored() check
-        # looks for `<htf-msg-N@htf_call_center>` in the channel — finding
-        # this mail.message it will skip, preventing a duplicate bubble
-        # attributed to the webhook's anonymous `env.user` (which renders
-        # as "Public user").
-        if htf_msg and getattr(htf_msg, 'id', None):
+        # Tag the agent's composer bubble with the mirror sentinel so the
+        # echo webhook's mirror_outbound_wa_from_hatif skips it (no
+        # duplicate OdooBot-authored copy).
+        try:
+            message.sudo().write({
+                'message_id': f'<htf-msg-{htf_msg.id}@htf_call_center>',
+            })
+        except Exception:  # noqa: BLE001 — non-critical
+            _logger.exception(
+                "[htf-discuss] could not tag mail.message=%s with htf-msg sentinel",
+                message.id,
+            )
+        # Defer the Hatif POST to after this transaction commits.
+        msg_id = htf_msg.id
+        channel_id = self.id
+        dedup_body = plain_body
+        dispatch_kwargs = {
+            'endpoint': endpoint,
+            'body': body,
+            'partner_id': partner.id,
+            'channel_id': htf_channel.id if htf_channel else False,
+        }
+        registry = self.env.registry
+
+        def _send_after_commit():
             try:
-                message.sudo().write({
-                    'message_id': f'<htf-msg-{htf_msg.id}@htf_call_center>',
-                })
-            except Exception:  # noqa: BLE001 — non-critical
+                with registry.cursor() as cr:
+                    post_env = api.Environment(cr, SUPERUSER_ID, {})
+                    # The dedup claim lives INSIDE the post-commit hook so a
+                    # serialization-retry of the message_post transaction
+                    # (whose post-commit callbacks were discarded on
+                    # rollback) can never suppress the one real send.
+                    if not post_env['htf.outbound.dedup']._htf_claim_send(
+                        channel_id, dedup_body,
+                    ):
+                        return
+                    whatsapp.dispatch_prepared(
+                        post_env, msg_id, skip_discuss_mirror=True,
+                        **dispatch_kwargs,
+                    )
+                    cr.commit()
+            except Exception:  # noqa: BLE001 — a post-commit hook must never raise
                 _logger.exception(
-                    "[htf-discuss] could not tag mail.message=%s with htf-msg sentinel",
-                    message.id,
+                    "[htf-discuss] deferred outbound send failed for "
+                    "htf.message=%s channel=%s", msg_id, channel_id,
                 )
+
+        self.env.cr.postcommit.add(_send_after_commit)

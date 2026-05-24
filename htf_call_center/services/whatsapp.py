@@ -261,9 +261,34 @@ def _send(
     number); kept on the signature for symmetry with send_text/template.
     """
     del lead, to_number  # explicitly silence unused-arg lints
-    Msg = env['htf.message'].sudo()
+    msg = _create_pending_row(
+        env,
+        message_type=message_type,
+        message_text=message_text,
+        body=body,
+        partner=partner,
+        channel=channel,
+        sender_user=sender_user,
+        category=category,
+    )
+    return _dispatch_row(
+        env, msg,
+        endpoint=endpoint,
+        body=body,
+        partner=partner,
+        channel=channel,
+        skip_discuss_mirror=skip_discuss_mirror,
+    )
 
-    msg = Msg.create({
+
+def _create_pending_row(
+    env, *, message_type, message_text, body, partner, channel, sender_user, category,
+):
+    """Persist the outbound ``htf.message`` in state='pending' WITHOUT
+    touching Hatif. Cheap, no HTTP — safe inside any transaction.
+    """
+    Msg = env['htf.message'].sudo()
+    return Msg.create({
         'direction': 'outbound',
         'message_type': message_type,
         'state': 'pending',
@@ -278,6 +303,20 @@ def _send(
         'raw_payload': json.dumps({'_request': body}, ensure_ascii=False),
     })
 
+
+def _dispatch_row(
+    env, msg, *, endpoint, body, partner, channel, skip_discuss_mirror=False,
+):
+    """Run the actual Hatif POST (or dry-run) for an already-persisted
+    pending row, write the response back, then post chatter + fire signal.
+
+    Split out of ``_send`` so the Discuss composer can DEFER this step to
+    a post-commit hook (see whatsapp_inbound / discuss_channel): the HTTP
+    POST then fires exactly once after the message_post transaction
+    commits, instead of racing the inbound echo webhook inside a
+    serialization-retried transaction (which dropped the agent's bubble
+    and re-mirrored it as OdooBot).
+    """
     if not _allow_real_outbound(env, to_number=body.get('ToNumber')):
         # Dry-run mode: simulate a successful send so the rest of the
         # pipeline exercises end-to-end without spamming customers.
@@ -345,6 +384,71 @@ def _send(
 
     _post_chatter_and_fire(msg, partner, channel, skip_discuss_mirror=skip_discuss_mirror)
     return msg
+
+
+def prepare_text_send(
+    env, *, to_number, text, partner=None, lead=None, channel=None,
+    sender_user=None, category='service', skip_window_check=False,
+):
+    """Validate + persist a pending outbound text row WITHOUT posting to
+    Hatif. Returns ``(msg, endpoint, body)`` so the caller can dispatch
+    the HTTP POST later — e.g. from a post-commit hook. Raises the same
+    typed pre-check exceptions as ``send_text`` (DNC / window).
+    """
+    sender = sender_user or env.user
+    channel = channel or channel_resolver.resolve_outbound_wa(
+        env, partner=partner, lead=lead, sender_user=sender,
+    )
+    _check_dnc(env, partner, to_number)
+    if not skip_window_check:
+        _check_window(partner)
+    body = {
+        'ChannelId': channel.htf_channel_id,
+        'Text': text,
+        'ToNumber': _strip_plus(to_number),
+    }
+    msg = _create_pending_row(
+        env,
+        message_type='text',
+        message_text=text,
+        body=body,
+        partner=partner,
+        channel=channel,
+        sender_user=sender,
+        category=category,
+    )
+    return msg, ENDPOINT_SEND_TEXT, body
+
+
+def dispatch_prepared(
+    env, msg_id, *, endpoint, body, partner_id=False, channel_id=False,
+    skip_discuss_mirror=True,
+):
+    """Dispatch a row created by ``prepare_text_send`` — the deferred half
+    of the split send. Safe to call from a post-commit hook in a fresh
+    transaction: it browses the row by id and runs the Hatif POST +
+    response write + chatter/signal. No-op if the row vanished (the
+    message_post transaction rolled back before commit).
+    """
+    msg = env['htf.message'].sudo().browse(msg_id).exists()
+    if not msg:
+        _logger.warning(
+            "[htf-wa] dispatch_prepared: htf.message %s no longer exists "
+            "(message_post rolled back?) — nothing to send", msg_id,
+        )
+        return env['htf.message'].sudo()
+    partner = (
+        env['res.partner'].sudo().browse(partner_id)
+        if partner_id else env['res.partner'].sudo()
+    )
+    channel = (
+        env['htf.channel'].sudo().browse(channel_id)
+        if channel_id else env['htf.channel'].sudo()
+    )
+    return _dispatch_row(
+        env, msg, endpoint=endpoint, body=body, partner=partner,
+        channel=channel, skip_discuss_mirror=skip_discuss_mirror,
+    )
 
 
 def _post_chatter_and_fire(msg, partner, channel, skip_discuss_mirror=False):
