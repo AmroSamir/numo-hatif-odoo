@@ -25,24 +25,26 @@
 
 // Send Template button — Hatif teal. Same brand colour as the
 // "Call via Hatif" header action so the popup has a consistent
-// Hatif-action visual language.
+// Hatif-action visual language. Lives inside the warning banner
+// (composer_banner.xml) as a prominent labeled call-to-action.
 .o-htf-send-template {
-    background-color: #02c7b5 !important;
-    border-color: #02c7b5 !important;
+    background-color: #02c7b5;
+    border-color: #02c7b5;
+    color: #ffffff;
+    font-weight: 500;
+    white-space: nowrap;
 
     &:hover,
-    &:focus {
-        background-color: darken(#02c7b5, 6%) !important;
-        border-color: darken(#02c7b5, 6%) !important;
+    &:focus,
+    &:active {
+        background-color: darken(#02c7b5, 6%);
+        border-color: darken(#02c7b5, 6%);
+        color: #ffffff;
     }
 
     .fa {
         color: #ffffff;
     }
-}
-
-.o-htf-send-template-label {
-    color: #ffffff;
 }
 
 // Window-closed banner — sits above the textarea inside the composer

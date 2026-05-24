@@ -1,57 +1,58 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates>
     <!--
-        v19.0.1.35.0 — composer template extensions:
-          1. Banner above the input pocket when the partner's 24h
-             Meta window is closed.
-          2. Add `o-htf-composer-pocket-disabled` to the input
-             container so the textarea + paperclip + emoji surfaces
-             look unmistakably greyed-out (handled in
-             htf_composer.scss).
+        v19.0.1.35.0 — composer template extensions for the
+        Discuss-first WhatsApp UX.
 
-        Both gates read `props.composer.thread.windowOpen` — the
-        reactive computed defined on Thread.prototype in
-        thread_model_patch.js. When the customer replies, OWL
-        appends the new mail.message to the thread, windowOpen
-        recomputes True, and both the banner and the disabled
-        styling disappear without any manual refresh.
+        Two injections, both gated on the patched ``htfIsWindowClosed``
+        getter (composer_patch.js) which reads ``thread.windowOpen``:
 
-        Bilingual content (English line + Arabic line) lives
-        directly in the template so the message is intelligible
-        even before translations load — same pattern as the
-        hardcoded UserError text in services/whatsapp.py:_check_window.
+          1. Warning banner above the input pocket with a prominent
+             teal "Send Template" call-to-action button.
+          2. ``o-htf-composer-pocket-disabled`` class on the input
+             container so CSS can grey the textarea + block clicks.
+
+        When the customer replies, OWL re-renders the composer,
+        htfIsWindowClosed becomes false, and both extensions
+        disappear without manual refresh.
+
+        Banner text is translated via ar.po — only ONE source string
+        per message (no duplicated hardcoded Arabic line) so an Arabic
+        locale shows the Arabic translation and any other locale
+        shows the English msgid.
     -->
     <t t-name="htf_call_center.ComposerExtensions"
        t-inherit="mail.Composer"
        t-inherit-mode="extension">
         <!--
-            Insert the warning banner just above the main composer
-            row (which contains the textarea + actions).
+            Banner inserted just above the main composer row (which
+            holds the textarea and the action toolbar). Banner is a
+            single warning alert with an inline call-to-action.
         -->
         <xpath expr="//div[hasclass('o-mail-Composer-coreMain')]" position="before">
-            <div t-if="props.composer.thread?.x_htf_partner_id and props.composer.thread.windowOpen === false"
-                 class="o-htf-window-closed-banner alert alert-warning d-flex align-items-center mx-2 my-2 py-2 px-3"
+            <div t-if="htfIsWindowClosed"
+                 class="o-htf-window-closed-banner alert alert-warning d-flex align-items-center justify-content-between mx-2 my-2 py-2 px-3"
                  role="status">
-                <i class="fa fa-clock-o me-2"/>
-                <div class="flex-grow-1 small">
-                    <div>
-                        24-hour reply window is closed. To re-start the conversation, send an approved WhatsApp template. Free-form text will be enabled when the customer replies.
-                    </div>
-                    <div dir="rtl" class="mt-1">
-                        نافذة الردّ خلال 24 ساعة مغلقة. لإعادة بدء المحادثة، أرسل قالب واتساب معتمداً. ستُفعَّل الرسائل النصية الحرة عندما يردّ العميل.
+                <div class="d-flex align-items-center flex-grow-1">
+                    <i class="fa fa-clock-o me-2 flex-shrink-0"/>
+                    <div class="small flex-grow-1">
+                        <span t-out="htfBannerLabel"/>
                     </div>
                 </div>
+                <button type="button"
+                        class="o-htf-send-template btn btn-sm ms-2 flex-shrink-0"
+                        t-on-click="onClickHtfSendTemplate">
+                    <i class="fa fa-file-text-o me-1"/>
+                    <span t-out="htfSendTemplateLabel"/>
+                </button>
             </div>
         </xpath>
         <!--
-            Toggle a class on the input container so descendant
+            Conditional class on the input container so descendant
             CSS can grey-out the textarea + block pointer events.
-            Using a `t-att-class` modifier on the existing container
-            keeps the original class string intact and conditionally
-            appends ours.
         -->
         <xpath expr="//div[hasclass('o-mail-Composer-inputContainer')]" position="attributes">
-            <attribute name="t-att-class">props.composer.thread?.x_htf_partner_id and props.composer.thread.windowOpen === false ? 'o-htf-composer-pocket-disabled' : ''</attribute>
+            <attribute name="t-att-class">htfIsWindowClosed ? 'o-htf-composer-pocket-disabled' : ''</attribute>
         </xpath>
     </t>
 </templates>
