@@ -81,6 +81,19 @@ class ResPartner(models.Model):
              'phone-widget Call button to deep-link directly to that '
              'conversation in the Hatif portal.',
     )
+    # Raw Hatif workspace channel UUID (e.g. أكاديمية نمو =
+    # ``3a20ffce-cc80-7229-8300-a394d13725a4``) from the most recent
+    # webhook. Stored as a raw Char (not Many2one) so deep-link builders
+    # can stitch it straight into ``?channelId=<uuid>`` without an extra
+    # join — and so the field still resolves even if the synced
+    # ``htf.channel`` row was later archived/deleted.
+    x_htf_last_channel_uuid = fields.Char(
+        string='Last Hatif channelId',
+        copy=False,
+        help='Raw Hatif workspace channel UUID from the most recent '
+             'webhook. Combined with conversationId + phone to build a '
+             'fully-qualified `app.hatif.io/ar/inbox` deep link.',
+    )
 
     @api.depends('x_htf_last_inbound_at')
     def _compute_x_htf_24h_window_open(self):

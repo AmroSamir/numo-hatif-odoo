@@ -81,36 +81,40 @@ export class HtfPhoneField extends PhoneField {
     /**
      * Hatif portal deep-link for the "Call via Hatif" button.
      *
-     * Resolution priority:
-     *   1. ``x_htf_last_conversation_id`` on the record → deep-link
-     *      ``?conversationId=<uuid>`` (the partner / lead has previously
-     *      had a Hatif call or WA message, mirrored by the webhook).
-     *   2. The phone-field value → fall back to ``?phone=<E.164>`` so
-     *      the agent at least lands pre-filtered on that number in the
-     *      Hatif inbox. Hatif may or may not honour the param — if it
-     *      doesn't, it lands on inbox root (same as if we'd sent no
-     *      param), so this is always >= the previous behaviour.
-     *   3. Otherwise the inbox root.
+     * Hatif's portal accepts three query params and the right answer
+     * is to send all three when we have them — that's the exact URL
+     * shape the Hatif inbox emits when an agent opens a conversation
+     * manually (observed example:
+     * ``?phone=%2B966561868578&channelId=<uuid>&conversationId=<uuid>``).
      *
-     * Phone normalisation is intentionally light: strip whitespace and
-     * common separators, ensure a leading ``+`` if the value already
-     * looked international. We don't attempt full E.164 reformatting
-     * here — the server-side ``utils.phone.normalize_e164`` is the
-     * source of truth for that, and the value stored in the field is
-     * usually already in shape.
+     * Resolution:
+     *   - ``phone``           ← value of the current phone field, lightly
+     *                            normalised. Drops if empty.
+     *   - ``channelId``       ← ``x_htf_last_channel_uuid`` (raw Hatif
+     *                            workspace channel UUID, mirrored by the
+     *                            webhook ``_stamp_conversation_metadata``).
+     *                            Drops if empty.
+     *   - ``conversationId``  ← ``x_htf_last_conversation_id``. Drops if
+     *                            empty.
+     *
+     * Each param is optional and emitted only when known. With zero
+     * params, falls back to the inbox root.
      */
     get hatifCallHref() {
-        const convoId = this.props.record?.data?.x_htf_last_conversation_id;
-        if (convoId) {
-            return `${HATIF_PORTAL_BASE}?conversationId=${encodeURIComponent(convoId)}`;
-        }
-        const phone = this._normalizePhoneForUrl(
-            this.props.record?.data?.[this.props.name]
-        );
+        const data = this.props.record?.data || {};
+        const params = new URLSearchParams();
+        const phone = this._normalizePhoneForUrl(data[this.props.name]);
         if (phone) {
-            return `${HATIF_PORTAL_BASE}?phone=${encodeURIComponent(phone)}`;
+            params.set("phone", phone);
         }
-        return HATIF_PORTAL_BASE;
+        if (data.x_htf_last_channel_uuid) {
+            params.set("channelId", data.x_htf_last_channel_uuid);
+        }
+        if (data.x_htf_last_conversation_id) {
+            params.set("conversationId", data.x_htf_last_conversation_id);
+        }
+        const qs = params.toString();
+        return qs ? `${HATIF_PORTAL_BASE}?${qs}` : HATIF_PORTAL_BASE;
     }
 
     /**

@@ -615,3 +615,368 @@ msgstr "النتيجة"
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_import_vcards_wizard_form
 msgid "…or paste vCards directly:"
 msgstr "…أو الصق بطاقات vCard مباشرة:"
+
+# ============================================================
+# Settings → Hatif page (v19.0.1.28.0 + v19.0.1.29.0 additions)
+# Covers res.config.settings fields, helps, and the inherited
+# view's block titles + setting strings + numbered hint copy.
+# ============================================================
+
+# ---- App / settings tab ----
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Hatif"
+msgstr "Hatif"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Hatif/Voxa telephony + WhatsApp integration"
+msgstr "تكامل الاتصال الصوتي وواتساب عبر Hatif/Voxa"
+
+# ---- Connection block ----
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Connection"
+msgstr "الاتصال"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Hatif API credentials"
+msgstr "بيانات اعتماد واجهة Hatif البرمجية"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Service-account client_id + client_secret issued by the Hatif team."
+msgstr "client_id و client_secret الخاصان بحساب الخدمة الصادران من فريق Hatif."
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_client_id
+msgid "Client ID"
+msgstr "معرّف العميل (Client ID)"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_client_secret
+msgid "Client Secret"
+msgstr "سر العميل (Client Secret)"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_base_url
+msgid "Base URL"
+msgstr "الرابط الأساسي"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_scope
+msgid "OAuth Scope"
+msgstr "نطاق OAuth"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Test Connection"
+msgstr "اختبار الاتصال"
+
+# ---- Webhook URLs block (NEW v19.0.1.28.0) ----
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Inbound webhook URLs (give these to Hatif)"
+msgstr "روابط الـ Webhooks الواردة (انسخها إلى Hatif)"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Webhook endpoints on this Odoo"
+msgstr "نقاط استقبال الـ Webhook على هذا الـ Odoo"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "These are the public URLs this Odoo instance listens on for Hatif post-call and WhatsApp deliveries. They are derived from web.base.url so each environment (dev / staging / prod) shows its own correct URL automatically."
+msgstr "هذه هي الروابط العامة التي يستقبل عليها هذا الـ Odoo إشعارات Hatif لما بعد المكالمة ورسائل واتساب. تُشتق تلقائياً من web.base.url حتى تعرض كل بيئة (التطوير / الاختبار / الإنتاج) الرابط الصحيح لها دون تدخل."
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_webhook_url_call
+msgid "Post-call Webhook URL"
+msgstr "رابط Webhook لما بعد المكالمة"
+
+#. module: htf_call_center
+#: model:ir.model.fields,help:htf_call_center.field_res_config_settings__htf_webhook_url_call
+msgid "Paste this into app.hatif.io → Settings → API Connect → <each channel> → Post-call Webhook URL."
+msgstr "الصق هذا الرابط في app.hatif.io ← الإعدادات ← API Connect ← لكل قناة ← Post-call Webhook URL."
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_webhook_url_whatsapp
+msgid "WhatsApp Webhook URL"
+msgstr "رابط Webhook لواتساب"
+
+#. module: htf_call_center
+#: model:ir.model.fields,help:htf_call_center.field_res_config_settings__htf_webhook_url_whatsapp
+msgid "Paste this into app.hatif.io → Settings → API Connect → <each channel> → WhatsApp Webhook URL."
+msgstr "الصق هذا الرابط في app.hatif.io ← الإعدادات ← API Connect ← لكل قناة ← WhatsApp Webhook URL."
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "How to wire these up in Hatif:"
+msgstr "طريقة ربط هذه الروابط داخل Hatif:"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Open"
+msgstr "افتح"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "app.hatif.io → Settings → API Connect"
+msgstr "app.hatif.io ← الإعدادات ← API Connect"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Edit"
+msgstr "تعديل"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Save in Hatif. No restart needed on the Odoo side."
+msgstr "احفظ التغييرات داخل Hatif. لا حاجة لإعادة تشغيل Odoo."
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Wrong URL? It is computed from"
+msgstr "هل الرابط غير صحيح؟ يتم احتسابه من"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Update it in"
+msgstr "حدّثه من"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Settings → Technical → Parameters → System Parameters"
+msgstr "الإعدادات ← التقنية ← المعاملات ← معاملات النظام"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "if Odoo is behind a proxy and the auto-detected URL is wrong."
+msgstr "إذا كان Odoo خلف وكيل وكان الرابط المُكتشف تلقائياً غير صحيح."
+
+# ---- Webhook signing block ----
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Webhook signing"
+msgstr "توقيع الـ Webhook"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "HMAC secrets"
+msgstr "أسرار HMAC"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Each channel on the Hatif side has its own webhookSecret. Paste the current one here; previous stays valid for a 7-day rotation overlap. NOTE (May 2026): Hatif does not yet expose webhookSecret in their portal UI nor send X-Voxa-Signature on deliveries — leave these blank and keep 'Skip webhook HMAC verification' ON in Debug until Hatif enables signing."
+msgstr "لكل قناة في Hatif سرّ webhookSecret خاص بها. الصق السرّ الحالي هنا؛ ويبقى السابق ساري المفعول لفترة تداخل التدوير لمدة 7 أيام. ملاحظة (مايو 2026): Hatif لم تُتح حتى الآن خانة webhookSecret في واجهة بوابتها ولا ترسل ترويسة X-Voxa-Signature مع الإشعارات — اترك الخانتين فارغتين وأبقِ خيار «تخطّي تحقّق HMAC للـ Webhook» مفعّلاً في قسم التصحيح حتى تُفعّل Hatif التوقيع."
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_webhook_secret_current
+msgid "Webhook Secret (current)"
+msgstr "سرّ الـ Webhook (الحالي)"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_webhook_secret_previous
+msgid "Webhook Secret (previous)"
+msgstr "سرّ الـ Webhook (السابق)"
+
+#. module: htf_call_center
+#: model:ir.model.fields,help:htf_call_center.field_res_config_settings__htf_webhook_secret_previous
+msgid "Rotation overlap window — kept valid for 7 days after rotation."
+msgstr "نافذة التداخل أثناء التدوير — تبقى صالحة لمدة 7 أيام بعد التغيير."
+
+# ---- Sync from Hatif block ----
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Channels"
+msgstr "القنوات"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Pulls every channel in your Hatif workspace into htf.channel. Archived locally (not deleted) when removed remotely."
+msgstr "تجلب كل قناة في مساحة عمل Hatif إلى htf.channel. تُؤرشف محلياً (لا تُحذف) إذا أُزيلت من Hatif."
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Sync Channels Now"
+msgstr "مزامنة القنوات الآن"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Tags"
+msgstr "الوسوم"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Mirrors the Hatif tag registry into htf.tag."
+msgstr "تعكس سجلّ وسوم Hatif إلى htf.tag."
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Sync Tags Now"
+msgstr "مزامنة الوسوم الآن"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Workspace Users"
+msgstr "مستخدمو مساحة العمل"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Pulls every workspace user / AI agent into htf.user.link so the Map Users wizard can auto-match them by email."
+msgstr "تجلب كل مستخدمي مساحة العمل / وكلاء الذكاء الاصطناعي إلى htf.user.link حتى يتمكن معالج «ربط المستخدمين» من مطابقتهم تلقائياً بالبريد الإلكتروني."
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Sync Workspace Users Now"
+msgstr "مزامنة مستخدمي مساحة العمل الآن"
+
+# ---- Polling block ----
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Polling"
+msgstr "الاستطلاع الدوري"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Background polling intervals"
+msgstr "فترات الاستطلاع في الخلفية"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Contacts and conversations are pulled incrementally on a schedule. Webhooks deliver everything realtime; polling is a safety net + catches updates that have no webhook (contact edits)."
+msgstr "تُجلب جهات الاتصال والمحادثات تدريجياً وفق جدول زمني. الـ Webhooks توصّل كل شيء فورياً؛ بينما الاستطلاع شبكة أمان تلتقط التحديثات التي لا تملك Webhook (مثل تعديلات جهات الاتصال)."
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_poll_contacts_interval_min
+msgid "Contacts Poll Interval (min)"
+msgstr "فترة استطلاع جهات الاتصال (دقيقة)"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_poll_conversations_interval_min
+msgid "Conversations Poll Interval (min)"
+msgstr "فترة استطلاع المحادثات (دقيقة)"
+
+# ---- Defaults block ----
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Defaults"
+msgstr "الإعدادات الافتراضية"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "UX defaults"
+msgstr "افتراضيات تجربة المستخدم"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_default_voice
+msgid "Default TTS Voice"
+msgstr "صوت TTS الافتراضي"
+
+#. module: htf_call_center
+#: model:ir.model.fields.selection,name:htf_call_center.selection__res_config_settings__htf_default_voice__male
+msgid "Male"
+msgstr "ذكر"
+
+#. module: htf_call_center
+#: model:ir.model.fields.selection,name:htf_call_center.selection__res_config_settings__htf_default_voice__female
+msgid "Female"
+msgstr "أنثى"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_timezone_offset_for_filters
+msgid "Timezone Offset (for Hatif filters)"
+msgstr "إزاحة المنطقة الزمنية (لمرشّحات Hatif)"
+
+# ---- Debug block ----
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Debug"
+msgstr "التصحيح"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Debug logging"
+msgstr "سجلات التصحيح"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.res_config_settings_view_form
+msgid "Logs full request/response bodies. Bearer tokens and webhook secrets are stripped by the redaction filter."
+msgstr "يُسجّل أجسام الطلب والاستجابة كاملةً. تتم إزالة رموز Bearer وأسرار الـ Webhook عبر مرشّح الإخفاء."
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_debug_log_enabled
+msgid "Debug Logging"
+msgstr "تسجيل تصحيح الأخطاء"
+
+#. module: htf_call_center
+#: model:ir.model.fields,help:htf_call_center.field_res_config_settings__htf_debug_log_enabled
+msgid "When ON, log full request/response bodies. Secrets stripped."
+msgstr "عند التفعيل، يتم تسجيل كامل محتوى الطلبات والاستجابات. تتم إزالة الأسرار."
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_config_settings__htf_dev_mode_skip_hmac
+msgid "Skip webhook HMAC verification"
+msgstr "تخطّي تحقّق HMAC للـ Webhook"
+
+#. module: htf_call_center
+#: model:ir.model.fields,help:htf_call_center.field_res_config_settings__htf_dev_mode_skip_hmac
+msgid "When ON, inbound webhooks are accepted without checking the HMAC signature. Required today because Hatif does not yet include X-Voxa-Signature on deliveries. Flip OFF once Hatif turns on signing and the per-channel Webhook Secrets above are set. Defence-in-depth recommendation: allowlist Hatif source IP (8.213.48.16) on your reverse proxy while this is ON."
+msgstr "عند التفعيل، تُقبل الـ Webhooks الواردة دون التحقّق من توقيع HMAC. هذا الخيار مطلوب حالياً لأن Hatif لا تُضمّن ترويسة X-Voxa-Signature في الإشعارات بعد. أوقفه فور تفعيل Hatif للتوقيع وتعبئة «أسرار الـ Webhook» لكل قناة في الأعلى. توصية أمنية متعمّقة: أضِف عنوان IP الخاص بـ Hatif (8.213.48.16) إلى قائمة السماح في الـ reverse proxy طوال فترة تفعيل هذا الخيار."
+
+# ============================================================
+# v19.0.1.29.0 — channelId mirror on res.partner / crm.lead /
+# discuss.channel (for the "Call via Hatif" deep link)
+# ============================================================
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_partner__x_htf_last_channel_uuid
+msgid "Last Hatif channelId"
+msgstr "آخر معرّف قناة Hatif"
+
+#. module: htf_call_center
+#: model:ir.model.fields,help:htf_call_center.field_res_partner__x_htf_last_channel_uuid
+msgid "Raw Hatif workspace channel UUID from the most recent webhook. Combined with conversationId + phone to build a fully-qualified `app.hatif.io/ar/inbox` deep link."
+msgstr "المعرّف الفريد (UUID) لقناة Hatif من آخر Webhook استلمناه. يُدمج مع conversationId ورقم الهاتف لبناء رابط عميق كامل إلى `app.hatif.io/ar/inbox`."
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_crm_lead__x_htf_last_channel_uuid
+msgid "Last Hatif channelId (via partner)"
+msgstr "آخر معرّف قناة Hatif (عبر جهة الاتصال)"
+
+#. module: htf_call_center
+#: model:ir.model.fields,help:htf_call_center.field_crm_lead__x_htf_last_channel_uuid
+msgid "Read-through to the linked partner's most recent Hatif workspace channel UUID. Combined with conversationId + phone by the deep-link builder."
+msgstr "قراءة مرتبطة بأحدث معرّف قناة Hatif لجهة الاتصال المرتبطة باللعميل المحتمل. يُدمج مع conversationId ورقم الهاتف عند بناء الرابط العميق."
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_discuss_channel__x_htf_last_channel_uuid
+msgid "Last Hatif channelId (UUID)"
+msgstr "آخر معرّف قناة Hatif (UUID)"
+
+# ---- Existing v14 conversation_id labels (translated retroactively) ----
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_res_partner__x_htf_last_conversation_id
+#: model:ir.model.fields,field_description:htf_call_center.field_discuss_channel__x_htf_last_conversation_id
+msgid "Last Hatif conversationId"
+msgstr "آخر معرّف محادثة Hatif"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_crm_lead__x_htf_last_conversation_id
+msgid "Last Hatif conversationId (via partner)"
+msgstr "آخر معرّف محادثة Hatif (عبر جهة الاتصال)"
+
+#. module: htf_call_center
+#: model:ir.model.fields,field_description:htf_call_center.field_discuss_channel__x_htf_last_htf_channel_id
+msgid "Last Hatif Channel Used"
+msgstr "آخر قناة Hatif مستخدمة"

@@ -49,16 +49,29 @@ patch(Thread.prototype, {
     /**
      * Deep-link URL for the "Call via Hatif" header button, or
      * ``false`` when the thread is not a Hatif-linked channel.
+     *
+     * Stitches ``channelId`` + ``conversationId`` into the URL when
+     * both are pushed to the OWL store by
+     * ``discuss.channel._to_store_defaults``. Matches the canonical
+     * Hatif inbox URL shape:
+     * ``?channelId=<uuid>&conversationId=<uuid>``. Each param is
+     * optional — emitted only when known. Falls back to inbox root
+     * when neither is known yet (first activity on a brand-new
+     * channel before the first webhook lands).
      */
     get hatifCallHref() {
         if (!this.x_htf_partner_id) {
             return false;
         }
-        const convoId = this.x_htf_last_conversation_id;
-        if (convoId) {
-            return `${HATIF_PORTAL_BASE}?conversationId=${encodeURIComponent(convoId)}`;
+        const params = new URLSearchParams();
+        if (this.x_htf_last_channel_uuid) {
+            params.set("channelId", this.x_htf_last_channel_uuid);
         }
-        return HATIF_PORTAL_BASE;
+        if (this.x_htf_last_conversation_id) {
+            params.set("conversationId", this.x_htf_last_conversation_id);
+        }
+        const qs = params.toString();
+        return qs ? `${HATIF_PORTAL_BASE}?${qs}` : HATIF_PORTAL_BASE;
     },
 });
 

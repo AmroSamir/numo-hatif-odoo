@@ -31,6 +31,7 @@
                 -->
                 <xpath expr="//field[@name='phone']" position="after">
                     <field name="x_htf_last_conversation_id" invisible="1"/>
+                    <field name="x_htf_last_channel_uuid" invisible="1"/>
                 </xpath>
                 <!--
                     Header button: visible whenever the partner has a phone,

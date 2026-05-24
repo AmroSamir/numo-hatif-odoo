@@ -109,6 +109,17 @@ class DiscussChannel(models.Model):
         help='Updated on every webhook. Tells the outbound override '
              'which Hatif channel to route the agent reply through.',
     )
+    # Flat Char proxy for the raw Hatif UUID — `_to_store_defaults`
+    # serializes field names to the OWL store, and a Many2one would
+    # arrive as `[id, name]` which the JS deep-link builder would have
+    # to unpack. Exposing the UUID as a plain string keeps the JS
+    # side trivially `?channelId=${x_htf_last_channel_uuid}`.
+    x_htf_last_channel_uuid = fields.Char(
+        related='x_htf_last_htf_channel_id.htf_channel_id',
+        string='Last Hatif channelId (UUID)',
+        readonly=True,
+        store=False,
+    )
 
     # ------------------------------------------------------------------ #
     # P7.5 — Push x_htf fields to the OWL store                          #
@@ -126,7 +137,11 @@ class DiscussChannel(models.Model):
     def _to_store_defaults(self, target):
         base = super()._to_store_defaults(target)
         if self.env['htf.config'].discuss_mirror_active('ui'):
-            return base + ['x_htf_partner_id', 'x_htf_last_conversation_id']
+            return base + [
+                'x_htf_partner_id',
+                'x_htf_last_conversation_id',
+                'x_htf_last_channel_uuid',
+            ]
         return base
 
     # ------------------------------------------------------------------ #

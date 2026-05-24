@@ -39,6 +39,15 @@ class CrmLead(models.Model):
              'conversation ID. Powers the lead-form phone widget Call '
              'button deep-link into the Hatif portal.',
     )
+    x_htf_last_channel_uuid = fields.Char(
+        related='partner_id.x_htf_last_channel_uuid',
+        readonly=True,
+        store=False,
+        string='Last Hatif channelId (via partner)',
+        help='Read-through to the linked partner\'s most recent Hatif '
+             'workspace channel UUID. Combined with conversationId + '
+             'phone by the deep-link builder.',
+    )
 
     def write(self, vals):
         """When the lead's salesperson, partner, or team changes,

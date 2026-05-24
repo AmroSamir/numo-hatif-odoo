@@ -164,8 +164,21 @@ def _stamp_conversation_metadata(channel, partner, payload: dict, htf_channel_id
         updates['x_htf_last_htf_channel_id'] = htf_channel_id
     if updates:
         channel.sudo().write(updates)
-    if partner and convo_id and partner.x_htf_last_conversation_id != convo_id:
-        partner.sudo().write({'x_htf_last_conversation_id': convo_id})
+    if partner:
+        partner_updates = {}
+        if convo_id and partner.x_htf_last_conversation_id != convo_id:
+            partner_updates['x_htf_last_conversation_id'] = convo_id
+        # Resolve the raw Hatif UUID for the partner mirror — we have
+        # the htf.channel local id (htf_channel_id arg), look up its
+        # UUID Char. Skip silently if the local row isn't found
+        # (shouldn't happen in practice but the partner write must not
+        # block the webhook on a stale FK).
+        if htf_channel_id:
+            ch_uuid = channel.env['htf.channel'].sudo().browse(htf_channel_id).htf_channel_id
+            if ch_uuid and partner.x_htf_last_channel_uuid != ch_uuid:
+                partner_updates['x_htf_last_channel_uuid'] = ch_uuid
+        if partner_updates:
+            partner.sudo().write(partner_updates)
 
 
 # ---------------------------------------------------------------- #
