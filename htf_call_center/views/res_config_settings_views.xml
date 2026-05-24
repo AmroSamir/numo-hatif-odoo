@@ -71,14 +71,12 @@
                                         <field name="htf_webhook_url_whatsapp" widget="CopyClipboardChar" readonly="1"/>
                                     </div>
                                     <div class="text-muted mt8" style="font-size: 0.9em;">
-                                        <strong>How to wire these up in Hatif:</strong>
-                                        <ol class="mt4">
-                                            <li>Open <a href="https://app.hatif.io/en/settings/api-connect" target="_blank">app.hatif.io → Settings → API Connect</a>.</li>
-                                            <li>For <em>each</em> channel (inbox) listed there, click <strong>Edit</strong> on its <strong>Post-call Webhook URL</strong> and paste the first URL above.</li>
-                                            <li>Repeat for that channel's <strong>WhatsApp Webhook URL</strong> using the second URL above.</li>
-                                            <li>Save in Hatif. No restart needed on the Odoo side.</li>
-                                        </ol>
-                                        Wrong URL? It is computed from <code>web.base.url</code>. Update it in <em>Settings → Technical → Parameters → System Parameters</em> if Odoo is behind a proxy and the auto-detected URL is wrong.
+                                        <p><strong>How to wire these up in Hatif:</strong></p>
+                                        <p>1. Open <a href="https://app.hatif.io/en/settings/api-connect" target="_blank">app.hatif.io → Settings → API Connect</a>.</p>
+                                        <p>2. For each channel listed there, click Edit on its Post-call Webhook URL field and paste the first URL above.</p>
+                                        <p>3. Repeat for that channel's WhatsApp Webhook URL field using the second URL above.</p>
+                                        <p>4. Save in Hatif. No restart needed on the Odoo side.</p>
+                                        <p class="mt8">Wrong URL? It is computed from web.base.url. Update it in Settings → Technical → Parameters → System Parameters if Odoo is behind a proxy and the auto-detected URL is wrong.</p>
                                     </div>
                                 </div>
                             </setting>
