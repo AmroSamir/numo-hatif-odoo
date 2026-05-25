@@ -267,7 +267,7 @@ class DiscussChannel(models.Model):
         """Return the set of ``res.partner`` ids allowed to see the Hatif
         Discuss channel for ``partner``.
 
-        Access rule (v19.0.1.60.0) — a customer's conversation is private
+        Access rule (v19.0.1.61.0) — a customer's conversation is private
         to the people working them:
           • the customer (always — inbound bubbles author as this partner)
           • the agent(s) who contacted them: the salesperson
@@ -276,7 +276,12 @@ class DiscussChannel(models.Model):
             the team the agent leads or belongs to, plus the lead's own
             team leader)
           • managers: Odoo Sales Managers (``sales_team.group_sale_manager``)
-            see every chat
+            see every chat — EXCEPT a manager who is the leader of a
+            DIFFERENT team. In this DB every team leader also holds the
+            Sales Manager role, so a blanket "managers see all" leaked a
+            customer's chat to every other team's leader. A manager who
+            leads no team (a true global manager) still sees everything;
+            a team leader only sees their OWN team's customers.
 
         Nobody else. Single source of truth shared by the
         auto-provisioning code, the CRM-lead write hook, and the prune
@@ -284,20 +289,18 @@ class DiscussChannel(models.Model):
         and by the channel being a private ``group`` type.
         """
         allowed = set()
-        if partner:
-            allowed.add(partner.id)
-        # Managers — Odoo Sales Managers see every customer chat.
-        mgr_group = self.env.ref(
-            'sales_team.group_sale_manager', raise_if_not_found=False,
-        )
-        if mgr_group:
-            for u in mgr_group.user_ids:
-                if u.partner_id:
-                    allowed.add(u.partner_id.id)
         if not partner:
             return allowed
+        allowed.add(partner.id)
 
         Team = self.env['crm.team'].sudo()
+        # Every user who leads ANY team — used to spot "other-team" leaders.
+        all_team_leader_uids = set(
+            Team.search([('user_id', '!=', False)]).mapped('user_id').ids
+        )
+
+        # Agents on this customer's leads, plus their own team leaders.
+        agent_team_leader_uids = set()
         leads = self.env['crm.lead'].sudo().search([
             ('partner_id', '=', partner.id),
         ])
@@ -321,6 +324,25 @@ class DiscussChannel(models.Model):
             for team in teams:
                 if team.user_id and team.user_id.partner_id:
                     allowed.add(team.user_id.partner_id.id)
+                    agent_team_leader_uids.add(team.user_id.id)
+
+        # Managers — Sales Managers see every chat, EXCEPT a manager who
+        # leads a team OTHER than this customer's agent team(s). Pure
+        # managers (lead no team) and the agent's own team leader stay.
+        mgr_group = self.env.ref(
+            'sales_team.group_sale_manager', raise_if_not_found=False,
+        )
+        if mgr_group:
+            for u in mgr_group.user_ids:
+                if not u.partner_id:
+                    continue
+                leads_other_team = (
+                    u.id in all_team_leader_uids
+                    and u.id not in agent_team_leader_uids
+                )
+                if leads_other_team:
+                    continue
+                allowed.add(u.partner_id.id)
         return allowed
 
     def _htf_sync_channel_members(self):
