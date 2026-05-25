@@ -152,11 +152,22 @@ class CrmLead(models.Model):
             '.htf-meta{font-size:11px;opacity:.7;margin:0 0 2px 0 !important}'
             '.htf-rec{display:block;margin:6px 0 0 0 !important;width:260px;'
             'max-width:100%;height:34px}'
+            '.htf-day{text-align:center;margin:10px 0 6px 0 !important}'
+            '.htf-day span{background:#3a3f4b;color:#cfd3da;font-size:11px;'
+            'padding:2px 10px;border-radius:10px}'
             '</style>'
         )
         rows = [style, '<div class="htf-convo">']
+        last_day = None
         for ts, kind, rec in events:
             when = discuss_mirror._local_hm(render_env, ts) if ts else ''
+            # Date separator when the (workspace-local) day changes.
+            day_key, day_label = self._htf_day_label(render_env, ts)
+            if day_key and day_key != last_day:
+                last_day = day_key
+                rows.append(
+                    '<div class="htf-day"><span>%s</span></div>' % escape(day_label)
+                )
             rec = rec.with_env(render_env)
             if kind == 'msg':
                 inbound = rec.direction == 'inbound'
@@ -181,6 +192,35 @@ class CrmLead(models.Model):
                 )
         rows.append('</div>')
         return Markup(''.join(rows))
+
+    def _htf_day_label(self, render_env, ts):
+        """Return ``(date, label)`` for a timeline date separator, computed
+        in the workspace timezone. Label is Today / Yesterday / a localized
+        date. ``(None, '')`` when ``ts`` is missing.
+        """
+        if not ts:
+            return (None, '')
+        from datetime import datetime as _dt, timedelta as _td
+
+        import pytz
+
+        from ..services import discuss_mirror
+        try:
+            tz = pytz.timezone(discuss_mirror._bubble_tz(render_env))
+            day = pytz.utc.localize(ts).astimezone(tz).date()
+            today = _dt.now(tz).date()
+            if day == today:
+                return (day, self.env._('Today'))
+            if day == today - _td(days=1):
+                return (day, self.env._('Yesterday'))
+            try:
+                from babel.dates import format_date
+                loc = (render_env.context.get('lang') or 'en_US').replace('-', '_')
+                return (day, format_date(day, format='d MMMM y', locale=loc))
+            except Exception:  # noqa: BLE001
+                return (day, day.strftime('%d %b %Y'))
+        except Exception:  # noqa: BLE001
+            return (None, '')
 
     def _htf_call_recording_player(self, call_row):
         """Return an <audio> player for a call's recording, or ''.

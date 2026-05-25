@@ -522,6 +522,16 @@ msgid "Conversation"
 msgstr "المحادثة"
 
 #. module: htf_call_center
+#: code:addons/htf_call_center/models/crm_lead.py:0
+msgid "Today"
+msgstr "اليوم"
+
+#. module: htf_call_center
+#: code:addons/htf_call_center/models/crm_lead.py:0
+msgid "Yesterday"
+msgstr "أمس"
+
+#. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_crm_lead_form_inherit_htf
 msgid "Reply on WhatsApp"
 msgstr "الرد عبر واتساب"
