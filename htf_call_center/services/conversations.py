@@ -302,21 +302,22 @@ def refresh_window_from_hatif(env, partner, channel=None) -> bool:
     """
     if not partner:
         return False
-    convo_id = partner.x_htf_last_conversation_id
-    # v19.0.1.47.0: when Odoo has no local conversation id (history
-    # wiped, inbound webhook missed, OR the conversation was started on
-    # the Hatif platform and the agent comes to Odoo to continue), fall
-    # back to asking Hatif for the latest conversation by phone. Hatif
-    # is the source of truth for the 24h window — Odoo's local mirror is
-    # only a cache. Without this the composer would wrongly block
-    # free-form replies even when the customer replied <24h ago.
+    # v19.0.1.67.0: LEAD with the phone-matched Hatif lookup rather than
+    # trusting partner.x_htf_last_conversation_id. A prior buggy run (the
+    # ignored-PhoneNumber-filter, see _lookup_latest_conversation) could
+    # have cached an UNRELATED customer's conversation id on the partner;
+    # reading its inbound time then wrongly kept the window open. The
+    # phone-matched lookup is authoritative. The stored id is only a
+    # fallback when the partner has no phone to resolve with.
     resolved_channel = env['htf.channel'].browse()
-    if not convo_id:
-        phone = partner.phone or partner.mobile or ''
-        if phone:
-            e164 = normalize_e164(phone)
-            if e164:
-                convo_id, resolved_channel = _lookup_latest_conversation(env, e164)
+    convo_id = None
+    phone = partner.phone or ''  # Odoo 19 dropped res.partner.mobile
+    if phone:
+        e164 = normalize_e164(phone)
+        if e164:
+            convo_id, resolved_channel = _lookup_latest_conversation(env, e164)
+    elif partner.x_htf_last_conversation_id:
+        convo_id = partner.x_htf_last_conversation_id
 
     if not convo_id:
         # v19.0.1.67.0: no Hatif conversation matches this phone → the 24h
