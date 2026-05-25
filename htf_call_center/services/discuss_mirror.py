@@ -83,6 +83,38 @@ def _with_bubble_lang(env):
     return env(context=dict(env.context, lang=_bubble_lang_code(env)))
 
 
+def _bubble_tz(env) -> str:
+    """Timezone used to render bubble timestamps.
+
+    A bubble stores ONE rendered string (it isn't re-localised per
+    viewer), and it's rendered in the WEBHOOK context where ``env.user``
+    is the API/service account — never the viewing agent — so the acting
+    user's tz is meaningless here. Pin the workspace tz instead: the main
+    company partner's tz, else Asia/Riyadh (Numo's locale).
+    """
+    try:
+        return env.company.partner_id.tz or 'Asia/Riyadh'
+    except Exception:  # noqa: BLE001
+        return 'Asia/Riyadh'
+
+
+def _local_hm(env, dt) -> str:
+    """Format a naive-UTC datetime as ``HH:MM`` in the workspace tz.
+
+    Call bubbles previously showed the raw UTC time (e.g. "بدأت 07:58"
+    for a 10:58 Riyadh call); convert before formatting.
+    """
+    if not dt:
+        return ''
+    try:
+        import pytz
+        return pytz.utc.localize(dt).astimezone(
+            pytz.timezone(_bubble_tz(env))
+        ).strftime('%H:%M')
+    except Exception:  # noqa: BLE001 — fall back to raw value
+        return dt.strftime('%H:%M')
+
+
 # ---------------------------------------------------------------- #
 # Flag gating                                                      #
 # ---------------------------------------------------------------- #
@@ -344,8 +376,7 @@ def mirror_call(env, partner, call_row, payload: dict) -> None:
             _update_call_bubble(env, channel, existing, call_row, body)
             return
         author = _resolve_call_author(env, call_row, partner)
-        attachments = _maybe_download_recording(call_row)
-        channel.with_context(
+        msg = channel.with_context(
             mail_create_nosubscribe=True,
             htf_mirror_write=True,
         ).message_post(
@@ -353,9 +384,14 @@ def mirror_call(env, partner, call_row, payload: dict) -> None:
             author_id=author.id if author else False,
             subtype_id=subtype,
             message_type='comment',
-            attachments=attachments,
             message_id=sentinel,
         )
+        # Attach the recording as a proper Discuss voice message if it is
+        # already present on this first event (rare — the call is usually
+        # still ringing here and the recording lands on a later event,
+        # handled by _update_call_bubble).
+        if _attach_recording_voice(env, msg, call_row):
+            _bus_push_message(channel, msg)
     except Exception:  # noqa: BLE001
         _logger.exception(
             "[htf-discuss] mirror_call failed for partner=%s htf.call=%s",
@@ -374,34 +410,61 @@ def _update_call_bubble(env, channel, message, call_row, body) -> None:
     updates = {}
     if (message.body or '').strip() != str(body).strip():
         updates['body'] = body
-    # Attach the recording the first time it appears.
-    if call_row.recording_url and not message.attachment_ids:
-        for fname, data, info in _maybe_download_recording(call_row):
-            try:
-                att = env['ir.attachment'].sudo().create({
-                    'name': fname,
-                    'datas': base64.b64encode(data),
-                    'res_model': 'mail.message',
-                    'res_id': message.id,
-                    'mimetype': info.get('mimetype') or 'audio/mpeg',
-                })
-                message.sudo().write({'attachment_ids': [(4, att.id)]})
-                if info.get('voice') and 'voice_ids' in message._fields:
-                    message.sudo().write({'voice_ids': [(4, att.id)]})
-            except Exception:  # noqa: BLE001 — recording is non-critical
-                _logger.exception(
-                    "[htf-discuss] attach recording on update failed for "
-                    "call=%s", call_row.id,
-                )
     if updates:
         message.sudo().write(updates)
+    # Attach the recording (as a Discuss voice message) the first time it
+    # appears — Hatif only exposes recording_url on the completed event.
+    _attach_recording_voice(env, message, call_row)
+    _bus_push_message(channel, message)
+
+
+def _attach_recording_voice(env, message, call_row) -> bool:
+    """Download the call recording and attach it to ``message`` as a
+    Discuss VOICE message (waveform player), not a plain file.
+
+    Returns True if an attachment was added. Idempotent: a no-op when the
+    call has no recording yet or the message already carries an attachment.
+
+    Odoo 19 marks an attachment as voice via a ``discuss.voice.metadata``
+    row (makes ``ir.attachment.voice_ids`` non-empty); ``message_post``'s
+    ``{'voice': True}`` attachment hint is NOT honoured, so we create the
+    metadata ourselves. The mimetype must match the real file (Hatif
+    serves ``audio/wav``) or the player will not render.
+    """
+    if not call_row.recording_url or message.attachment_ids:
+        return False
+    items = _maybe_download_recording(call_row)
+    if not items:
+        return False
+    fname, data, info = items[0]
+    try:
+        att = env['ir.attachment'].sudo().create({
+            'name': fname,
+            'datas': base64.b64encode(data),
+            'res_model': 'mail.message',
+            'res_id': message.id,
+            'mimetype': info.get('mimetype') or 'audio/wav',
+        })
+        message.sudo().write({'attachment_ids': [(4, att.id)]})
+        env['discuss.voice.metadata'].sudo().create({'attachment_id': att.id})
+        return True
+    except Exception:  # noqa: BLE001 — recording is non-critical
+        _logger.exception(
+            "[htf-discuss] attach voice recording failed for call=%s",
+            call_row.id,
+        )
+        return False
+
+
+def _bus_push_message(channel, message) -> None:
+    """Push a (re)rendered bubble to connected Discuss clients."""
     try:
         from odoo.addons.mail.tools.discuss import Store
         Store(bus_channel=channel).add(message).bus_send()
     except Exception:  # noqa: BLE001 — DB already updated; live push best-effort
         _logger.exception(
-            "[htf-discuss] bus push of call-bubble update failed for call=%s",
-            call_row.id,
+            "[htf-discuss] bus push of call bubble failed for channel=%s",
+            channel.id,
         )
 
 
@@ -473,7 +536,7 @@ def _render_call_body(call_row) -> Markup:
     status = (call_row.status or '').lower()
     pickup_kind = (call_row.pickup_kind or '').lower()
     duration = call_row.duration_display or ''
-    started = call_row.created_at and call_row.created_at.strftime('%H:%M') or ''
+    started = _local_hm(env, call_row.created_at)
     icon, verb = _call_icon_and_verb(env, status, pickup_kind)
     parts = [f'<strong>{icon} {escape(verb)}</strong>']
     if duration:
@@ -544,16 +607,25 @@ def _call_icon_and_verb(env, status: str, pickup_kind: str) -> tuple[str, str]:
     return _CALL_ICON_HTML, env._('Call %s', status or env._('unknown'))
 
 
+_AUDIO_EXT_BY_MIME = {
+    'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/wave': 'wav',
+    'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/ogg': 'ogg',
+    'audio/webm': 'webm', 'audio/mp4': 'm4a', 'audio/aac': 'aac',
+}
+
+
 def _maybe_download_recording(call_row) -> list:
-    """Return attachments-tuple-list for message_post, or empty list.
+    """Return ``[(filename, bytes, {'mimetype': ...})]`` for the recording,
+    or ``[]`` on failure.
 
-    Returns [(filename, bytes, {'voice': True, 'mimetype': 'audio/mpeg'})]
-    when the MP3 downloads within budget. On any failure, returns []
-    and logs — the message still posts without the voice bubble.
+    The mimetype is taken from the response Content-Type (Hatif serves
+    ``audio/wav``, NOT mp3) and falls back to the URL extension — getting
+    this right matters because Discuss only renders an audio/voice player
+    when the attachment's mimetype actually matches the bytes.
 
-    Hatif's recording_url is short-lived (apidog notes 401 after a few
-    minutes), so the download MUST happen synchronously inside the
-    webhook handler. 10-second timeout is the budget.
+    Hatif's recording_url is short-lived, so the download MUST happen
+    synchronously inside the webhook handler. 10-second timeout is the
+    budget.
     """
     url = call_row.recording_url or ''
     if not url:
@@ -561,6 +633,7 @@ def _maybe_download_recording(call_row) -> list:
     try:
         resp = requests.get(url, timeout=_RECORDING_DOWNLOAD_TIMEOUT_S, stream=True)
         resp.raise_for_status()
+        ctype = (resp.headers.get('Content-Type') or '').split(';')[0].strip().lower()
         data = b''
         for chunk in resp.iter_content(chunk_size=8192):
             data += chunk
@@ -577,8 +650,18 @@ def _maybe_download_recording(call_row) -> list:
             call_row.id, url,
         )
         return []
-    filename = f'call-{call_row.htf_call_id or call_row.id}.mp3'
-    return [(filename, data, {'voice': True, 'mimetype': 'audio/mpeg'})]
+    url_ext = url.split('?')[0].rsplit('.', 1)[-1].lower()
+    if ctype in _AUDIO_EXT_BY_MIME:
+        mimetype = ctype
+    elif url_ext == 'wav':
+        mimetype = 'audio/wav'
+    elif url_ext in ('mp3', 'mpeg'):
+        mimetype = 'audio/mpeg'
+    else:
+        mimetype = 'audio/wav'  # Hatif's default container
+    ext = _AUDIO_EXT_BY_MIME.get(mimetype, url_ext or 'wav')
+    filename = f'call-{call_row.htf_call_id or call_row.id}.{ext}'
+    return [(filename, data, {'mimetype': mimetype})]
 
 
 def _render_wa_body(htf_message, direction: str) -> Markup:
