@@ -88,13 +88,22 @@ class HtfWhatsAppWebhookController(http.Controller):
         try:
             payload = json.loads(raw_body.decode('utf-8') or 'null')
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            _logger.warning("[htf-wa] webhook %s bad JSON: %s",
-                            WEBHOOK_ROUTE_WHATSAPP, exc)
+            _logger.warning("[htf-wa] webhook %s bad JSON: %s%s",
+                            WEBHOOK_ROUTE_WHATSAPP, exc,
+                            _reject_diag(request, raw_body))
             return Response('invalid json', status=400)
 
         if not isinstance(payload, dict):
-            _logger.warning("[htf-wa] webhook payload not an object: %r",
-                            type(payload).__name__)
+            # Observed live: Hatif/network occasionally delivers a webhook
+            # with an EMPTY body (parses to None), which costs us that one
+            # inbound message because Hatif does not retry a 4xx. Log the
+            # declared Content-Length vs the bytes we actually read so the
+            # next occurrence shows whether the body was truncated in
+            # transit (Content-Length > 0, 0 bytes read) or Hatif genuinely
+            # sent nothing (Content-Length 0).
+            _logger.warning("[htf-wa] webhook payload not an object: %r%s",
+                            type(payload).__name__,
+                            _reject_diag(request, raw_body))
             return Response('invalid payload', status=400)
 
         # Step 4: build the dedupe key.
@@ -182,6 +191,29 @@ def _short(value: str | None) -> str:
     if not value:
         return ''
     return value if len(value) <= 16 else f'{value[:13]}...'
+
+
+def _reject_diag(req, raw_body: bytes) -> str:
+    """Diagnostic suffix for rejected (400) webhooks.
+
+    Compares the declared Content-Length with the bytes we actually read
+    so a recurrence of the empty-body drop is attributable to either
+    in-transit truncation or a genuinely empty Hatif payload. No secrets
+    are logged — only transport metadata + a short body preview.
+    """
+    try:
+        h = req.httprequest.headers
+        body_len = len(raw_body or b'')
+        preview = (raw_body[:120] or b'').decode('utf-8', errors='replace')
+        return (
+            " [diag content_length=%s bytes_read=%d user_agent=%r "
+            "content_type=%r x_forwarded_for=%r body_preview=%r]" % (
+                h.get('Content-Length'), body_len, h.get('User-Agent'),
+                h.get('Content-Type'), h.get('X-Forwarded-For'), preview,
+            )
+        )
+    except Exception:  # noqa: BLE001 — diagnostics must never break the 400
+        return ''
 
 
 def _log_signature_failure_diagnostics(req, raw_body: bytes) -> None:
