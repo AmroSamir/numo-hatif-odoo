@@ -39,6 +39,33 @@
                 <xpath expr="//field[@name='phone']" position="after">
                     <field name="x_htf_last_conversation_id" invisible="1"/>
                     <field name="x_htf_last_channel_uuid" invisible="1"/>
+                    <field name="x_htf_can_view_conversation" invisible="1"/>
+                </xpath>
+                <!--
+                    Read-only "Conversation" tab — renders the WhatsApp +
+                    call timeline from htf.message/htf.call (NOT the
+                    chatter). View-only by construction (no composer);
+                    agents reply via the header "Send WhatsApp" button.
+                    Gated on x_htf_can_view_conversation so it mirrors the
+                    private-channel privacy: only the handling agent, their
+                    team leader, and global managers see it.
+                -->
+                <xpath expr="//notebook" position="inside">
+                    <page string="Conversation"
+                          name="htf_conversation"
+                          invisible="not x_htf_can_view_conversation">
+                        <button name="action_htf_open_whatsapp"
+                                type="object"
+                                string="Reply on WhatsApp"
+                                class="btn-primary mb-2"
+                                icon="fa-whatsapp"
+                                invisible="not phone"
+                                groups="htf_call_center.group_user"/>
+                        <field name="x_htf_conversation_html"
+                               widget="html"
+                               readonly="1"
+                               nolabel="1"/>
+                    </page>
                 </xpath>
                 <xpath expr="//header" position="inside">
                     <!--

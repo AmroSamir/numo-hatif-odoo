@@ -49,6 +49,125 @@ class CrmLead(models.Model):
              'phone by the deep-link builder.',
     )
 
+    # ------------------------------------------------------------------ #
+    # Read-only "Conversation" tab (v19.0.1.62.0)                         #
+    # ------------------------------------------------------------------ #
+    # Renders the customer's WhatsApp + call timeline from htf.message /
+    # htf.call directly (NOT a chatter mirror — no third copy). View-only
+    # by construction: there is no composer, agents reply via the existing
+    # "Send WhatsApp" button. Gated by the SAME privacy as the Discuss
+    # chat — the viewer must be a member of the customer's private Hatif
+    # channel — so a manager who can see the lead but was excluded from
+    # the channel (e.g. another team's leader) does NOT see the
+    # conversation here either.
+
+    x_htf_can_view_conversation = fields.Boolean(
+        compute='_compute_htf_conversation',
+        store=False,
+        help='True when the current user may see this customer\'s Hatif '
+             'conversation (i.e. is a member of the private chat channel). '
+             'Drives visibility of the Conversation tab.',
+    )
+    x_htf_conversation_html = fields.Html(
+        string='Hatif Conversation',
+        compute='_compute_htf_conversation',
+        store=False,
+        sanitize=False,  # we generate + escape the markup ourselves
+        help='Read-only WhatsApp + call timeline rendered from '
+             'htf.message / htf.call for the linked partner.',
+    )
+
+    @api.depends('partner_id')
+    def _compute_htf_conversation(self):
+        Channel = self.env['discuss.channel'].sudo()
+        viewer = self.env.user.partner_id
+        for lead in self:
+            partner = lead.partner_id
+            if not partner:
+                lead.x_htf_can_view_conversation = False
+                lead.x_htf_conversation_html = False
+                continue
+            channel = Channel.search([
+                ('x_htf_partner_id', '=', partner.id),
+                ('active', '=', True),
+            ], limit=1)
+            member_pids = (
+                channel.channel_member_ids.partner_id.ids if channel else []
+            )
+            allowed = bool(self.env.su or (viewer and viewer.id in member_pids))
+            lead.x_htf_can_view_conversation = allowed
+            lead.x_htf_conversation_html = (
+                lead._htf_render_conversation_html(partner) if allowed else False
+            )
+
+    def _htf_render_conversation_html(self, partner):
+        """Build the read-only WA + call timeline HTML for ``partner``.
+
+        Reuses the Discuss bubble renderers so the content (template
+        previews, call summary + verb, local times) matches the chat.
+        Inline styles are safe because the field is ``sanitize=False`` and
+        every customer-supplied string is escaped by the renderers.
+        """
+        from html import escape
+
+        from markupsafe import Markup
+
+        from ..services import discuss_mirror
+
+        render_env = discuss_mirror._with_bubble_lang(self.env)
+        Msg = self.env['htf.message'].sudo()
+        Call = self.env['htf.call'].sudo()
+        msgs = Msg.search([('partner_id', '=', partner.id)], order='id', limit=500)
+        calls = Call.search([('partner_id', '=', partner.id)], order='id', limit=500)
+
+        events = []
+        for m in msgs:
+            events.append((m.created_at or m.create_date, 'msg', m))
+        for c in calls:
+            events.append((c.created_at or c.create_date, 'call', c))
+        if not events:
+            return Markup(
+                '<div style="padding:16px;opacity:.6">%s</div>'
+                % escape(self.env._('No WhatsApp or call activity yet.'))
+            )
+        events.sort(key=lambda e: (e[0] or fields.Datetime.now()))
+
+        rows = [
+            '<div style="display:flex;flex-direction:column;gap:6px;'
+            'padding:12px;max-width:900px">'
+        ]
+        for ts, kind, rec in events:
+            when = discuss_mirror._local_hm(render_env, ts) if ts else ''
+            rec = rec.with_env(render_env)
+            if kind == 'msg':
+                inbound = rec.direction == 'inbound'
+                inner = discuss_mirror._render_wa_body(rec, rec.direction)
+                who = (
+                    partner.name if inbound
+                    else (rec.sender_user_id.name or self.env._('Agent'))
+                )
+                align = 'flex-start' if inbound else 'flex-end'
+                bg = '#3a3f4b' if inbound else '#0b7a5f'
+                rows.append(
+                    '<div style="display:flex;justify-content:%s">'
+                    '<div style="max-width:75%%;background:%s;color:#fff;'
+                    'padding:8px 10px;border-radius:10px">'
+                    '<div style="font-size:11px;opacity:.7">%s · %s</div>%s'
+                    '</div></div>' % (
+                        align, bg, escape(who or ''), escape(when), inner,
+                    )
+                )
+            else:
+                inner = discuss_mirror._render_call_body(rec)
+                rows.append(
+                    '<div style="display:flex;justify-content:center">'
+                    '<div style="max-width:80%%;background:#2b2b3a;color:#fff;'
+                    'padding:8px 12px;border-radius:10px;border:1px solid #444">'
+                    '%s</div></div>' % inner
+                )
+        rows.append('</div>')
+        return Markup(''.join(rows))
+
     def write(self, vals):
         """When the lead's salesperson, partner, or team changes,
         re-sync the Hatif Discuss channel membership so the new agent
