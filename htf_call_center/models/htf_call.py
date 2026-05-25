@@ -314,12 +314,20 @@ class HtfCall(models.Model):
             via = rec.channel_id.display_name or rec.channel_id.name or '—'
             rec.name = f"[{direction} {status}] {who} via {via}"
 
-    @api.depends('pickup_time', 'handler_user_id')
+    @api.depends('pickup_time', 'handler_user_id', 'hatif_user_name', 'is_ai_call')
     def _compute_pickup_kind(self):
         for rec in self:
             if not rec.pickup_time:
                 rec.pickup_kind = 'none'
-            elif rec.handler_user_id:
+            elif rec.is_ai_call:
+                # The AI agent / IVR genuinely handled the call.
+                rec.pickup_kind = 'system'
+            elif rec.handler_user_id or rec.hatif_user_name:
+                # A person answered — either a mapped Odoo user OR a Hatif
+                # agent we couldn't map to res.users (handler_user_id stays
+                # empty but hatif_user_name carries their name). Previously
+                # the unmapped case fell through to 'system' and the call
+                # was mislabelled as IVR/auto-responder.
                 rec.pickup_kind = 'human'
             else:
                 rec.pickup_kind = 'system'

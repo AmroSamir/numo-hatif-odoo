@@ -548,15 +548,23 @@ def _render_call_body(call_row) -> Markup:
         parts.append(f' · {escape(env._("started"))} {escape(started)}')
     head = ''.join(parts)
     extra = []
-    if pickup_kind == 'human' and call_row.handler_user_id and call_row.handler_user_id.name:
-        extra.append(
-            f'<small>{escape(env._("Answered by"))} '
-            f'{escape(call_row.handler_user_id.name)}</small>'
+    if pickup_kind != 'none':
+        # Who answered? Prefer the mapped Odoo user, fall back to Hatif's
+        # raw agent name (set even when the agent isn't mapped to a
+        # res.users). Only label as IVR when Hatif flagged it an AI call —
+        # an unmapped HUMAN agent must NOT be shown as "auto-responder".
+        handler_name = (
+            (call_row.handler_user_id.name if call_row.handler_user_id else '')
+            or call_row.hatif_user_name or ''
         )
-    elif pickup_kind == 'system':
-        extra.append(
-            f'<small><em>{escape(env._("Picked up by auto-responder / IVR"))}</em></small>'
-        )
+        if call_row.is_ai_call:
+            extra.append(
+                f'<small><em>{escape(env._("Picked up by auto-responder / IVR"))}</em></small>'
+            )
+        elif handler_name:
+            extra.append(
+                f'<small>{escape(env._("Answered by"))} {escape(handler_name)}</small>'
+            )
     if call_row.summary:
         summary_html = _render_summary_html(call_row.summary)
         if summary_html:
