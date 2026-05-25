@@ -24,8 +24,9 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
+from odoo import fields
 from odoo.tools import safe_eval  # noqa: F401 — keep import bag tidy
 
 from ..signals import htf_signals
@@ -182,6 +183,41 @@ def _process_outbound_status(env, payload: dict) -> str:
                 _logger.exception(
                     "[htf-wa] could not stamp htf_message_id=%s on existing id=%s",
                     msg_id, existing.id,
+                )
+
+    # v19.0.1.53.0: race fallback for Discuss-composer sends. The composer
+    # creates its htf.message synchronously but DEFERS the Hatif POST to a
+    # post-commit hook (v52). Hatif fires its echo webhook the instant it
+    # receives that POST, and the echo can arrive BEFORE the hook commits
+    # the conversationEventId/messageId — so neither fast-path match above
+    # finds the row. The composer row IS already committed though (created
+    # in the message_post txn, state='pending', htf_message_id empty), so
+    # reconcile by channel + body + recency against a still-unsent outbound
+    # row. Without this the echo creates a parallel row AND an OdooBot
+    # mirror bubble that duplicates the agent's own message inside Odoo.
+    if not existing:
+        body_txt = payload.get('body') or ''
+        race_chan = _resolve_channel(env, payload.get('channelId'))
+        if body_txt and race_chan:
+            existing = Msg.search([
+                ('direction', '=', 'outbound'),
+                ('channel_id', '=', race_chan.id),
+                ('body', '=', body_txt),
+                ('htf_message_id', '=', False),
+                ('create_date', '>=',
+                 fields.Datetime.now() - timedelta(seconds=120)),
+            ], limit=1, order='id desc')
+            if existing:
+                stamp = {}
+                if msg_id and not existing.htf_message_id:
+                    stamp['htf_message_id'] = msg_id
+                if conv_event_id and not existing.conversation_event_id:
+                    stamp['conversation_event_id'] = conv_event_id
+                if stamp:
+                    existing.write(stamp)
+                _logger.info(
+                    "[htf-wa] reconciled echo to composer row id=%s by "
+                    "channel+body (race) — no duplicate bubble", existing.id,
                 )
 
     new_state = _normalize_status(payload.get('status')) or 'sent'
