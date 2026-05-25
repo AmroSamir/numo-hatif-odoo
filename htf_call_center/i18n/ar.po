@@ -516,6 +516,21 @@ msgid "Send WhatsApp"
 msgstr "إرسال واتساب"
 
 #. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_crm_lead_form_inherit_htf
+msgid "Conversation"
+msgstr "المحادثة"
+
+#. module: htf_call_center
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_crm_lead_form_inherit_htf
+msgid "Reply on WhatsApp"
+msgstr "الرد عبر واتساب"
+
+#. module: htf_call_center
+#: code:addons/htf_call_center/models/crm_lead.py:0
+msgid "No WhatsApp or call activity yet."
+msgstr "لا يوجد نشاط واتساب أو مكالمات بعد."
+
+#. module: htf_call_center
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_send_whatsapp_wizard_form
 msgid "To"
 msgstr "إلى"

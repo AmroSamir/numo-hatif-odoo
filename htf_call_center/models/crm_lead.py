@@ -138,10 +138,12 @@ class CrmLead(models.Model):
         style = (
             '<style>'
             '.htf-convo{padding:10px;max-width:900px}'
+            # No justify-content: under the RTL Arabic UI, flex-end/start
+            # pushed bubbles to the wrong side. Letting every bubble align
+            # to the flex start (the right edge in RTL) reads cleanly —
+            # direction is conveyed by colour (in=grey, out=green) + the
+            # author/time meta line, not by left/right placement.
             '.htf-row{display:flex !important;margin:0 0 4px 0 !important}'
-            '.htf-row.in{justify-content:flex-start}'
-            '.htf-row.out{justify-content:flex-end}'
-            '.htf-row.call{justify-content:center}'
             '.htf-b{max-width:78%;color:#fff;padding:7px 10px;'
             'border-radius:10px;line-height:1.35}'
             '.htf-b.in{background:#3a3f4b}'
