@@ -512,6 +512,7 @@ msgstr "خدمة"
 #. module: htf_call_center
 #: model:ir.actions.act_window,name:htf_call_center.action_htf_send_whatsapp_wizard
 #: model_terms:ir.ui.view,arch_db:htf_call_center.view_htf_send_whatsapp_wizard_form
+#: model_terms:ir.ui.view,arch_db:htf_call_center.view_crm_lead_form_inherit_htf
 msgid "Send WhatsApp"
 msgstr "إرسال واتساب"
 
