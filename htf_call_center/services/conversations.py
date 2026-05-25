@@ -52,6 +52,38 @@ _DIRECTION_INBOUND = 1
 # direction set.
 _TIMELINE_FETCH_LIMIT = 50
 
+# How many conversations to scan per channel when resolving the one that
+# belongs to a phone. Hatif's ``PhoneNumber`` query param is IGNORED by
+# the API (verified live 2026-05-25): it returns the channel's most-recent
+# conversations for ANY number, so we must match the phone ourselves over
+# a window of recent conversations.
+_CONVO_SCAN_LIMIT = 50
+
+
+def _digits(value) -> str:
+    """Digits-only form of a phone string (separator-insensitive match)."""
+    return ''.join(c for c in str(value or '') if c.isdigit())
+
+
+def _htf_close_channel_window(channel) -> None:
+    """Clear a discuss.channel's open-window stamp and push the close to
+    connected composers, so the 24h gate locks. No-op when nothing to
+    clear. Used on the fail-closed paths of ``refresh_window_from_hatif``.
+    """
+    if not channel or not channel.x_htf_last_inbound_at:
+        return
+    try:
+        channel.sudo().write({'x_htf_last_inbound_at': False})
+        from odoo.addons.mail.tools.discuss import Store
+        Store(bus_channel=channel).add(
+            channel, {'x_htf_last_inbound_at': False},
+        ).bus_send()
+    except Exception:  # noqa: BLE001
+        _logger.exception(
+            "[htf-window] failed to close window on channel=%s",
+            getattr(channel, 'id', None),
+        )
+
 
 def lookup_latest_conversation_id(env, phone: str) -> Optional[str]:
     """Return the most recently active Hatif conversationId for ``phone``.
@@ -93,6 +125,8 @@ def _lookup_latest_conversation(env, e164: str):
     """
     empty_channel = env['htf.channel'].browse()
     http = env['htf.config'].get_service('http')
+    want = _digits(e164)
+    want_tail = want[-9:] if len(want) >= 9 else want
     best_id = None
     best_channel = empty_channel
     best_when = ''  # ISO-8601 string compares lexicographically
@@ -106,7 +140,7 @@ def _lookup_latest_conversation(env, e164: str):
                 params={
                     'PhoneNumber': e164,
                     'Sorting': 'LastActivityAt DESC',
-                    'MaxResultCount': 1,
+                    'MaxResultCount': _CONVO_SCAN_LIMIT,
                 },
             )
         except HtfApiError as exc:
@@ -129,13 +163,36 @@ def _lookup_latest_conversation(env, e164: str):
             items = resp.get('items') or resp.get('Items')
         if not items:
             continue
-        top = items[0] or {}
-        conv_id = top.get('id') or top.get('Id')
-        last_at = top.get('lastActivityAt') or top.get('LastActivityAt') or ''
-        if conv_id and (not best_when or last_at > best_when):
-            best_id = conv_id
-            best_channel = ch
-            best_when = last_at or ''
+        # v19.0.1.67.0: Hatif IGNORES the PhoneNumber filter and returns
+        # the channel's most-recent conversations for ANY number (verified
+        # live — a query for +966500000000 came back with +966557349515,
+        # +966566925142, ...). Taking items[0] therefore grabbed an
+        # UNRELATED customer's conversation, whose recent inbound then
+        # wrongly opened this partner's 24h window. Match the phone
+        # ourselves and pick the most-recent conversation that ACTUALLY
+        # belongs to the requested number.
+        for conv in items:
+            if not isinstance(conv, dict):
+                continue
+            cdig = _digits(
+                conv.get('phoneNumber')
+                or conv.get('phone')
+                or conv.get('contactPhoneNumber')
+                or ''
+            )
+            if not cdig:
+                continue
+            if cdig != want and not (want_tail and cdig.endswith(want_tail)):
+                continue
+            conv_id = conv.get('id') or conv.get('Id')
+            last_at = (
+                conv.get('lastActivityAt') or conv.get('LastActivityAt') or ''
+            )
+            if conv_id and (not best_when or last_at > best_when):
+                best_id = conv_id
+                best_channel = ch
+                best_when = last_at or ''
+            break  # items are LastActivityAt DESC — first phone match wins
 
     return best_id, best_channel
 
@@ -262,7 +319,15 @@ def refresh_window_from_hatif(env, partner, channel=None) -> bool:
                 convo_id, resolved_channel = _lookup_latest_conversation(env, e164)
 
     if not convo_id:
-        return bool(partner.x_htf_24h_window_open)
+        # v19.0.1.67.0: no Hatif conversation matches this phone → the 24h
+        # window is closed. Clear any stale "open" stamp so the composer
+        # locks. FAIL-CLOSED: requiring a template is always safe, whereas
+        # the old fail-open behaviour let agents send into a closed window
+        # (and even read an unrelated customer's window — see the
+        # PhoneNumber-filter bug in _lookup_latest_conversation). A real
+        # inbound webhook re-opens it later.
+        _htf_close_channel_window(channel)
+        return False
 
     # v19.0.1.49.0: record which Hatif channel this conversation lives
     # on so a free-form reply sent right after the window opens has a
@@ -280,7 +345,10 @@ def refresh_window_from_hatif(env, partner, channel=None) -> bool:
 
     latest = get_latest_inbound_at(env, convo_id)
     if not latest:
-        return bool(partner.x_htf_24h_window_open)
+        # Conversation exists but has no inbound in its recent timeline →
+        # window closed. Clear stale stamp (fail-closed, see above).
+        _htf_close_channel_window(channel)
+        return False
 
     now_utc = datetime.now(timezone.utc)
     open_now = (now_utc - latest) < timedelta(hours=_META_WINDOW_HOURS)
@@ -308,7 +376,11 @@ def refresh_window_from_hatif(env, partner, channel=None) -> bool:
     # gate (which reads discuss.channel.x_htf_last_inbound_at, robust to
     # duplicate-partner records) reflects the Hatif truth immediately on
     # chat-open — even with zero local message history.
-    if channel and open_now:
+    # v19.0.1.67.0: stamp with the REAL last-inbound time whenever we have
+    # it (not only when open). If that time is >24h old, the channel's
+    # within-24h gate computes closed and OVERWRITES a stale recent stamp
+    # — self-healing the wrong-window bug on the next chat open.
+    if channel and latest:
         try:
             channel._htf_stamp_inbound_now(when=last_inbound_naive)
         except Exception:  # noqa: BLE001

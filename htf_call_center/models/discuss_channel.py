@@ -70,6 +70,37 @@ def _hatif_logo_b64() -> bytes | None:
 _OUTBOUND_DEDUP_SECONDS = 30
 
 
+def _htf_flag_failed_bubble(env, bubble_msg_id, channel_id, reason):
+    """Mark an already-committed composer bubble as NOT delivered.
+
+    The Hatif send runs in a post-commit hook, so a rejection (e.g. the
+    24h window expired) can't roll back the bubble. Prepend a red
+    "not delivered" banner to the bubble body and push the update so the
+    agent sees the message failed instead of assuming it was sent.
+    """
+    from html import escape
+
+    from markupsafe import Markup
+
+    bubble = env['mail.message'].sudo().browse(bubble_msg_id).exists()
+    if not bubble:
+        return
+    note = env._('Not delivered — WhatsApp send failed')
+    banner = (
+        '<div style="color:#e0245e;font-size:12px;font-weight:600;'
+        'margin-bottom:2px">⚠ %s</div>' % escape(note)
+    )
+    try:
+        bubble.write({'body': Markup(banner) + Markup(bubble.body or '')})
+        from odoo.addons.mail.tools.discuss import Store
+        ch = env['discuss.channel'].browse(channel_id)
+        Store(bus_channel=ch).add(bubble).bus_send()
+    except Exception:  # noqa: BLE001 — best-effort UI flag
+        _logger.exception(
+            "[htf-discuss] could not flag failed bubble msg=%s", bubble_msg_id,
+        )
+
+
 class DiscussChannel(models.Model):
     _inherit = 'discuss.channel'
 
@@ -464,6 +495,22 @@ class DiscussChannel(models.Model):
         path: window-closed = explicit rejection, not silent fallback.
         """
         from ..services import whatsapp  # local import to avoid cycle at boot
+        # v19.0.1.67.0: only agents linked to a Hatif user may send.
+        # Outbound goes out under the shared Hatif SERVICE account, so
+        # without this gate ANY Odoo user with channel access could message
+        # a customer untracked to a real Hatif agent. Require an
+        # htf.user.link. (su / server contexts bypass — crons, migrations.)
+        if not self.env.su and not self.env['htf.user.link'].sudo().search_count(
+            [('user_id', '=', self.env.user.id)]
+        ):
+            raise UserError(_(
+                "Your account isn't linked to a Hatif user, so you can't "
+                "send WhatsApp messages here. Ask an administrator to map "
+                "you in the Map Users Wizard.\n\n"
+                "حسابك غير مرتبط بمستخدم Hatif، لذلك لا يمكنك إرسال رسائل "
+                "واتساب من هنا. يرجى الطلب من المسؤول ربط حسابك عبر معالج "
+                "ربط المستخدمين."
+            ))
         partner = self.x_htf_partner_id
         if not partner:
             raise UserError(_('Hatif channel has no partner — cannot send.'))
@@ -561,6 +608,7 @@ class DiscussChannel(models.Model):
         # Defer the Hatif POST to after this transaction commits.
         msg_id = htf_msg.id
         channel_id = self.id
+        bubble_msg_id = message.id
         dedup_body = plain_body
         dispatch_kwargs = {
             'endpoint': endpoint,
@@ -582,10 +630,20 @@ class DiscussChannel(models.Model):
                         channel_id, dedup_body,
                     ):
                         return
-                    whatsapp.dispatch_prepared(
+                    sent = whatsapp.dispatch_prepared(
                         post_env, msg_id, skip_discuss_mirror=True,
                         **dispatch_kwargs,
                     )
+                    # v19.0.1.67.0: the optimistic composer bubble is
+                    # already committed (the send is post-commit), so if
+                    # Hatif rejected it (e.g. window expired) the bubble
+                    # would otherwise masquerade as delivered. Flag it in
+                    # place so the agent sees it did NOT go out.
+                    if sent and sent.state in ('failed', 'failed_pending'):
+                        _htf_flag_failed_bubble(
+                            post_env, bubble_msg_id, channel_id,
+                            sent.error_reason,
+                        )
                     cr.commit()
             except Exception:  # noqa: BLE001 — a post-commit hook must never raise
                 _logger.exception(
