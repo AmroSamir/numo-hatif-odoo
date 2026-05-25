@@ -32,6 +32,7 @@ Style notes:
 
 from __future__ import annotations
 
+import base64
 import logging
 from typing import Optional
 from html import escape
@@ -326,9 +327,22 @@ def mirror_call(env, partner, call_row, payload: dict) -> None:
             return
         _stamp_conversation_metadata(channel, partner, payload, call_row.channel_id.id)
         sentinel = _call_message_id(call_row)
-        if _already_mirrored(env, channel.id, sentinel):
-            return  # idempotent
         body = _render_call_body(call_row)
+        existing = env['mail.message'].sudo().search([
+            ('model', '=', 'discuss.channel'),
+            ('res_id', '=', channel.id),
+            ('message_id', '=', sentinel),
+        ], limit=1)
+        if existing:
+            # A call progresses through several Hatif webhooks
+            # (ringing -> answered -> completed). calls.py calls this
+            # mirror on EACH one. Previously _already_mirrored() made us
+            # skip after the first, so the bubble froze at the initial
+            # "ringing · 0:00 · no summary" state while the htf.call row
+            # filled in duration + AI summary + recording. Refresh the
+            # SAME bubble in place instead so it tracks the final call.
+            _update_call_bubble(env, channel, existing, call_row, body)
+            return
         author = _resolve_call_author(env, call_row, partner)
         attachments = _maybe_download_recording(call_row)
         channel.with_context(
@@ -346,6 +360,48 @@ def mirror_call(env, partner, call_row, payload: dict) -> None:
         _logger.exception(
             "[htf-discuss] mirror_call failed for partner=%s htf.call=%s",
             partner.id, call_row.id,
+        )
+
+
+def _update_call_bubble(env, channel, message, call_row, body) -> None:
+    """Refresh an existing call bubble in place as the call progresses.
+
+    Re-renders the body (final duration + AI summary + sentiment) and,
+    once Hatif exposes the recording (absent on the early ringing/answered
+    events), attaches it. Pushes the refreshed message over the bus so an
+    open Discuss panel updates without a reload.
+    """
+    updates = {}
+    if (message.body or '').strip() != str(body).strip():
+        updates['body'] = body
+    # Attach the recording the first time it appears.
+    if call_row.recording_url and not message.attachment_ids:
+        for fname, data, info in _maybe_download_recording(call_row):
+            try:
+                att = env['ir.attachment'].sudo().create({
+                    'name': fname,
+                    'datas': base64.b64encode(data),
+                    'res_model': 'mail.message',
+                    'res_id': message.id,
+                    'mimetype': info.get('mimetype') or 'audio/mpeg',
+                })
+                message.sudo().write({'attachment_ids': [(4, att.id)]})
+                if info.get('voice') and 'voice_ids' in message._fields:
+                    message.sudo().write({'voice_ids': [(4, att.id)]})
+            except Exception:  # noqa: BLE001 — recording is non-critical
+                _logger.exception(
+                    "[htf-discuss] attach recording on update failed for "
+                    "call=%s", call_row.id,
+                )
+    if updates:
+        message.sudo().write(updates)
+    try:
+        from odoo.addons.mail.tools.discuss import Store
+        Store(bus_channel=channel).add(message).bus_send()
+    except Exception:  # noqa: BLE001 — DB already updated; live push best-effort
+        _logger.exception(
+            "[htf-discuss] bus push of call-bubble update failed for call=%s",
+            call_row.id,
         )
 
 
