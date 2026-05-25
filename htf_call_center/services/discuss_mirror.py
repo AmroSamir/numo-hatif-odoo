@@ -555,21 +555,51 @@ def _render_call_body(call_row) -> Markup:
             f'<small><em>{escape(env._("Picked up by auto-responder / IVR"))}</em></small>'
         )
     if call_row.summary:
-        summary = _clean_summary(call_row.summary)
-        snippet = summary[:200] + ('…' if len(summary) > 200 else '')
-        # Suppress the "Summary:" label when Hatif's own summary already
-        # begins with the word "ملخص" / "Summary" — typical Hatif
-        # call summaries start with "ملخص المكالمة • …" which would
-        # double-label as "Summary: ملخص المكالمة …" otherwise.
-        lowered = summary.lower()
-        if summary.startswith('ملخص') or lowered.startswith('summary'):
-            extra.append(f'<div>{escape(snippet)}</div>')
-        else:
-            extra.append(
-                f'<div><em>{escape(env._("Summary"))}:</em> {escape(snippet)}</div>'
-            )
+        summary_html = _render_summary_html(call_row.summary)
+        if summary_html:
+            extra.append(f'<div class="htf-call-summary">{summary_html}</div>')
     html = head + ('<br/>' + '<br/>'.join(extra) if extra else '')
     return Markup(html)
+
+
+def _render_summary_html(summary: str) -> str:
+    """Render Hatif's AI call summary in full, preserving its structure.
+
+    Hatif returns a markdown-lite block — ``### <heading>`` section
+    titles, ``∙`` bullet lines, and blank-line spacing between sections,
+    e.g.::
+
+        ### ملخص المكالمة
+        ∙ العميل يسأل عن ...
+        ∙ ...
+
+        ### الخطوات التالية
+        ∙ ...
+
+    We keep it verbatim (no truncation): ``###`` lines become bold
+    headings, bullet/body lines are kept as-is (the ∙ glyph preserved),
+    and blank lines become a visible gap. Everything is HTML-escaped
+    before re-inserting the layout tags, so the body is safe to wrap in
+    Markup at the call site.
+    """
+    text = (summary or '').replace('\r\n', '\n').replace('\r', '\n')
+    out = []
+    for raw in text.split('\n'):
+        line = raw.strip()
+        if not line:
+            out.append('')  # blank line -> spacing
+            continue
+        if line.startswith('#'):
+            heading = line.lstrip('#').strip()
+            out.append(f'<strong>{escape(heading)}</strong>')
+        else:
+            out.append(escape(line))
+    # Drop leading/trailing blanks so the bubble has no stray gaps.
+    while out and out[0] == '':
+        out.pop(0)
+    while out and out[-1] == '':
+        out.pop()
+    return '<br/>'.join(out)
 
 
 def _clean_summary(raw: str) -> str:
