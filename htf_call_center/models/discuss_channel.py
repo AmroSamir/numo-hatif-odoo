@@ -196,7 +196,10 @@ class DiscussChannel(models.Model):
         on and proceeds unconditionally.
 
         Channel shape (decisions locked 2026-05-19):
-          - channel_type='channel' (private)
+          - channel_type='group' (PRIVATE — invite-only, NOT listed in
+            the Channels directory; a 'channel' type is publicly
+            discoverable + joinable by any internal user, which leaked
+            every customer's chat to every agent — v19.0.1.60.0)
           - name = f"Hatif · {partner.display_name}"
           - members: the partner (so their name + avatar render on
             inbound bubbles via author_id=partner.id)
@@ -224,8 +227,9 @@ class DiscussChannel(models.Model):
         channel_name = partner.display_name or partner.name or 'Hatif Customer'
         channel = self.sudo().create({
             'name': channel_name[:200],  # mail enforces 200-char cap somewhere
-            'channel_type': 'channel',
-            'group_public_id': False,  # private — only invited members see it
+            # 'group' = private, invite-only, hidden from the Channels
+            # directory. 'channel' was publicly discoverable/joinable.
+            'channel_type': 'group',
             'x_htf_partner_id': partner.id,
             'image_128': _hatif_logo_b64(),
         })
@@ -260,63 +264,63 @@ class DiscussChannel(models.Model):
 
     @api.model
     def _htf_allowed_member_partner_ids(self, partner):
-        """Return the set of ``res.partner`` ids that should be members
-        of the Hatif Discuss channel for ``partner``.
+        """Return the set of ``res.partner`` ids allowed to see the Hatif
+        Discuss channel for ``partner``.
 
-        Two-gate access (v19.0.1.27.0):
-          1. CHANNEL gate — the agent must be in the Map Users wizard
-             with ``htf.channel.user_ids`` membership on at least one
-             active Hatif channel whose ``team_id`` matches the lead's
-             team. This is the explicit admin-controlled "who is
-             allowed to work this channel" list.
-          2. LEAD gate — the agent must be the salesperson
-             (``crm.lead.user_id``) on a CRM lead whose
-             ``partner_id`` is the customer. This narrows visibility
-             to "my contacted leads" within the channels I'm gated
-             for.
+        Access rule (v19.0.1.60.0) — a customer's conversation is private
+        to the people working them:
+          • the customer (always — inbound bubbles author as this partner)
+          • the agent(s) who contacted them: the salesperson
+            (``crm.lead.user_id``) on the customer's CRM lead(s)
+          • each such agent's sales-team leader (``crm.team.user_id`` of
+            the team the agent leads or belongs to, plus the lead's own
+            team leader)
+          • managers: Odoo Sales Managers (``sales_team.group_sale_manager``)
+            see every chat
 
-        BOTH must pass. The customer's partner is always allowed
-        (needed so inbound bubbles attribute correctly).
-        ``Hatif: Administrator`` users bypass both gates by design.
-        Single source of truth shared by the auto-provisioning code,
-        the CRM-lead write hook, the channel-allowed-agents hook, the
-        Map Users wizard, and the prune tool.
+        Nobody else. Single source of truth shared by the
+        auto-provisioning code, the CRM-lead write hook, and the prune
+        tool. Enforced by ``_htf_sync_channel_members`` (adds + removes)
+        and by the channel being a private ``group`` type.
         """
         allowed = set()
         if partner:
             allowed.add(partner.id)
-        admin_group = self.env.ref(
-            'htf_call_center.group_admin', raise_if_not_found=False,
+        # Managers — Odoo Sales Managers see every customer chat.
+        mgr_group = self.env.ref(
+            'sales_team.group_sale_manager', raise_if_not_found=False,
         )
-        if admin_group:
-            # Odoo 19 renamed res.groups.users → user_ids.
-            for u in admin_group.user_ids:
+        if mgr_group:
+            for u in mgr_group.user_ids:
                 if u.partner_id:
                     allowed.add(u.partner_id.id)
         if not partner:
             return allowed
 
-        HtfChannel = self.env['htf.channel'].sudo()
+        Team = self.env['crm.team'].sudo()
         leads = self.env['crm.lead'].sudo().search([
             ('partner_id', '=', partner.id),
         ])
         for lead in leads:
-            user = lead.user_id
-            if not user or not user.partner_id:
+            agent = lead.user_id
+            if not agent or not agent.partner_id:
                 continue
-            # Channel-gate: agent must be on an active htf.channel
-            # whose team matches the lead's team. When the lead has
-            # no team, fall back to "any active channel" so we don't
-            # accidentally lock out the agent because of a missing
-            # team assignment.
-            channel_domain = [
-                ('user_ids', 'in', user.id),
-                ('state', '=', 'active'),
-            ]
+            allowed.add(agent.partner_id.id)
+            # The agent's sales-team leader(s): teams the agent leads or
+            # is a member of, plus the lead's own team.
+            teams = Team.search([('user_id', '=', agent.id)])
             if lead.team_id:
-                channel_domain.append(('team_id', '=', lead.team_id.id))
-            if HtfChannel.search_count(channel_domain):
-                allowed.add(user.partner_id.id)
+                teams |= lead.team_id
+            try:
+                memberships = self.env['crm.team.member'].sudo().search([
+                    ('user_id', '=', agent.id),
+                ])
+                teams |= memberships.mapped('crm_team_id')
+            except Exception:  # noqa: BLE001 — membership model optional
+                pass
+            for team in teams:
+                if team.user_id and team.user_id.partner_id:
+                    allowed.add(team.user_id.partner_id.id)
         return allowed
 
     def _htf_sync_channel_members(self):
