@@ -105,6 +105,48 @@ msgstr "فشل الاتصال"
 #. module: htf_call_center
 #. odoo-python
 #: code:addons/htf_call_center/services/discuss_mirror.py:0
+msgid "Inbound call"
+msgstr "مكالمة واردة"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/discuss_mirror.py:0
+msgid "Outbound call"
+msgstr "مكالمة صادرة"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/discuss_mirror.py:0
+msgid "Outbound call (no answer)"
+msgstr "مكالمة صادرة (لم يتم الرد)"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/discuss_mirror.py:0
+msgid "Inbound call (failed)"
+msgstr "مكالمة واردة (فشلت)"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/discuss_mirror.py:0
+msgid "Outbound call (failed)"
+msgstr "مكالمة صادرة (فشلت)"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/discuss_mirror.py:0
+msgid "Incoming call"
+msgstr "مكالمة واردة (جارية)"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/discuss_mirror.py:0
+msgid "Outgoing call"
+msgstr "مكالمة صادرة (جارية)"
+
+#. module: htf_call_center
+#. odoo-python
+#: code:addons/htf_call_center/services/discuss_mirror.py:0
 msgid "Call %s"
 msgstr "اتصال %s"
 

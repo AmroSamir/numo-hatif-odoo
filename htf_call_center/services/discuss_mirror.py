@@ -537,9 +537,12 @@ def _render_call_body(call_row) -> Markup:
     pickup_kind = (call_row.pickup_kind or '').lower()
     duration = call_row.duration_display or ''
     started = _local_hm(env, call_row.created_at)
-    icon, verb = _call_icon_and_verb(env, status, pickup_kind)
+    direction = (call_row.direction or '').lower()
+    icon, verb = _call_icon_and_verb(env, status, pickup_kind, direction)
     parts = [f'<strong>{icon} {escape(verb)}</strong>']
-    if duration:
+    # Show duration only when a conversation actually happened — a missed /
+    # no-answer call has no meaningful "0:00" to display.
+    if duration and duration not in ('0:00', '0:00:00') and status not in _NO_ANSWER_STATUSES:
         parts.append(f' · {escape(duration)}')
     if started:
         parts.append(f' · {escape(env._("started"))} {escape(started)}')
@@ -616,25 +619,49 @@ def _clean_summary(raw: str) -> str:
     return s
 
 
-# Hatif teal phone icon for call bubbles. Inlined as Font Awesome
-# markup rather than the 📞 emoji so the bubble inherits the brand
-# colour (#02c7b5) and rides on the same icon font Odoo's chrome
-# already loads (no extra HTTP fetch).
-_CALL_ICON_HTML = '<i class="fa fa-phone" style="color:#02c7b5"></i>'
+# Direction/outcome-coloured phone icons for call bubbles. Inlined as
+# Font Awesome (rides on the icon font Odoo's chrome already loads) so the
+# colour itself signals the call type at a glance: inbound green, outbound
+# teal (Hatif brand), missed/failed red.
+_ICON_INBOUND = '<i class="fa fa-phone" style="color:#28a745"></i>'
+_ICON_OUTBOUND = '<i class="fa fa-phone" style="color:#02c7b5"></i>'
+_ICON_MISSED = '<i class="fa fa-phone" style="color:#e0245e"></i>'
+
+# Statuses that mean "no conversation happened" (no answer / rejected).
+_NO_ANSWER_STATUSES = (
+    'missed', 'no_answer', 'rejected_by_caller', 'rejected_by_callee',
+    'cancelled',
+)
 
 
-def _call_icon_and_verb(env, status: str, pickup_kind: str) -> tuple[str, str]:
-    if status == 'missed' and pickup_kind == 'none':
-        return _CALL_ICON_HTML, env._('Missed call')
-    if status == 'missed':
-        return _CALL_ICON_HTML, env._('Call (no agent pickup)')
-    if status in ('answered', 'completed'):
-        return _CALL_ICON_HTML, env._('Call ended')
-    if status == 'ringing':
-        return _CALL_ICON_HTML, env._('Call ringing')
+def _call_icon_and_verb(env, status: str, pickup_kind: str,
+                        direction: str = '') -> tuple[str, str]:
+    """First-line label for the call bubble.
+
+    The previous version keyed only on ``status`` ("Call ended"), so the
+    bubble never said whether the call was inbound, outbound, or missed —
+    which is the single most important fact about a call log entry. Now
+    the verb (and icon colour) encode direction + outcome.
+    """
+    inbound = (direction or '').lower() == 'inbound'
+    if status in _NO_ANSWER_STATUSES:
+        if inbound:
+            return _ICON_MISSED, env._('Missed call')
+        return _ICON_MISSED, env._('Outbound call (no answer)')
     if status == 'failed':
-        return _CALL_ICON_HTML, env._('Call failed')
-    return _CALL_ICON_HTML, env._('Call %s', status or env._('unknown'))
+        return _ICON_MISSED, (
+            env._('Inbound call (failed)') if inbound
+            else env._('Outbound call (failed)')
+        )
+    if status == 'ringing':
+        return (
+            (_ICON_INBOUND, env._('Incoming call')) if inbound
+            else (_ICON_OUTBOUND, env._('Outgoing call'))
+        )
+    # active / answered / completed → a real conversation took place.
+    if inbound:
+        return _ICON_INBOUND, env._('Inbound call')
+    return _ICON_OUTBOUND, env._('Outbound call')
 
 
 _AUDIO_EXT_BY_MIME = {
