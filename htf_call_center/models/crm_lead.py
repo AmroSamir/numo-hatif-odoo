@@ -104,9 +104,12 @@ class CrmLead(models.Model):
         """Build the read-only WA + call timeline HTML for ``partner``.
 
         Reuses the Discuss bubble renderers so the content (template
-        previews, call summary + verb, local times) matches the chat.
-        Inline styles are safe because the field is ``sanitize=False`` and
-        every customer-supplied string is escaped by the renderers.
+        previews, call summary + verb, local times) matches the chat. A
+        scoped <style> block with ``!important`` resets neutralises the
+        margins Odoo's html editor injects on rendered blocks (which
+        otherwise blow the bubble spacing wide open). Call bubbles embed
+        the recording as an <audio> player when one is attached. Safe with
+        ``sanitize=False`` — every customer string is escaped.
         """
         from html import escape
 
@@ -132,10 +135,24 @@ class CrmLead(models.Model):
             )
         events.sort(key=lambda e: (e[0] or fields.Datetime.now()))
 
-        rows = [
-            '<div style="display:flex;flex-direction:column;gap:6px;'
-            'padding:12px;max-width:900px">'
-        ]
+        style = (
+            '<style>'
+            '.htf-convo{padding:10px;max-width:900px}'
+            '.htf-row{display:flex !important;margin:0 0 4px 0 !important}'
+            '.htf-row.in{justify-content:flex-start}'
+            '.htf-row.out{justify-content:flex-end}'
+            '.htf-row.call{justify-content:center}'
+            '.htf-b{max-width:78%;color:#fff;padding:7px 10px;'
+            'border-radius:10px;line-height:1.35}'
+            '.htf-b.in{background:#3a3f4b}'
+            '.htf-b.out{background:#0b7a5f}'
+            '.htf-b.call{max-width:88%;background:#2b2b3a;border:1px solid #444}'
+            '.htf-meta{font-size:11px;opacity:.7;margin:0 0 2px 0 !important}'
+            '.htf-rec{display:block;margin:6px 0 0 0 !important;width:260px;'
+            'max-width:100%;height:34px}'
+            '</style>'
+        )
+        rows = [style, '<div class="htf-convo">']
         for ts, kind, rec in events:
             when = discuss_mirror._local_hm(render_env, ts) if ts else ''
             rec = rec.with_env(render_env)
@@ -146,27 +163,49 @@ class CrmLead(models.Model):
                     partner.name if inbound
                     else (rec.sender_user_id.name or self.env._('Agent'))
                 )
-                align = 'flex-start' if inbound else 'flex-end'
-                bg = '#3a3f4b' if inbound else '#0b7a5f'
+                side = 'in' if inbound else 'out'
                 rows.append(
-                    '<div style="display:flex;justify-content:%s">'
-                    '<div style="max-width:75%%;background:%s;color:#fff;'
-                    'padding:8px 10px;border-radius:10px">'
-                    '<div style="font-size:11px;opacity:.7">%s · %s</div>%s'
-                    '</div></div>' % (
-                        align, bg, escape(who or ''), escape(when), inner,
+                    '<div class="htf-row %s"><div class="htf-b %s">'
+                    '<div class="htf-meta">%s · %s</div>%s</div></div>' % (
+                        side, side, escape(who or ''), escape(when), inner,
                     )
                 )
             else:
                 inner = discuss_mirror._render_call_body(rec)
+                audio = self._htf_call_recording_player(rec)
                 rows.append(
-                    '<div style="display:flex;justify-content:center">'
-                    '<div style="max-width:80%%;background:#2b2b3a;color:#fff;'
-                    'padding:8px 12px;border-radius:10px;border:1px solid #444">'
-                    '%s</div></div>' % inner
+                    '<div class="htf-row call"><div class="htf-b call">%s%s'
+                    '</div></div>' % (inner, audio)
                 )
         rows.append('</div>')
         return Markup(''.join(rows))
+
+    def _htf_call_recording_player(self, call_row):
+        """Return an <audio> player for a call's recording, or ''.
+
+        Reuses the recording attachment the Discuss voice-mirror already
+        downloaded (linked to the ``<htf-call-N>`` bubble), served via
+        /web/content with an access token so the lead viewer can play it
+        without separate attachment ACLs. No attachment (older call) → no
+        player.
+        """
+        from html import escape
+
+        sentinel = '<htf-call-%d@htf_call_center>' % call_row.id
+        bubble = self.env['mail.message'].sudo().search(
+            [('message_id', '=', sentinel)], limit=1,
+        )
+        att = bubble.attachment_ids[:1] if bubble else None
+        if not att:
+            return ''
+        token = att.access_token or att.sudo().generate_access_token()[0]
+        src = '/web/content/%d?access_token=%s' % (att.id, escape(token))
+        return (
+            '<audio class="htf-rec" controls preload="none">'
+            '<source src="%s" type="%s"></audio>' % (
+                src, escape(att.mimetype or 'audio/wav'),
+            )
+        )
 
     def write(self, vals):
         """When the lead's salesperson, partner, or team changes,
