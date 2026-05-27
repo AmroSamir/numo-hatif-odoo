@@ -1,13 +1,85 @@
 # NEXT SESSION — start here
 
-Last updated: **2026-05-25** (end of session)
-
-This session built the **Discuss-first WhatsApp UX** and chased a long
-chain of root-cause bugs through to v19.0.1.49.0. All shipped to GitHub
-AND deployed to **staging** (erp.amro.pro). NOT yet on prod (erp.numo.sa).
+Last updated: **2026-05-27** (end of session 2)
 
 GitHub: https://github.com/AmroSamir/numo-hatif-odoo — branch `main`
-HEAD: `0e26d1a` · Module version: **19.0.1.49.0**
+Module version: **19.0.1.68.0** (deployed to BOTH staging AND prod).
+
+## SESSION 2 (2026-05-25→27): v50–v68 + PROD GO-LIVE
+
+Fixed a long chain of WhatsApp/call bugs and **deployed to production
+(erp.numo.sa) for the first time**. Highlights:
+
+- **v50** — inbound WA webhook crashed on Odoo-19-removed `res.partner.mobile`
+  column in `whatsapp_inbound._find_partner_by_hatif_contact_phone`. Inbound
+  never landed; outbound (different path) kept working. Use `phone` +
+  `phone_sanitized`.
+- **WEBSOCKET (infra, not module):** with `workers>0` Odoo serves websockets
+  on the **gevent port 8072**, but nginx routed `/websocket`→8069 and the
+  container only published 8069 → "Real-time connection lost" + ⚠️ on
+  composer sends. Fix = nginx `/websocket`→`127.0.0.1:8072` + publish 8072 +
+  restart/reload. **Staging fixed. PROD already publishes 8072 — still verify
+  its nginx `/websocket` points to 8072 (workers=12).**
+- **v51** — dedupe outbound STATUS webhooks by `conversationEventId` (was
+  creating a row+OdooBot bubble per Pending/Read event).
+- **v52** — composer Hatif send DEFERRED to a `cr.postcommit` hook (was
+  synchronous inside message_post → raced the echo webhook on the same
+  discuss.channel row → SerializationFailure → retry suppressed by the
+  autonomous dedup claim → agent bubble dropped + re-mirrored as OdooBot).
+  Split `whatsapp._send` → `_create_pending_row` + `_dispatch_row`; added
+  `prepare_text_send` + `dispatch_prepared`.
+- **v53** — reconcile the echo webhook to the composer's row by channel+body
+  (echo can arrive before the post-commit hook commits wamid/conv_event_id).
+- **v55** — call bubble UPDATES in place as the call progresses (was frozen
+  at ringing). `_update_call_bubble` + bus push.
+- **v56** — call recording rendered as a Discuss VOICE message. Odoo 19 needs
+  a `discuss.voice.metadata` row (mail.message has no voice_ids); message_post
+  `{'voice':True}` is IGNORED. Mimetype is `audio/wav` (Hatif), not mp3.
+- **v57** — render the FULL Hatif AI summary (### headings + ∙ bullets +
+  spacing), no 200-char truncation.
+- **v58** — call bubble first line shows DIRECTION (inbound/outbound/missed)
+  with colour-coded icon; was generic "Call ended". Arabic verbs in ar.po.
+- **v59** — unmapped human agent no longer mislabelled IVR. `_compute_pickup_kind`
+  classifies `human` when handler_user_id OR hatif_user_name and not is_ai_call.
+- **v60/v61 — PRIVACY:** per-customer Discuss channels were `channel_type='channel'`
+  (PUBLIC, joinable by any agent → everyone saw every chat). Now `channel_type='group'`
+  (private). Access rule = customer + lead salesperson (the agent who
+  contacted) + that agent's OWN team leader + Sales Managers who DON'T lead a
+  different team. Migrations 60 (SQL flip to group + resync) / 61 (resync).
+  `_htf_allowed_member_partner_ids` + `_htf_sync_channel_members` (CRM-lead
+  write/create hook re-syncs on (re)assignment). channel_type can't change via
+  ORM → migration uses SQL.
+- **v62/v63 — Conversation tab:** read-only WA+call timeline on the CRM lead
+  form (`crm_lead.x_htf_conversation_html`, sanitize=False), gated on channel
+  membership (`x_htf_can_view_conversation`) so it respects the same privacy.
+  Recording as `<audio>` via /web/content + access_token. Scoped `<style>`
+  with `!important` resets (Odoo editor injects block margins).
+- **v64/v65/v66 — i18n + UX:** translate Conversation/Reply on WhatsApp/Send
+  WhatsApp (Send WhatsApp needed the inherit-view reference added to its po
+  entry); removed RTL-wrong `justify-content`; date separators (Today/Yesterday/
+  localized) in the timeline.
+- **v67/v68 — the "agent sent into a closed window" chain (3 bugs):**
+  - **A** Hatif's `/v2/conversations` **PhoneNumber filter is IGNORED** — it
+    returns the channel's most-recent conversations for ANY number. We took
+    items[0] → grabbed an UNRELATED customer's conversation, whose recent
+    inbound wrongly opened the window (also a cross-customer read). Fix:
+    phone-match ourselves; `refresh_window_from_hatif` LEADS with the
+    phone-matched lookup (not the stale cached `x_htf_last_conversation_id`)
+    and is FAIL-CLOSED (no match/no inbound → clear the channel stamp).
+  - **B** failed post-commit send left the bubble looking delivered → now
+    prepend a red "Not delivered" banner.
+  - **C** outbound uses the shared service account → any user could send.
+    Now require `htf.user.link` (mapped Hatif user) or block.
+
+### Known / open
+- **Outbound calls have no recording/summary from Hatif** — verified: the
+  webhook payload arrives with `recordingUrl=None, summary=''`. Inbound calls
+  get both. This is HATIF-SIDE (outbound recording/summary not produced/enabled),
+  NOT an Odoo bug. Check Hatif portal + outbound-recording setting.
+- **PROD nginx `/websocket`→8072** — verify (workers=12; 8072 already published).
+- **Webhook URL** — ONE Hatif workspace = ONE webhook. Prod is now receiving
+  inbound (live WA + calls confirmed), so it appears to be the live target now;
+  confirm staging vs prod intent.
 
 ---
 
@@ -23,9 +95,20 @@ HEAD: `0e26d1a` · Module version: **19.0.1.49.0**
   ```
   ssh contabo 'cd /opt/odoo-erp-amro-pro/extra-addons/numo-hatif-odoo && git pull origin main && cd /opt/odoo-erp-amro-pro && docker compose stop web && docker compose run --rm web odoo -d numo --i18n-overwrite -u htf_call_center --stop-after-init --no-http && docker compose up -d web'
   ```
-- **PROD:** erp.numo.sa (`/opt/odoo-erp-numo-sa`). ⚠️ ONE Hatif workspace = ONE webhook URL,
-  so staging + prod share the same Hatif channels; inbound webhooks can only go to ONE Odoo
-  (currently amro.pro). Hatif source IP `8.213.48.16`.
+- **PROD:** erp.numo.sa — SEPARATE VM `ubuntu@web-vm` (NOT reachable from the
+  contabo box; deploy commands must be run on web-vm by the user). Path
+  `/opt/odoo-erp-numo-sa`, web container `web-erp-numo-sa`, db `db-erp-numo-sa`,
+  DB **`numo`**, `workers = 12`, `proxy_mode = True`. `htf_call_center` is a
+  symlink → `numo-hatif-odoo/htf_call_center` (git pull updates it). 8069 + 8072
+  both published. **Now LIVE on v68** (deployed 2026-05-25). Real outbound
+  ENABLED (`htf.config.allow_real_outbound=True`, empty whitelist = all dests).
+  Hatif AUTH OK, channels أكاديمية نمو + الدعم الفني mapped.
+  Deploy (run ON web-vm; mind heredoc indentation):
+  ```
+  cd /opt/odoo-erp-numo-sa/extra-addons/numo-hatif-odoo && git pull origin main
+  cd /opt/odoo-erp-numo-sa && docker compose run --rm web odoo -d numo --i18n-overwrite -u htf_call_center --stop-after-init --no-http --log-level=warn && docker compose up -d web
+  ```
+  ⚠️ ONE Hatif workspace = ONE webhook URL. Hatif source IP `8.213.48.16`.
 
 ### Running odoo shell via SSH (paste-indent breaks heredocs)
 Write probe to `/tmp/x.py` locally → `scp -q /tmp/x.py contabo:/tmp/x.py` →
